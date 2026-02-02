@@ -1,0 +1,351 @@
+@import "tailwindcss";
+
+:root {
+  /* Light Mode Colors - Python Flet uygulamasından */
+  --background: #FAFAFA;
+  --foreground: #212121;
+  --surface: #F5F5F5;
+  --surface-variant: #EEEEEE;
+  --surface-container: #F0F0F0;
+  --surface-container-low: #E8E8E8;
+  --surface-container-high: #E0E0E0;
+  --surface-container-highest: #D8D8D8;
+  --on-surface: #212121;
+  --on-surface-variant: #757575;
+  --outline: #BDBDBD;
+  --outline-variant: #E0E0E0;
+  
+  /* Primary Colors - Blue (default) */
+  --primary: #2196F3;
+  --primary-container: #E3F2FD;
+  --on-primary: #FFFFFF;
+  --on-primary-container: #1976D2;
+  
+  /* Secondary Colors */
+  --secondary: #43A047;
+  --secondary-container: #E8F5E8;
+  --on-secondary-container: #2E7D32;
+  
+  /* Accent Colors */
+  --accent-blue: #2196F3;
+  --accent-orange: #FF9800;
+  --accent-green: #4CAF50;
+  
+  /* Status Colors */
+  --success: #4CAF50;
+  --success-container: #E8F5E8;
+  --on-success: #FFFFFF;
+  --warning: #FF9800;
+  --error: #F44336;
+  --error-container: #FFEBEE;
+  --on-error: #FFFFFF;
+  --info: #2196F3;
+  
+  /* Selected/Hover */
+  --selected-bg: #E3F2FD;
+  --selected-border: #1976D2;
+  --hover-bg: #E3F2FD;
+  --card-hover: #E3F2FD;
+  --button-hover: #BBDEFB;
+  
+  /* Project Category Colors */
+  --turkiye: #1E88E5;
+  --international: #43A047;
+  --special: #1E88E5;
+  --visualization: #8E24AA;
+  
+  /* Card Styles */
+  --card-radius: 12px;
+  --card-padding: 16px;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Dark Mode Colors - Python Flet uygulamasından */
+    --background: #121212;
+    --foreground: #E0E0E0;
+    --surface: #121212;
+    --surface-variant: #1E1E1E;
+    --surface-container: #242424;
+    --surface-container-low: #1A1A1A;
+    --surface-container-high: #2E2E2E;
+    --surface-container-highest: #424242;
+    --on-surface: #E0E0E0;
+    --on-surface-variant: #BDBDBD;
+    --outline: #666666;
+    --outline-variant: #424242;
+    
+    /* Primary Colors - Blue (default) */
+    --primary: #90CAF9;
+    --primary-container: #1E3A8A;
+    --on-primary: #000000;
+    --on-primary-container: #90CAF9;
+    
+    /* Secondary Colors */
+    --secondary: #66BB6A;
+    --secondary-container: #2E3A4A;
+    --on-secondary-container: #4CAF50;
+    
+    /* Accent Colors */
+    --accent-blue: #90CAF9;
+    --accent-orange: #FFB74D;
+    --accent-green: #81C784;
+    
+    /* Status Colors */
+    --success: #66BB6A;
+    --success-container: #1B5E20;
+    --on-success: #FFFFFF;
+    --warning: #FFA726;
+    --error: #EF5350;
+    --error-container: #3E2723;
+    --on-error: #FFFFFF;
+    --info: #42A5F5;
+    
+    /* Selected/Hover */
+    --selected-bg: #1E3A8A;
+    --selected-border: #90CAF9;
+    --hover-bg: #1E3A8A;
+    --card-hover: #1E3A8A;
+    --button-hover: #1565C0;
+    
+    /* Project Category Colors */
+    --turkiye: #42A5F5;
+    --international: #66BB6A;
+    --special: #42A5F5;
+    --visualization: #AB47BC;
+  }
+}
+
+@layer theme {
+  :root {
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-surface: var(--surface);
+    --color-surface-variant: var(--surface-variant);
+    --color-surface-container: var(--surface-container);
+    --color-surface-container-low: var(--surface-container-low);
+    --color-surface-container-high: var(--surface-container-high);
+    --color-surface-container-highest: var(--surface-container-highest);
+    --color-on-surface: var(--on-surface);
+    --color-on-surface-variant: var(--on-surface-variant);
+    --color-outline: var(--outline);
+    --color-outline-variant: var(--outline-variant);
+    --color-primary: var(--primary);
+    --color-primary-container: var(--primary-container);
+    --color-on-primary: var(--on-primary);
+    --color-on-primary-container: var(--on-primary-container);
+    --color-secondary: var(--secondary);
+    --color-secondary-container: var(--secondary-container);
+    --color-success: var(--success);
+    --color-success-container: var(--success-container);
+    --color-warning: var(--warning);
+    --color-error: var(--error);
+    --color-error-container: var(--error-container);
+    --color-selected-bg: var(--selected-bg);
+    --color-selected-border: var(--selected-border);
+    --color-hover-bg: var(--hover-bg);
+    --color-card-hover: var(--card-hover);
+    --color-button-hover: var(--button-hover);
+    --font-sans: var(--font-geist-sans);
+    --font-mono: var(--font-geist-mono);
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Utility Classes */
+.bg-background {
+  background-color: var(--background);
+}
+
+.bg-surface {
+  background-color: var(--surface);
+}
+
+.bg-surface-variant {
+  background-color: var(--surface-variant);
+}
+
+.bg-surface-container {
+  background-color: var(--surface-container);
+}
+
+.bg-surface-container-low {
+  background-color: var(--surface-container-low);
+}
+
+.bg-surface-container-high {
+  background-color: var(--surface-container-high);
+}
+
+.bg-surface-container-highest {
+  background-color: var(--surface-container-highest);
+}
+
+.bg-primary {
+  background-color: var(--primary);
+}
+
+.bg-primary-container {
+  background-color: var(--primary-container);
+}
+
+.bg-success {
+  background-color: var(--success);
+}
+
+.bg-success-container {
+  background-color: var(--success-container);
+}
+
+.bg-warning {
+  background-color: var(--warning);
+}
+
+.bg-error {
+  background-color: var(--error);
+}
+
+.bg-error-container {
+  background-color: var(--error-container);
+}
+
+.bg-selected-bg {
+  background-color: var(--selected-bg);
+}
+
+.text-on-surface {
+  color: var(--on-surface);
+}
+
+.text-on-surface-variant {
+  color: var(--on-surface-variant);
+}
+
+.text-on-primary {
+  color: var(--on-primary);
+}
+
+.text-on-primary-container {
+  color: var(--on-primary-container);
+}
+
+.text-primary {
+  color: var(--primary);
+}
+
+.text-success {
+  color: var(--success);
+}
+
+.text-warning {
+  color: var(--warning);
+}
+
+.text-error {
+  color: var(--error);
+}
+
+.border-outline {
+  border-color: var(--outline);
+}
+
+.border-outline-variant {
+  border-color: var(--outline-variant);
+}
+
+.border-primary {
+  border-color: var(--primary);
+}
+
+.border-selected-border {
+  border-color: var(--selected-border);
+}
+
+/* Smooth Transitions */
+* {
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+/* Card Styles */
+.card {
+  background: var(--surface-container);
+  border-radius: var(--card-radius);
+  padding: var(--card-padding);
+  border: 1px solid var(--outline-variant);
+  box-shadow: var(--shadow-sm);
+}
+
+.card:hover {
+  background: var(--card-hover);
+  box-shadow: var(--shadow-md);
+}
+
+/* Button Styles */
+.btn-primary {
+  background: var(--primary);
+  color: var(--on-primary);
+  border-radius: 8px;
+  padding: 10px 20px;
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+  background: var(--button-hover);
+  box-shadow: var(--shadow-md);
+}
+
+/* Input Styles */
+.input {
+  background: var(--surface);
+  border: 1px solid var(--outline);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: var(--on-surface);
+  transition: all 0.2s ease;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-container);
+}
+
+/* Scrollbar Styles */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--surface-container);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--outline);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--on-surface-variant);
+}

@@ -1,0 +1,562 @@
+"use client";
+
+import { useState, useEffect, useMemo } from "react";
+import { targetsApi, TeamTarget } from "@/lib/api/targets";
+import { projectsApi, Project } from "@/lib/api/projects";
+import { useNotification } from "@/app/contexts/NotificationContext";
+import { useAuth } from "@/app/contexts/AuthContext";
+import EditTargetDialog from "@/app/components/dialogs/EditTargetDialog";
+
+export default function TeamTrackingView() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedProjects, setSelectedProjects] = useState<Set<string>>(new Set());
+  const [selectedUser, setSelectedUser] = useState<string>("all");
+  const [selectedDate, setSelectedDate] = useState<string>("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [teamTargets, setTeamTargets] = useState<TeamTarget[]>([]);
+  const [allProjects, setAllProjects] = useState<Project[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [editingTarget, setEditingTarget] = useState<any>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const { showError, showSuccess } = useNotification();
+
+  // Projeleri yükle
+  useEffect(() => {
+    const loadProjects = async () => {
+      try {
+        const teamData = await projectsApi.getMyTeam();
+        setAllProjects(teamData);
+      } catch (error: any) {
+        console.error("Projects load error:", error);
+        showError("Projeler yüklenirken bir hata oluştu");
+      }
+    };
+    loadProjects();
+  }, [showError]);
+
+  // Unique kategorileri hesapla (backend'den gelen projelerden)
+  const categories = useMemo(() => {
+    const uniqueCategories = new Set<string>();
+    allProjects.forEach((p) => {
+      const category = p.category || "special";
+      if (category) {
+        uniqueCategories.add(category);
+      }
+    });
+    
+    // Kategorileri array'e çevir - direkt kategori değerini kullan
+    return Array.from(uniqueCategories)
+      .sort()
+      .map((cat) => ({
+        id: cat,
+        name: cat, // Kategori ismini direkt göster
+      }));
+  }, [allProjects]);
+
+  // Unique proje isimlerini hesapla
+  const uniqueProjectNames = useMemo(() => {
+    const uniqueNames = new Set<string>();
+    allProjects.forEach((p) => {
+      if (p.name) {
+        uniqueNames.add(p.name);
+      }
+    });
+    return Array.from(uniqueNames).sort();
+  }, [allProjects]);
+
+  // Kategori seçildiğinde projeleri filtrele
+  const filteredProjects = selectedCategory
+    ? allProjects.filter((p) => (p.category || "special") === selectedCategory)
+    : [];
+
+  // Seçili projelerdeki kullanıcıları yükle
+  useEffect(() => {
+    if (selectedProjects.size === 0) {
+      setUsers([]);
+      return;
+    }
+
+    const loadUsers = async () => {
+      try {
+        const projectIds = Array.from(selectedProjects);
+        const usersMap = new Map<string, any>();
+
+        // Seçili projelerin kullanıcılarını topla
+        allProjects
+          .filter((p) => projectIds.includes(p.id))
+          .forEach((project) => {
+            if (project.users) {
+              project.users.forEach((user) => {
+                if (user.username && !usersMap.has(user.id)) {
+                  usersMap.set(user.id, {
+                    id: user.id,
+                    username: user.username,
+                    displayName: user.displayName || user.username,
+                  });
+                }
+              });
+            }
+          });
+
+        setUsers(Array.from(usersMap.values()));
+      } catch (error: any) {
+        console.error("Users load error:", error);
+      }
+    };
+
+    loadUsers();
+  }, [selectedProjects, allProjects]);
+
+  // Hedefleri yükle
+  useEffect(() => {
+    const loadTargets = async () => {
+      if (selectedProjects.size === 0) {
+        setTeamTargets([]);
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        const projectIds = Array.from(selectedProjects);
+        const date = selectedDate || undefined;
+
+        const targets = await targetsApi.getTeamTargets(projectIds, date);
+        setTeamTargets(targets);
+      } catch (error: any) {
+        console.error("Targets load error:", error);
+        showError("Hedefler yüklenirken bir hata oluştu");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadTargets();
+  }, [selectedProjects, selectedDate, showError]);
+
+  // Kategori seçildiğinde proje seçimlerini temizle
+  const handleCategorySelect = (categoryId: string) => {
+    if (selectedCategory === categoryId) {
+      setSelectedCategory(null);
+    } else {
+      setSelectedCategory(categoryId);
+      setSelectedProjects(new Set());
+    }
+  };
+
+  // Proje seçimi
+  const handleProjectSelect = (projectId: string, selected: boolean) => {
+    const newSet = new Set(selectedProjects);
+    if (selected) {
+      newSet.add(projectId);
+    } else {
+      newSet.delete(projectId);
+    }
+    setSelectedProjects(newSet);
+  };
+
+  // Tümünü seç/temizle
+  const handleSelectAll = () => {
+    if (selectedProjects.size === filteredProjects.length) {
+      setSelectedProjects(new Set());
+    } else {
+      setSelectedProjects(new Set(filteredProjects.map((p) => p.id)));
+    }
+  };
+
+  const handleClearAll = () => {
+    setSelectedProjects(new Set());
+  };
+
+  // Filtreleme
+  const filteredTargets = teamTargets.filter((target) => {
+    if (selectedUser !== "all" && target.username !== selectedUser) return false;
+    return true;
+  });
+
+  // Projeye göre grupla
+  const targetsByProject = filteredTargets.reduce((acc, target) => {
+    const projectName = target.selectedProjects?.[0] || "Belirtilmemiş";
+    if (!acc[projectName]) {
+      acc[projectName] = [];
+    }
+    acc[projectName].push(target);
+    return acc;
+  }, {} as Record<string, TeamTarget[]>);
+
+  return (
+    <div className="p-6">
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold text-on-surface mb-2 flex items-center gap-2">
+          <span>👥</span>
+          <span>Takım Takibi</span>
+        </h2>
+        <p className="text-sm text-on-surface-variant">
+          Klasör seçin ve proje kartlarından takım arkadaşlarınızı takip edin
+        </p>
+      </div>
+
+      {/* Project Filter Section */}
+      <div className="bg-surface-container p-4 rounded-lg border border-outline-variant mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-sm font-semibold text-on-surface-variant">🔍</span>
+          <h3 className="text-lg font-semibold text-on-surface">Project Filter</h3>
+        </div>
+
+        {/* Kategori Butonları - Dinamik olarak backend'den gelen unique kategoriler */}
+        <div className="flex flex-wrap gap-3 mb-4">
+          {categories.length === 0 ? (
+            <p className="text-sm text-on-surface-variant">Kategori bulunamadı</p>
+          ) : (
+            categories.map((category) => {
+              const categoryProjects = allProjects.filter(
+                (p) => (p.category || "special") === category.id
+              );
+              const isSelected = selectedCategory === category.id;
+
+              return (
+                <button
+                  key={category.id}
+                  onClick={() => handleCategorySelect(category.id)}
+                  className={`px-4 py-3 rounded-lg border-2 transition-colors ${
+                    isSelected
+                      ? "bg-primary text-on-primary border-primary font-bold"
+                      : "bg-surface-container-low border-outline-variant text-on-surface-variant hover:bg-surface-container-high"
+                  }`}
+                >
+                  <div className="text-center">
+                    <div className="text-sm font-medium">{category.name}</div>
+                    <div className="text-xs px-2 py-1 bg-surface-container-high rounded mt-1">
+                      {categoryProjects.length} projects
+                    </div>
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
+
+        {/* Proje Seçimi (Kategori seçildiyse göster) */}
+        {selectedCategory && (
+          <>
+            <div className="flex items-center gap-2 mb-4">
+              <button
+                onClick={handleSelectAll}
+                className="px-4 py-2 bg-primary text-on-primary rounded-lg hover:opacity-90 transition-opacity text-sm font-medium"
+              >
+                Select All
+              </button>
+              <button
+                onClick={handleClearAll}
+                className="px-4 py-2 bg-surface-container-high text-on-surface rounded-lg hover:bg-surface-container transition-colors text-sm font-medium"
+              >
+                Clear
+              </button>
+              <span className="text-sm text-on-surface-variant ml-auto">
+                {selectedProjects.size} / {filteredProjects.length} projects
+              </span>
+            </div>
+
+            {/* Proje Kartları */}
+            <div className="flex flex-wrap gap-2">
+              {filteredProjects.map((project) => {
+                const isSelected = selectedProjects.has(project.id);
+                return (
+                  <button
+                    key={project.id}
+                    onClick={() => handleProjectSelect(project.id, !isSelected)}
+                    className={`px-4 py-2 rounded-lg border-2 transition-colors flex items-center gap-2 ${
+                      isSelected
+                        ? "bg-primary text-on-primary border-primary"
+                        : "bg-surface-container-low text-on-surface border-outline-variant hover:bg-surface-container-high"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      checked={isSelected}
+                      onChange={() => {}}
+                      className="w-4 h-4"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <span className="text-sm font-medium">{project.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Takım Bilgileri (Proje seçildiyse göster) */}
+      {selectedProjects.size > 0 && (
+        <div className="mb-6">
+          <div className="flex items-center gap-4 mb-4">
+            <select
+              value={selectedUser}
+              onChange={(e) => setSelectedUser(e.target.value)}
+              className="px-4 py-2 border border-outline rounded-lg bg-surface-container text-on-surface focus:outline-none focus:border-primary"
+            >
+              <option value="all">Tüm Kullanıcılar</option>
+              {users.map((user) => (
+                <option key={user.id} value={user.username}>
+                  {user.displayName || user.username}
+                </option>
+              ))}
+            </select>
+
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="px-4 py-2 border border-outline rounded-lg bg-surface-container text-on-surface focus:outline-none focus:border-primary"
+              placeholder="Tarih seçin"
+            />
+            {selectedDate && (
+              <button
+                onClick={() => setSelectedDate("")}
+                className="px-4 py-2 bg-surface-container-high text-on-surface rounded-lg text-sm font-medium hover:bg-surface-container-highest transition-colors"
+              >
+                Tüm Tarihleri Göster
+              </button>
+            )}
+          </div>
+
+          {/* Seçili Projeler Özeti */}
+          <div className="bg-surface-container-low p-4 rounded-lg border border-outline-variant mb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-sm font-semibold text-on-surface-variant">
+                  Seçili Projeler:
+                </span>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {Array.from(selectedProjects).map((projectId) => {
+                    const project = allProjects.find((p) => p.id === projectId);
+                    return project ? (
+                      <span
+                        key={projectId}
+                        className="px-2 py-1 bg-primary-container text-primary rounded text-xs font-medium"
+                      >
+                        {project.name}
+                      </span>
+                    ) : null;
+                  })}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="px-3 py-1 bg-primary text-on-primary rounded-lg text-sm font-medium">
+                  {users.length} kişi
+                </span>
+                <span className="px-3 py-1 bg-primary text-on-primary rounded-lg text-sm font-medium">
+                  {selectedProjects.size} proje
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Hedefler Listesi */}
+      {isLoading ? (
+        <div className="bg-surface-container p-6 rounded-lg border border-outline-variant text-center">
+          <p className="text-on-surface-variant">Yükleniyor...</p>
+        </div>
+      ) : selectedProjects.size === 0 ? (
+        <div className="bg-surface-container p-12 rounded-lg border border-outline-variant text-center">
+          <div className="text-4xl mb-4">👥</div>
+          <p className="text-on-surface-variant">
+            {selectedCategory
+              ? "Lütfen proje seçin"
+              : "Lütfen bir kategori seçin"}
+          </p>
+        </div>
+      ) : filteredTargets.length === 0 ? (
+        <div className="bg-surface-container p-12 rounded-lg border border-outline-variant text-center">
+          <div className="text-4xl mb-4">📋</div>
+          <p className="text-on-surface-variant">
+            Seçilen projeler için bugün hedef girilmemiş
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {Object.entries(targetsByProject).map(([projectName, targets]) => (
+            <div
+              key={projectName}
+              className="bg-surface-container rounded-lg border border-outline-variant overflow-hidden"
+            >
+              {/* Proje Başlığı */}
+              <div className="bg-surface-container-low px-6 py-4 border-b border-outline-variant">
+                <h3 className="text-lg font-semibold text-on-surface flex items-center gap-2">
+                  <span>📁</span>
+                  <span>{projectName}</span>
+                </h3>
+              </div>
+
+              {/* Projeye Ait Hedefler */}
+              <div className="p-6 space-y-4">
+                {targets
+                  .filter((target) => {
+                    if (selectedUser !== "all" && target.username !== selectedUser)
+                      return false;
+                    return true;
+                  })
+                  .map((target) => {
+                    const targetUser = users.find((u) => u.username === target.username);
+                    const statusLabels: Record<string, string> = {
+                      REACHED: "Tamamlandı",
+                      PARTIAL: "Kısmen",
+                      FAILED: "Başarısız",
+                      NOT_SET: "Belirsiz",
+                    };
+                    const statusColors: Record<string, string> = {
+                      REACHED: "bg-success/20 text-success",
+                      PARTIAL: "bg-warning/20 text-warning",
+                      FAILED: "bg-error/20 text-error",
+                      NOT_SET: "bg-surface-container-high text-on-surface-variant",
+                    };
+
+                    const handleEditClick = () => {
+                      if (!isAdmin) return;
+
+                      let targetIdToEdit = target.targetId;
+
+                      if (
+                        !targetIdToEdit &&
+                        Array.isArray(target.projectTargets) &&
+                        target.projectTargets.length > 0
+                      ) {
+                        targetIdToEdit = target.projectTargets[0]?.targetId;
+                      }
+
+                      if (targetIdToEdit) {
+                        const targetToEdit: any = {
+                          id: targetIdToEdit,
+                          date: target.date,
+                          userId: targetUser?.id || "",
+                          projectId:
+                            Array.isArray(target.projectTargets) &&
+                            target.projectTargets.length > 0
+                              ? target.projectTargets[0]?.projectId
+                              : undefined,
+                          taskContent: target.taskContent,
+                          description: target.description,
+                          block: target.block,
+                          floors: target.floors,
+                          goalStatus: target.goalStatus,
+                          workStart: target.workStart,
+                          workEnd: target.workEnd,
+                          meetingStart: target.meetingStart,
+                          meetingEnd: target.meetingEnd,
+                          createdAt: new Date().toISOString(),
+                          updatedAt: new Date().toISOString(),
+                        };
+                        setEditingTarget(targetToEdit);
+                        setShowEditDialog(true);
+                      }
+                    };
+
+                    return (
+                      <div
+                        key={`${target.username}-${target.date}${target.targetId || ""}`}
+                        className={`bg-surface-container-low p-4 rounded-lg border border-outline-variant ${
+                          isAdmin &&
+                          (target.targetId ||
+                            (Array.isArray(target.projectTargets) &&
+                              target.projectTargets.length > 0 &&
+                              target.projectTargets[0]?.targetId))
+                            ? "cursor-pointer hover:border-primary transition-colors"
+                            : ""
+                        }`}
+                        onClick={handleEditClick}
+                      >
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <h4 className="font-semibold text-on-surface mb-1">
+                              {targetUser?.displayName || target.username}
+                            </h4>
+                            {target.block && (
+                              <p className="text-sm text-on-surface-variant">
+                                Blok: {target.block}
+                              </p>
+                            )}
+                            {target.floors && (
+                              <p className="text-sm text-on-surface-variant">
+                                Kat/Katlar: {target.floors}
+                              </p>
+                            )}
+                            {isAdmin &&
+                              (target.targetId ||
+                                (Array.isArray(target.projectTargets) &&
+                                  target.projectTargets.length > 0 &&
+                                  target.projectTargets[0]?.targetId)) && (
+                                <p className="text-xs text-warning mt-1">
+                                  Düzenlemek için tıklayın
+                                </p>
+                              )}
+                          </div>
+                          {target.goalStatus && (
+                            <span
+                              className={`px-3 py-1 rounded text-xs font-medium ${
+                                statusColors[target.goalStatus] || statusColors.NOT_SET
+                              }`}
+                            >
+                              {statusLabels[target.goalStatus] || "Bilinmiyor"}
+                            </span>
+                          )}
+                        </div>
+                        {target.taskContent && (
+                          <p className="text-on-surface mb-2 font-medium">
+                            {target.taskContent}
+                          </p>
+                        )}
+                        {target.description && (
+                          <p className="text-sm text-on-surface-variant mb-2">
+                            {target.description}
+                          </p>
+                        )}
+                        <div className="flex justify-between text-sm text-on-surface-variant">
+                          <span>{target.date}</span>
+                          {(target.workStart || target.workEnd) && (
+                            <span>
+                              {target.workStart && target.workEnd
+                                ? `${target.workStart} - ${target.workEnd}`
+                                : target.workStart || target.workEnd}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {isAdmin && editingTarget && (
+        <EditTargetDialog
+          isOpen={showEditDialog}
+          target={editingTarget}
+          onClose={() => {
+            setShowEditDialog(false);
+            setEditingTarget(null);
+          }}
+          onTargetUpdated={async (updatedTarget) => {
+            try {
+              const projectIds = Array.from(selectedProjects);
+              const date = selectedDate || undefined;
+              const targets = await targetsApi.getTeamTargets(projectIds, date);
+              setTeamTargets(targets);
+              showSuccess("Hedef başarıyla güncellendi");
+            } catch (error) {
+              console.error("Failed to reload targets:", error);
+            }
+            setShowEditDialog(false);
+            setEditingTarget(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}

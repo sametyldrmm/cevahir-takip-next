@@ -17,23 +17,17 @@ export function PushNotificationPrompt() {
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    // LocalStorage'da daha önce reddedilmiş mi kontrol et
-    const wasDismissed = localStorage.getItem("push-notification-dismissed");
-    if (wasDismissed === "true") {
-      setDismissed(true);
-      return;
-    }
-
     // Eğer destekleniyor ve abone değilse, prompt göster
-    if (isSupported && !isSubscribed && !isLoading && !dismissed) {
-      // Kullanıcı sayfada biraz zaman geçirdikten sonra göster (3 saniye)
+    // Dismissed kontrolünü kaldırdık - settings'ten açılabilsin
+    if (isSupported && !isSubscribed && !isLoading) {
+      // Kullanıcı sayfada biraz zaman geçirdikten sonra göster (2 saniye - daha hızlı)
       const timer = setTimeout(() => {
         setShowPrompt(true);
-      }, 3000);
+      }, 2000);
 
       return () => clearTimeout(timer);
     }
-  }, [isSupported, isSubscribed, isLoading, dismissed]);
+  }, [isSupported, isSubscribed, isLoading]);
 
   const handleSubscribe = async () => {
     const success = await subscribe();
@@ -44,12 +38,11 @@ export function PushNotificationPrompt() {
 
   const handleDismiss = () => {
     setShowPrompt(false);
-    setDismissed(true);
-    localStorage.setItem("push-notification-dismissed", "true");
+    // Dismissed flag'i kaldırdık - settings'ten tekrar açılabilsin
   };
 
   // Desteklenmiyorsa veya zaten abone ise göster
-  if (!isSupported || isSubscribed || dismissed || !showPrompt) {
+  if (!isSupported || isSubscribed || !showPrompt) {
     return null;
   }
 

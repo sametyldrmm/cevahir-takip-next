@@ -1,6 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { apiClient } from "@/lib/api-client";
+import {
+  subscribeToPushNotifications,
+  unsubscribeFromPushNotifications,
+  getVapidPublicKey,
+  isPushNotificationSupported,
+} from "@/lib/push-notification";
 
 interface PushSubscriptionData {
   endpoint: string;
@@ -21,7 +28,7 @@ interface UsePushNotificationReturn {
   subscription: PushSubscription | null;
 }
 
-const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "";
+// VAPID key backend'den alınacak
 
 export function usePushNotification(): UsePushNotificationReturn {
   const [isSupported, setIsSupported] = useState(false);
@@ -33,11 +40,7 @@ export function usePushNotification(): UsePushNotificationReturn {
   // Browser desteğini kontrol et
   useEffect(() => {
     const checkSupport = () => {
-      const supported =
-        "serviceWorker" in navigator &&
-        "PushManager" in window &&
-        "Notification" in window;
-
+      const supported = isPushNotificationSupported();
       setIsSupported(supported);
 
       if (supported) {
@@ -130,13 +133,9 @@ export function usePushNotification(): UsePushNotificationReturn {
       let sub = await registration.pushManager.getSubscription();
 
       if (!sub) {
-        // Yeni subscription oluştur
-        if (!VAPID_PUBLIC_KEY) {
-          console.error("[Push] VAPID public key not configured");
-          return false;
-        }
-
-        const applicationServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+        // VAPID public key'i backend'den al
+        const vapidPublicKey = await getVapidPublicKey();
+        const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
         
         sub = await registration.pushManager.subscribe({
           userVisibleOnly: true,
@@ -147,7 +146,7 @@ export function usePushNotification(): UsePushNotificationReturn {
       setSubscription(sub);
       setIsSubscribed(true);
 
-      // Subscription'ı backend'e gönder
+      // Subscription'ı backend'e kaydet
       const subscriptionData: PushSubscriptionData = {
         endpoint: sub.endpoint,
         keys: {
@@ -156,15 +155,35 @@ export function usePushNotification(): UsePushNotificationReturn {
         },
       };
 
-      // TODO: Backend API'ye subscription gönder
-      // await fetch('/api/push/subscribe', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(subscriptionData),
-      // });
-
-      console.log("[Push] Subscription successful:", subscriptionData);
-      return true;
+      // Backend API'ye subscription gönder
+      try {
+        const success = await subscribeToPushNotifications();
+        
+        if (success) {
+          console.log("[Push] Subscription successful:", subscriptionData);
+          return true;
+        } else {
+          console.error("[Push] Backend subscription failed");
+          // Local subscription'ı iptal et
+          await sub.unsubscribe();
+          setSubscription(null);
+          setIsSubscribed(false);
+          return false;
+        }
+      } catch (error: any) {
+        console.error("[Push] Backend subscription error:", error);
+        console.error("[Push] Error details:", error.response?.data);
+        
+        // Local subscription'ı iptal et
+        try {
+          await sub.unsubscribe();
+        } catch (unsubError) {
+          console.error("[Push] Unsubscribe error:", unsubError);
+        }
+        setSubscription(null);
+        setIsSubscribed(false);
+        return false;
+      }
     } catch (error) {
       console.error("[Push] Subscription error:", error);
       setIsSubscribed(false);
@@ -183,16 +202,13 @@ export function usePushNotification(): UsePushNotificationReturn {
       const sub = await registration.pushManager.getSubscription();
 
       if (sub) {
+        // Backend'e unsubscribe bildir
+        await unsubscribeFromPushNotifications(sub.endpoint);
+        
+        // Local subscription'ı iptal et
         await sub.unsubscribe();
         setSubscription(null);
         setIsSubscribed(false);
-
-        // TODO: Backend API'ye unsubscribe bildir
-        // await fetch('/api/push/unsubscribe', {
-        //   method: 'POST',
-        //   headers: { 'Content-Type': 'application/json' },
-        //   body: JSON.stringify({ endpoint: sub.endpoint }),
-        // });
 
         console.log("[Push] Unsubscribed successfully");
         return true;

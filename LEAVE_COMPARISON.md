@@ -112,3 +112,5 @@ Yok - Tüm özellikler mevcut
 Tüm özellikler mevcut ve çalışıyor. Sadece küçük iyileştirmeler önerilebilir.
 
 
+
+

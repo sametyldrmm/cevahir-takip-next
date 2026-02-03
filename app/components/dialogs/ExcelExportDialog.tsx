@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { apiClient } from "@/lib/api-client";
 
 interface ExcelExportDialogProps {
@@ -25,8 +25,74 @@ export default function ExcelExportDialog({
   const [endDate, setEndDate] = useState(
     new Date().toISOString().split("T")[0]
   );
+  const [selectedWeek, setSelectedWeek] = useState<string>("current");
   const [filename, setFilename] = useState("");
   const [isExporting, setIsExporting] = useState(false);
+
+  // Hafta seçeneklerini oluştur
+  const getWeekOptions = () => {
+    const options: Array<{ value: string; label: string }> = [];
+    const today = new Date();
+    const currentWeekStart = new Date(today);
+    currentWeekStart.setDate(today.getDate() - today.getDay() + 1); // Pazartesi
+    currentWeekStart.setHours(0, 0, 0, 0);
+
+    // Güncel hafta
+    const currentWeekEnd = new Date(currentWeekStart);
+    currentWeekEnd.setDate(currentWeekStart.getDate() + 4); // Cuma
+    options.push({
+      value: "current",
+      label: `Bu Hafta (${currentWeekStart.getDate().toString().padStart(2, '0')}.${(currentWeekStart.getMonth() + 1).toString().padStart(2, '0')}.${currentWeekStart.getFullYear()} - ${currentWeekEnd.getDate().toString().padStart(2, '0')}.${(currentWeekEnd.getMonth() + 1).toString().padStart(2, '0')}.${currentWeekEnd.getFullYear()})`,
+    });
+
+    // Geçmiş 52 hafta
+    for (let i = 1; i <= 52; i++) {
+      const weekStart = new Date(currentWeekStart);
+      weekStart.setDate(currentWeekStart.getDate() - 7 * i);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 4); // Cuma
+      options.push({
+        value: `last${i}`,
+        label: `${i} Hafta Öncesi (${weekStart.getDate().toString().padStart(2, '0')}.${(weekStart.getMonth() + 1).toString().padStart(2, '0')}.${weekStart.getFullYear()} - ${weekEnd.getDate().toString().padStart(2, '0')}.${(weekEnd.getMonth() + 1).toString().padStart(2, '0')}.${weekEnd.getFullYear()})`,
+      });
+    }
+
+    return options;
+  };
+
+  // Hafta seçimine göre tarihleri hesapla
+  const calculateWeekDates = (weekValue: string) => {
+    const today = new Date();
+    const currentWeekStart = new Date(today);
+    currentWeekStart.setDate(today.getDate() - today.getDay() + 1); // Pazartesi
+    currentWeekStart.setHours(0, 0, 0, 0);
+
+    let weekStart: Date;
+    if (weekValue === "current") {
+      weekStart = new Date(currentWeekStart);
+    } else {
+      const weekNum = parseInt(weekValue.replace("last", ""));
+      weekStart = new Date(currentWeekStart);
+      weekStart.setDate(currentWeekStart.getDate() - 7 * weekNum);
+    }
+
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 4); // Cuma
+
+    return {
+      start: weekStart.toISOString().split("T")[0],
+      end: weekEnd.toISOString().split("T")[0],
+    };
+  };
+
+  // Hafta seçimi değiştiğinde tarihleri güncelle
+  useEffect(() => {
+    if (exportType === "weekly") {
+      const weekDates = calculateWeekDates(selectedWeek);
+      setStartDate(weekDates.start);
+      setEndDate(weekDates.end);
+    }
+  }, [selectedWeek, exportType]);
 
   if (!isOpen) return null;
 
@@ -51,21 +117,28 @@ export default function ExcelExportDialog({
           payload.endDate = endDate;
         }
       } else {
-        // Haftalık export için tarih aralığı
-        payload.startDate = startDate;
-        payload.endDate = endDate;
+        // Haftalık export için hafta seçimine göre tarihleri hesapla
+        const weekDates = calculateWeekDates(selectedWeek);
+        payload.startDate = weekDates.start;
+        payload.endDate = weekDates.end;
       }
 
       const response = await apiClient.getClient().post("/reports/excel-export", payload);
       
-      if (response.data.downloadUrl) {
-        // Dosyayı indir
-        window.open(response.data.downloadUrl, "_blank");
+      if (response.data.success && response.data.downloadUrl) {
+        // Dosyayı indir (CSV raporlardaki gibi)
+        const link = document.createElement("a");
+        link.href = response.data.downloadUrl;
+        link.download = response.data.downloadUrl.split('/').pop() || 'export.xlsx';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        onExportCompleted(response.data.downloadUrl);
+        onClose();
+      } else {
+        throw new Error(response.data.message || "Export başarısız");
       }
-      
-      setIsExporting(false);
-      onExportCompleted(response.data.downloadUrl || "");
-      onClose();
     } catch (error: any) {
       console.error("Export error:", error);
       setIsExporting(false);
@@ -80,6 +153,7 @@ export default function ExcelExportDialog({
     setSelectedDate(new Date().toISOString().split("T")[0]);
     setStartDate(new Date().toISOString().split("T")[0]);
     setEndDate(new Date().toISOString().split("T")[0]);
+    setSelectedWeek("current");
     setFilename("");
     setIsExporting(false);
     onClose();
@@ -133,9 +207,13 @@ export default function ExcelExportDialog({
                 <span className="text-on-surface">Haftalık Export</span>
               </label>
             </div>
-            <p className="mt-2 text-xs text-on-surface-variant">
-              Excel dosyası tarayıcıya indirilecek
-            </p>
+          </div>
+
+          <div className="p-4 bg-surface-container-low border border-outline-variant rounded-lg">
+            <div className="flex items-center gap-3 text-sm text-on-surface-variant">
+              <span className="text-xl">📥</span>
+              <span>Excel dosyası S3'e yüklenecek ve indirilecek</span>
+            </div>
           </div>
 
           {/* Dosya Adı */}
@@ -157,8 +235,8 @@ export default function ExcelExportDialog({
           {/* Tarih/Hafta Seçimi - Sadece günlük export için */}
           {exportType === "daily" && (
             <>
-              <div>
-                <label className="block text-sm font-semibold text-on-surface mb-3">
+            <div>
+              <label className="block text-sm font-semibold text-on-surface mb-3">
                   Tarih/Hafta Seçimi
                 </label>
                 <div className="flex gap-4">
@@ -183,60 +261,76 @@ export default function ExcelExportDialog({
                       className="w-4 h-4 text-primary focus:ring-primary"
                     />
                     <span className="text-on-surface">Tarih Aralığı</span>
-                  </label>
+              </label>
                 </div>
               </div>
 
-              {dateRange === "single" ? (
-                <div>
-                  <label className="block text-sm font-semibold text-on-surface mb-2">
-                    Tarih
-                  </label>
-                  <input
-                    type="date"
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                    className="w-full px-4 py-3 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
-                  />
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-on-surface mb-2">
-                      Başlangıç
-                    </label>
-                    <input
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      className="w-full px-4 py-3 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-on-surface mb-2">
-                      Bitiş
-                    </label>
-                    <input
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      className="w-full px-4 py-3 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
-                    />
-                  </div>
-                </div>
-              )}
+          {dateRange === "single" ? (
+            <div>
+              <label className="block text-sm font-semibold text-on-surface mb-2">
+                Tarih
+              </label>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="w-full px-4 py-3 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+              />
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-semibold text-on-surface mb-2">
+                  Başlangıç
+                </label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full px-4 py-3 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-on-surface mb-2">
+                  Bitiş
+                </label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full px-4 py-3 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+                />
+              </div>
+            </div>
+          )}
             </>
           )}
 
-          {/* Haftalık export için bilgi mesajı */}
+          {/* Haftalık export için hafta seçimi */}
           {exportType === "weekly" && (
-            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-              <div className="flex items-start gap-3 text-sm text-blue-800 dark:text-blue-200">
-                <span className="text-xl">ℹ️</span>
-                <span>
-                  Haftalık export'ta geçmiş 52 hafta (1 yıl) ve güncel hafta seçilebilir. Projeler ID yerine isimlerle gösterilir.
-                </span>
-              </div>
+            <div>
+              <label className="block text-sm font-semibold text-on-surface mb-2">
+                Hafta Seçimi
+              </label>
+              <select
+                value={selectedWeek}
+                onChange={(e) => {
+                  setSelectedWeek(e.target.value);
+                  const weekDates = calculateWeekDates(e.target.value);
+                  setStartDate(weekDates.start);
+                  setEndDate(weekDates.end);
+                }}
+                className="w-full px-4 py-3 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+              >
+                {getWeekOptions().map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-2 text-xs text-on-surface-variant">
+                Geçmiş 52 hafta (1 yıl) ve güncel hafta seçilebilir
+              </p>
             </div>
           )}
         </div>

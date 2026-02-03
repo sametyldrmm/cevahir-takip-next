@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { reportsApi } from "@/lib/api/reports";
+import { useNotification } from "@/app/contexts/NotificationContext";
 // MOCK DATA - Test modu için yorum satırında tutuluyor
 // import { mockProjects } from "@/app/data/mockData";
 
@@ -15,6 +17,7 @@ export default function PerformanceReportDialog({
   onClose,
   onExportCompleted,
 }: PerformanceReportDialogProps) {
+  const { showError } = useNotification();
   const [reportType, setReportType] = useState<"monthly" | "yearly">("monthly");
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
@@ -26,15 +29,38 @@ export default function PerformanceReportDialog({
   const handleExport = async () => {
     setIsExporting(true);
     
-    // Mock: Gerçek implementasyonda API çağrısı yapılacak
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    
-    const projectStr = selectedProject === "all" ? "all" : selectedProject;
-    const mockFilePath = `exports/performance_${reportType}_${selectedYear}_${reportType === "monthly" ? selectedMonth : projectStr}_${Date.now()}.xlsx`;
-    
-    setIsExporting(false);
-    onExportCompleted(mockFilePath);
-    onClose();
+    try {
+      if (reportType === "monthly") {
+        const result = await reportsApi.createPerformanceExport({
+          year: selectedYear,
+          month: selectedMonth,
+        });
+
+        if (result.success && result.downloadUrl) {
+          // Dosyayı indir (CSV raporlardaki gibi)
+          const link = document.createElement("a");
+          link.href = result.downloadUrl;
+          link.download = result.downloadUrl.split('/').pop() || 'performance.xlsx';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          onExportCompleted(result.downloadUrl);
+          onClose();
+        } else {
+          showError(result.message || "Export başarısız");
+        }
+      } else {
+        // Yıllık proje raporu - şimdilik sadece aylık destekleniyor
+        showError("Yıllık proje raporu henüz desteklenmiyor. Lütfen aylık rapor seçin.");
+      }
+    } catch (error: any) {
+      console.error("Export error:", error);
+      const errorMessage = error.response?.data?.message || error.message || "Export sırasında bir hata oluştu";
+      showError(errorMessage);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleClose = () => {
@@ -187,6 +213,13 @@ export default function PerformanceReportDialog({
               </div>
             </div>
           )}
+
+          <div className="p-4 bg-surface-container-low border border-outline-variant rounded-lg">
+            <div className="flex items-center gap-3 text-sm text-on-surface-variant">
+              <span className="text-xl">📥</span>
+              <span>Excel dosyası S3'e yüklenecek ve indirilecek</span>
+            </div>
+          </div>
 
           <div className="p-4 bg-surface-container-low border border-outline-variant rounded-lg">
             <div className="flex items-start gap-3 text-sm text-on-surface-variant">

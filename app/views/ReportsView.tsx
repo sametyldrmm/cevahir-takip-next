@@ -5,6 +5,9 @@ import { reportsApi, Report, ReportType } from "@/lib/api/reports";
 import { projectsApi } from "@/lib/api/projects";
 import { useNotification } from "@/app/contexts/NotificationContext";
 import { useAuth } from "@/app/contexts/AuthContext";
+import ExcelExportDialog from "@/app/components/dialogs/ExcelExportDialog";
+import MissingTargetsExportDialog from "@/app/components/dialogs/MissingTargetsExportDialog";
+import PerformanceReportDialog from "@/app/components/dialogs/PerformanceReportDialog";
 
 export default function ReportsView() {
   const { user } = useAuth();
@@ -17,7 +20,11 @@ export default function ReportsView() {
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [filename, setFilename] = useState("");
   const [projects, setProjects] = useState<any[]>([]);
+  const [showExcelExportDialog, setShowExcelExportDialog] = useState(false);
+  const [showMissingTargetsDialog, setShowMissingTargetsDialog] = useState(false);
+  const [showPerformanceDialog, setShowPerformanceDialog] = useState(false);
 
   // Projeleri yükle
   useEffect(() => {
@@ -88,6 +95,7 @@ export default function ReportsView() {
       const newReport = await reportsApi.createReport({
         type: selectedType,
         parameters: Object.keys(parameters).length > 0 ? parameters : undefined,
+        filename: filename || undefined,
       });
 
       setReports((prev) => [newReport, ...prev]);
@@ -99,6 +107,7 @@ export default function ReportsView() {
       setSelectedProjects([]);
       setStartDate("");
       setEndDate("");
+      setFilename("");
     } catch (error: any) {
       const message = error.response?.data?.message || "Rapor oluşturulurken bir hata oluştu";
       showError(message);
@@ -153,21 +162,116 @@ export default function ReportsView() {
     TEAM: "Takım Raporu",
   };
 
+  const handleExcelExportCompleted = (filePath: string) => {
+    if (filePath) {
+      showSuccess("Excel export başarıyla oluşturuldu");
+    }
+  };
+
+  const handleMissingTargetsCompleted = (filePath: string) => {
+    if (filePath) {
+      showSuccess("Eksik hedef girişleri raporu başarıyla oluşturuldu");
+    }
+  };
+
+  const handlePerformanceCompleted = (filePath: string) => {
+    if (filePath) {
+      showSuccess("Performans raporu başarıyla oluşturuldu");
+    }
+  };
+
   return (
     <div className="p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-on-surface mb-2">Raporlama</h2>
-          <p className="text-on-surface-variant">
-            Hedef verilerinizi CSV formatında export edin ve indirin
-          </p>
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-2xl font-bold text-on-surface mb-2">Raporlama</h2>
+            <p className="text-on-surface-variant">
+              Hedef verilerinizi Excel formatında export edin ve indirin
+            </p>
+          </div>
         </div>
-        <button
-          onClick={() => setShowCreateDialog(true)}
-          className="px-5 py-2.5 bg-primary text-on-primary rounded-lg hover:opacity-90 transition-opacity font-medium"
-        >
-          + Yeni Rapor Oluştur
-        </button>
+
+        {/* Hızlı Erişim Butonları */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          {/* RAPORLAR Bölümü */}
+          <div className="bg-surface-container p-4 rounded-lg border border-outline-variant">
+            <h3 className="text-sm font-bold text-on-surface-variant uppercase mb-3">
+              RAPORLAR
+            </h3>
+            <div className="space-y-2">
+              <button
+                onClick={() => setShowPerformanceDialog(true)}
+                className="w-full px-4 py-3 bg-surface hover:bg-surface-container-high rounded-lg text-left transition-colors border border-outline-variant"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-xl">📈</span>
+                  <div>
+                    <div className="font-semibold text-on-surface">Performans Raporları</div>
+                    <div className="text-xs text-on-surface-variant">
+                      Aylık takım performans raporları
+                    </div>
+                  </div>
+                </div>
+              </button>
+              <button
+                onClick={() => setShowMissingTargetsDialog(true)}
+                className="w-full px-4 py-3 bg-surface hover:bg-surface-container-high rounded-lg text-left transition-colors border border-outline-variant"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-xl">⚠️</span>
+                  <div>
+                    <div className="font-semibold text-on-surface">Hedef Eksiklikleri</div>
+                    <div className="text-xs text-on-surface-variant">
+                      Eksik hedef girişleri raporu
+                    </div>
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {/* DIŞA AKTARMA Bölümü */}
+          <div className="bg-surface-container p-4 rounded-lg border border-outline-variant">
+            <h3 className="text-sm font-bold text-on-surface-variant uppercase mb-3">
+              DIŞA AKTARMA
+            </h3>
+            <div className="space-y-2">
+              <button
+                onClick={() => setShowExcelExportDialog(true)}
+                className="w-full px-4 py-3 bg-surface hover:bg-surface-container-high rounded-lg text-left transition-colors border border-outline-variant"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-xl">📊</span>
+                  <div>
+                    <div className="font-semibold text-on-surface">Excel Export</div>
+                    <div className="text-xs text-on-surface-variant">
+                      Günlük veya haftalık Excel export
+                    </div>
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {/* CSV RAPORLAR Bölümü (Mevcut) */}
+          <div className="bg-surface-container p-4 rounded-lg border border-outline-variant">
+            <h3 className="text-sm font-bold text-on-surface-variant uppercase mb-3">
+              CSV RAPORLAR
+            </h3>
+            <div className="space-y-2">
+              <button
+                onClick={() => setShowCreateDialog(true)}
+                className="w-full px-4 py-3 bg-primary text-on-primary rounded-lg hover:opacity-90 transition-opacity font-medium"
+              >
+                + Yeni Rapor Oluştur
+              </button>
+              <p className="text-xs text-on-surface-variant mt-2">
+                Hedef, proje, kullanıcı ve takım raporları
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Rapor Listesi */}
@@ -335,6 +439,23 @@ export default function ReportsView() {
                   />
                 </div>
               </div>
+
+              {/* Dosya Adı */}
+              <div>
+                <label className="block text-sm font-semibold text-on-surface mb-2">
+                  Dosya Adı (Opsiyonel)
+                </label>
+                <input
+                  type="text"
+                  value={filename}
+                  onChange={(e) => setFilename(e.target.value)}
+                  placeholder="Dosya Adı (opsiyonel)"
+                  className="w-full px-4 py-3 bg-surface border border-outline rounded-lg text-on-surface placeholder-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+                />
+                <p className="mt-2 text-xs text-on-surface-variant">
+                  Boş bırakırsanız otomatik ad oluşturulur
+                </p>
+              </div>
             </div>
 
             <div className="flex gap-3 pt-6 mt-6 border-t border-outline-variant">
@@ -356,6 +477,27 @@ export default function ReportsView() {
           </div>
         </div>
       )}
+
+      {/* Excel Export Dialog */}
+      <ExcelExportDialog
+        isOpen={showExcelExportDialog}
+        onClose={() => setShowExcelExportDialog(false)}
+        onExportCompleted={handleExcelExportCompleted}
+      />
+
+      {/* Missing Targets Export Dialog */}
+      <MissingTargetsExportDialog
+        isOpen={showMissingTargetsDialog}
+        onClose={() => setShowMissingTargetsDialog(false)}
+        onExportCompleted={handleMissingTargetsCompleted}
+      />
+
+      {/* Performance Report Dialog */}
+      <PerformanceReportDialog
+        isOpen={showPerformanceDialog}
+        onClose={() => setShowPerformanceDialog(false)}
+        onExportCompleted={handlePerformanceCompleted}
+      />
     </div>
   );
 }

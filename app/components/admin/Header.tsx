@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 interface AdminHeaderProps {
@@ -14,6 +15,9 @@ interface AdminHeaderProps {
   onCreateProject?: () => void;
   onCreateUser?: () => void;
   onExport?: () => void;
+  onExcelExport?: () => void;
+  onMissingTargetsExport?: () => void;
+  onPerformanceReport?: () => void;
 }
 
 export default function AdminHeader({

@@ -26,7 +26,7 @@ export default function SettingsHeader({
             className={`px-4 py-2 font-medium transition-colors border-b-2 ${
               currentTab === tab.id
                 ? "text-primary border-primary"
-                : "text-on-surface-variant border-transparent hover:text-on-surface"
+                : "text-on-surface-variant border-transparent hover:text-(--on-surface)"
             }`}
           >
             {tab.label}

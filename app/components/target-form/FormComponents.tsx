@@ -34,7 +34,7 @@ export default function FormComponents({
           {projects.map((project) => (
             <label
               key={project.id}
-              className="flex items-center gap-2 cursor-pointer hover:bg-surface-container-high p-2 rounded transition-colors"
+              className="flex items-center gap-2 cursor-pointer hover:bg-(--surface-container-high) p-2 rounded transition-colors"
             >
               <input
                 type="checkbox"
@@ -45,7 +45,7 @@ export default function FormComponents({
               <span className="text-sm text-on-surface">{project.name}</span>
             </label>
           ))}
-          <label className="flex items-center gap-2 cursor-pointer hover:bg-surface-container-high p-2 rounded transition-colors">
+          <label className="flex items-center gap-2 cursor-pointer hover:bg-(--surface-container-high) p-2 rounded transition-colors">
             <input
               type="checkbox"
               checked={selectedProjects.includes("other")}

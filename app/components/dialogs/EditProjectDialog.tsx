@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { usersApi, User as ApiUser } from "@/lib/api/users";
-import { projectsApi, Project } from "@/lib/api/projects";
+import { projectsApi, Project as ApiProject } from "@/lib/api/projects";
 // MOCK DATA - Test modu için yorum satırında tutuluyor
 // import { mockUsers, User } from "@/app/data/mockData";
 // import type { User } from "@/app/data/mockData";
 
-interface Project {
+interface EditableProject {
   id: string;
   name: string;
   category: string;
@@ -18,9 +18,9 @@ interface Project {
 
 interface EditProjectDialogProps {
   isOpen: boolean;
-  project: Project;
+  project: EditableProject;
   onClose: () => void;
-  onProjectUpdated: (project: Project) => void;
+  onProjectUpdated: (project: EditableProject) => void;
 }
 
 export default function EditProjectDialog({
@@ -29,13 +29,13 @@ export default function EditProjectDialog({
   onClose,
   onProjectUpdated,
 }: EditProjectDialogProps) {
-  const [formData, setFormData] = useState<Project>(project);
+  const [formData, setFormData] = useState<EditableProject>(project);
   const [errors, setErrors] = useState<{ name?: string }>({});
   const [selectedMembers, setSelectedMembers] = useState<Set<string>>(
     new Set(project.teamMembers || [])
   );
   const [allUsers, setAllUsers] = useState<ApiUser[]>([]);
-  const [allProjects, setAllProjects] = useState<Project[]>([]);
+  const [allProjects, setAllProjects] = useState<ApiProject[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
 
   useEffect(() => {
@@ -106,7 +106,7 @@ export default function EditProjectDialog({
     }
 
     // Mock: Gerçek implementasyonda API çağrısı yapılacak
-    const updatedProject: Project = {
+    const updatedProject: EditableProject = {
       ...formData,
       teamMembers: Array.from(selectedMembers),
     };
@@ -139,7 +139,7 @@ export default function EditProjectDialog({
           <h3 className="text-xl font-bold text-on-surface">Proje Düzenle</h3>
           <button
             onClick={handleClose}
-            className="p-2 hover:bg-surface-container-high rounded-lg transition-colors text-on-surface-variant hover:text-on-surface"
+            className="p-2 hover:bg-(--surface-container-high) rounded-lg transition-colors text-on-surface-variant hover:text-(--on-surface)"
           >
             ✕
           </button>
@@ -265,7 +265,7 @@ export default function EditProjectDialog({
                         className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all ${
                           isSelected
                             ? "bg-primary-container border-2 border-primary"
-                            : "bg-surface hover:bg-surface-container-high border-2 border-transparent"
+                            : "bg-surface hover:bg-(--surface-container-high) border-2 border-transparent"
                         }`}
                       >
                         <input
@@ -313,7 +313,7 @@ export default function EditProjectDialog({
         <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-outline-variant">
           <button
             onClick={handleClose}
-            className="px-5 py-2.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-lg transition-all font-medium"
+            className="px-5 py-2.5 text-on-surface-variant hover:text-(--on-surface) hover:bg-(--surface-container-high) rounded-lg transition-all font-medium"
           >
             İptal
           </button>

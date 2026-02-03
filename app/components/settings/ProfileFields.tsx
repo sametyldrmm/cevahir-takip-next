@@ -86,7 +86,7 @@ export default function ProfileFields({
               />
               <button
                 onClick={handleSaveDisplayName}
-                className="p-2 text-primary hover:bg-primary-container rounded transition-colors"
+                className="p-2 text-primary hover:bg-(--primary-container) rounded transition-colors"
               >
                 ✓
               </button>
@@ -102,7 +102,7 @@ export default function ProfileFields({
               <span className="text-sm text-on-surface">{displayName}</span>
               <button
                 onClick={() => setIsEditingDisplayName(true)}
-                className="p-2 text-on-surface-variant hover:text-on-surface transition-colors"
+                className="p-2 text-on-surface-variant hover:text-(--on-surface) transition-colors"
               >
                 ✏️
               </button>

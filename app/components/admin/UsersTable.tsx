@@ -84,7 +84,7 @@ export default function UsersTable({
                 className={`flex items-center gap-0 px-5 py-3.5 border-b border-outline-variant transition-all ${
                   isSelected
                     ? "bg-selected-bg border-l-4 border-l-primary"
-                    : "hover:bg-surface-container-high"
+                    : "hover:bg-(--surface-container-high)"
                 } ${index === users.length - 1 ? "border-b-0" : ""}`}
               >
                 {editMode && (

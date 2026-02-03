@@ -50,7 +50,7 @@ export default function ThemeSection({
               className={`flex-1 p-4 rounded-lg border-2 transition-colors ${
                 isSelected
                   ? "border-primary bg-primary-container"
-                  : "border-outline-variant bg-surface-container-low hover:bg-surface-container-high"
+                  : "border-outline-variant bg-surface-container-low hover:bg-(--surface-container-high)"
               }`}
             >
               <div className="text-center">
@@ -81,7 +81,7 @@ export default function ThemeSection({
                 className={`flex-1 p-3 rounded-lg border-2 transition-colors ${
                   isSelected
                     ? "border-primary"
-                    : "border-outline-variant hover:border-outline"
+                    : "border-outline-variant hover:border-(--outline)"
                 }`}
               >
                 <div

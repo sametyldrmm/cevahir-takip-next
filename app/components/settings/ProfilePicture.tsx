@@ -37,7 +37,7 @@ export default function ProfilePicture({
           <div className="flex flex-col gap-2">
             <button
               onClick={onEdit}
-              className="px-4 py-2 bg-surface-container-high text-on-surface rounded-lg hover:bg-surface-container transition-colors flex items-center gap-2"
+              className="px-4 py-2 bg-surface-container-high text-on-surface rounded-lg hover:bg-(--surface-container) transition-colors flex items-center gap-2"
             >
               <span>✏️</span>
               <span>Düzenle</span>

@@ -74,7 +74,7 @@ export default function EditUserRoleDialog({
         <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-outline-variant">
           <button
             onClick={onClose}
-            className="px-5 py-2.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-lg transition-all font-medium"
+            className="px-5 py-2.5 text-on-surface-variant hover:text-(--on-surface) hover:bg-(--surface-container-high) rounded-lg transition-all font-medium"
           >
             İptal
           </button>

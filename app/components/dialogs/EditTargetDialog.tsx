@@ -90,7 +90,7 @@ export default function EditTargetDialog({
           <h3 className="text-xl font-bold text-on-surface">Hedefi Güncelle</h3>
           <button
             onClick={handleClose}
-            className="p-2 hover:bg-surface-container-high rounded-lg transition-colors text-on-surface-variant hover:text-on-surface"
+            className="p-2 hover:bg-(--surface-container-high) rounded-lg transition-colors text-on-surface-variant hover:text-(--on-surface)"
           >
             ✕
           </button>
@@ -249,7 +249,7 @@ export default function EditTargetDialog({
           <button
             onClick={handleClose}
             disabled={isLoading}
-            className="flex-1 px-4 py-3 bg-surface-container-high text-on-surface rounded-lg font-medium hover:bg-surface-container-highest transition-colors disabled:opacity-50"
+            className="flex-1 px-4 py-3 bg-surface-container-high text-on-surface rounded-lg font-medium hover:bg-(--surface-container-highest) transition-colors disabled:opacity-50"
           >
             İptal
           </button>

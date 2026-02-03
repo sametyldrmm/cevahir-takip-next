@@ -7,8 +7,12 @@ interface Project {
   name: string;
   category: string;
   description?: string;
+  userCount?: number;
+  targetCount?: number;
   createdBy?: string;
   updatedBy?: string;
+  isActive?: boolean;
+  updatedAt?: string;
   archived?: boolean;
 }
 
@@ -97,7 +101,7 @@ export default function ProjectsTable({
                 className={`flex items-center gap-0 px-5 py-3.5 border-b border-outline-variant transition-all ${
                   isSelected
                     ? "bg-selected-bg border-l-4 border-l-primary"
-                    : "hover:bg-surface-container-high"
+                    : "hover:bg-(--surface-container-high)"
                 } ${index === projects.length - 1 ? "border-b-0" : ""}`}
               >
                 {editMode && (

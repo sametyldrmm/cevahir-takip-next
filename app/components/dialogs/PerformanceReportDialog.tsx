@@ -100,7 +100,7 @@ export default function PerformanceReportDialog({
           </div>
           <button
             onClick={handleClose}
-            className="p-2 hover:bg-surface-container-high rounded-lg transition-colors text-on-surface-variant hover:text-on-surface"
+            className="p-2 hover:bg-(--surface-container-high) rounded-lg transition-colors text-on-surface-variant hover:text-(--on-surface)"
           >
             ✕
           </button>
@@ -117,7 +117,7 @@ export default function PerformanceReportDialog({
                 className={`p-4 rounded-lg border-2 transition-all ${
                   reportType === "monthly"
                     ? "bg-success-container border-success text-success"
-                    : "bg-surface border-outline-variant text-on-surface hover:bg-surface-container-high"
+                    : "bg-surface border-outline-variant text-on-surface hover:bg-(--surface-container-high)"
                 }`}
               >
                 <div className="font-semibold mb-1">Aylık Takım</div>
@@ -128,7 +128,7 @@ export default function PerformanceReportDialog({
                 className={`p-4 rounded-lg border-2 transition-all ${
                   reportType === "yearly"
                     ? "bg-success-container border-success text-success"
-                    : "bg-surface border-outline-variant text-on-surface hover:bg-surface-container-high"
+                    : "bg-surface border-outline-variant text-on-surface hover:bg-(--surface-container-high)"
                 }`}
               >
                 <div className="font-semibold mb-1">Yıllık Proje</div>
@@ -217,7 +217,7 @@ export default function PerformanceReportDialog({
           <div className="p-4 bg-surface-container-low border border-outline-variant rounded-lg">
             <div className="flex items-center gap-3 text-sm text-on-surface-variant">
               <span className="text-xl">📥</span>
-              <span>Excel dosyası S3'e yüklenecek ve indirilecek</span>
+              <span>Excel dosyası S3&apos;e yüklenecek ve indirilecek</span>
             </div>
           </div>
 
@@ -244,7 +244,7 @@ export default function PerformanceReportDialog({
           <button
             onClick={handleClose}
             disabled={isExporting}
-            className="px-5 py-2.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-lg transition-all font-medium disabled:opacity-50"
+            className="px-5 py-2.5 text-on-surface-variant hover:text-(--on-surface) hover:bg-(--surface-container-high) rounded-lg transition-all font-medium disabled:opacity-50"
           >
             İptal
           </button>

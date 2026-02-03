@@ -17,48 +17,57 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [themeSetting, setThemeSettingState] = useState<ThemeSetting>("auto");
-  const [accentColor, setAccentColorState] = useState<AccentColor>("blue");
+  const [themeSetting, setThemeSettingState] = useState<ThemeSetting>(() => {
+    if (typeof window === "undefined") return "auto";
+    const savedTheme = localStorage.getItem("theme_setting") as ThemeSetting;
+    if (savedTheme && ["auto", "light", "dark"].includes(savedTheme)) {
+      return savedTheme;
+    }
+    return "auto";
+  });
+  const [accentColor, setAccentColorState] = useState<AccentColor>(() => {
+    if (typeof window === "undefined") return "blue";
+    const savedAccent = localStorage.getItem("accent_color") as AccentColor;
+    if (savedAccent && ["blue", "orange", "green"].includes(savedAccent)) {
+      return savedAccent;
+    }
+    return "blue";
+  });
   const [themeMode, setThemeMode] = useState<ThemeMode>("light");
 
   useEffect(() => {
-    // Load saved settings from localStorage
-    const savedTheme = localStorage.getItem("theme_setting") as ThemeSetting;
-    const savedAccent = localStorage.getItem("accent_color") as AccentColor;
-    
-    if (savedTheme && ["auto", "light", "dark"].includes(savedTheme)) {
-      setThemeSettingState(savedTheme);
+    if (typeof window === "undefined" || typeof document === "undefined") {
+      return;
     }
-    if (savedAccent && ["blue", "orange", "green"].includes(savedAccent)) {
-      setAccentColorState(savedAccent);
-    }
-  }, []);
 
-  useEffect(() => {
-    // Determine effective theme mode
-    let effectiveTheme: ThemeMode = "light";
-    
-    if (themeSetting === "auto") {
-      // Check system preference
-      if (typeof window !== "undefined") {
-        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-        effectiveTheme = prefersDark ? "dark" : "light";
-      }
-    } else {
-      effectiveTheme = themeSetting;
-    }
-    
-    setThemeMode(effectiveTheme);
-    
-    // Apply theme to document
-    if (typeof document !== "undefined") {
+    const applyEffectiveTheme = (effectiveTheme: ThemeMode) => {
+      setThemeMode(effectiveTheme);
       document.documentElement.classList.remove("light", "dark");
       document.documentElement.classList.add(effectiveTheme);
+    };
+
+    const calculateEffectiveTheme = (): ThemeMode => {
+      if (themeSetting === "auto") {
+        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        return prefersDark ? "dark" : "light";
+      }
+      return themeSetting;
+    };
+
+    applyEffectiveTheme(calculateEffectiveTheme());
+
+    if (themeSetting !== "auto") {
+      return;
     }
+
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const handleChange = () => applyEffectiveTheme(calculateEffectiveTheme());
+
+    media.addEventListener("change", handleChange);
+    return () => media.removeEventListener("change", handleChange);
   }, [themeSetting]);
 
   useEffect(() => {
-    // Apply accent color to CSS variables
     if (typeof document !== "undefined") {
       const root = document.documentElement;
       if (themeMode === "dark") {

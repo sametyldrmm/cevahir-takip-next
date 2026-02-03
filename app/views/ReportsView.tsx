@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { isAxiosError } from "axios";
 import { reportsApi, Report, ReportType } from "@/lib/api/reports";
-import { projectsApi } from "@/lib/api/projects";
+import { projectsApi, Project as ApiProject } from "@/lib/api/projects";
 import { useNotification } from "@/app/contexts/NotificationContext";
 import { useAuth } from "@/app/contexts/AuthContext";
 import ExcelExportDialog from "@/app/components/dialogs/ExcelExportDialog";
@@ -21,10 +22,19 @@ export default function ReportsView() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [filename, setFilename] = useState("");
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<ApiProject[]>([]);
   const [showExcelExportDialog, setShowExcelExportDialog] = useState(false);
   const [showMissingTargetsDialog, setShowMissingTargetsDialog] = useState(false);
   const [showPerformanceDialog, setShowPerformanceDialog] = useState(false);
+  const getApiErrorMessage = (error: unknown) => {
+    if (isAxiosError<{ message?: string }>(error)) {
+      const message = error.response?.data?.message;
+      if (typeof message === "string" && message.trim()) {
+        return message;
+      }
+    }
+    return undefined;
+  };
 
   // Projeleri yükle
   useEffect(() => {
@@ -32,12 +42,12 @@ export default function ReportsView() {
       try {
         const projs = await projectsApi.getMyProjects();
         setProjects(projs);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Failed to load projects:", error);
         // Projeler yüklenemezse boş array kullan, rapor oluşturma devam edebilir
         setProjects([]);
         // 403 hatası ise kullanıcıya bilgi ver
-        if (error.response?.status === 403) {
+        if (isAxiosError(error) && error.response?.status === 403) {
           showError("Projeler yüklenirken yetkilendirme hatası oluştu. Lütfen tekrar giriş yapın.");
         }
       }
@@ -69,7 +79,7 @@ export default function ReportsView() {
       setIsLoading(true);
       const data = await reportsApi.getMyReports();
       setReports(data);
-    } catch (error: any) {
+    } catch (error: unknown) {
       showError("Raporlar yüklenirken bir hata oluştu");
       console.error("Failed to load reports:", error);
     } finally {
@@ -80,7 +90,7 @@ export default function ReportsView() {
   const handleCreateReport = async () => {
     try {
       setIsCreating(true);
-      const parameters: any = {};
+      const parameters: Record<string, unknown> = {};
       
       if (selectedProjects.length > 0) {
         parameters.projectIds = selectedProjects;
@@ -108,9 +118,8 @@ export default function ReportsView() {
       setStartDate("");
       setEndDate("");
       setFilename("");
-    } catch (error: any) {
-      const message = error.response?.data?.message || "Rapor oluşturulurken bir hata oluştu";
-      showError(message);
+    } catch (error: unknown) {
+      showError(getApiErrorMessage(error) ?? "Rapor oluşturulurken bir hata oluştu");
     } finally {
       setIsCreating(false);
     }
@@ -129,9 +138,8 @@ export default function ReportsView() {
       document.body.removeChild(link);
       
       showSuccess("Rapor indiriliyor...");
-    } catch (error: any) {
-      const message = error.response?.data?.message || "Rapor indirilirken bir hata oluştu";
-      showError(message);
+    } catch (error: unknown) {
+      showError(getApiErrorMessage(error) ?? "Rapor indirilirken bir hata oluştu");
     }
   };
 
@@ -202,7 +210,7 @@ export default function ReportsView() {
             <div className="space-y-2">
               <button
                 onClick={() => setShowPerformanceDialog(true)}
-                className="w-full px-4 py-3 bg-surface hover:bg-surface-container-high rounded-lg text-left transition-colors border border-outline-variant"
+                className="w-full px-4 py-3 bg-surface hover:bg-(--surface-container-high) rounded-lg text-left transition-colors border border-outline-variant"
               >
                 <div className="flex items-center gap-3">
                   <span className="text-xl">📈</span>
@@ -216,7 +224,7 @@ export default function ReportsView() {
               </button>
               <button
                 onClick={() => setShowMissingTargetsDialog(true)}
-                className="w-full px-4 py-3 bg-surface hover:bg-surface-container-high rounded-lg text-left transition-colors border border-outline-variant"
+                className="w-full px-4 py-3 bg-surface hover:bg-(--surface-container-high) rounded-lg text-left transition-colors border border-outline-variant"
               >
                 <div className="flex items-center gap-3">
                   <span className="text-xl">⚠️</span>
@@ -239,7 +247,7 @@ export default function ReportsView() {
             <div className="space-y-2">
               <button
                 onClick={() => setShowExcelExportDialog(true)}
-                className="w-full px-4 py-3 bg-surface hover:bg-surface-container-high rounded-lg text-left transition-colors border border-outline-variant"
+                className="w-full px-4 py-3 bg-surface hover:bg-(--surface-container-high) rounded-lg text-left transition-colors border border-outline-variant"
               >
                 <div className="flex items-center gap-3">
                   <span className="text-xl">📊</span>
@@ -347,7 +355,7 @@ export default function ReportsView() {
               <h3 className="text-xl font-bold text-on-surface">Yeni Rapor Oluştur</h3>
               <button
                 onClick={() => setShowCreateDialog(false)}
-                className="p-2 hover:bg-surface-container-high rounded-lg transition-colors text-on-surface-variant hover:text-on-surface"
+                className="p-2 hover:bg-(--surface-container-high) rounded-lg transition-colors text-on-surface-variant hover:text-(--on-surface)"
               >
                 ✕
               </button>
@@ -384,7 +392,7 @@ export default function ReportsView() {
                       return (
                         <label
                           key={project.id}
-                          className="flex items-center gap-2 p-2 hover:bg-surface-container-high rounded cursor-pointer"
+                          className="flex items-center gap-2 p-2 hover:bg-(--surface-container-high) rounded cursor-pointer"
                         >
                           <input
                             type="checkbox"
@@ -462,7 +470,7 @@ export default function ReportsView() {
               <button
                 onClick={() => setShowCreateDialog(false)}
                 disabled={isCreating}
-                className="flex-1 px-4 py-3 bg-surface-container-high text-on-surface rounded-lg font-medium hover:bg-surface-container-highest transition-colors disabled:opacity-50"
+                className="flex-1 px-4 py-3 bg-surface-container-high text-on-surface rounded-lg font-medium hover:bg-(--surface-container-highest) transition-colors disabled:opacity-50"
               >
                 İptal
               </button>

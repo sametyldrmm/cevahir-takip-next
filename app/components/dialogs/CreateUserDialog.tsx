@@ -87,7 +87,7 @@ export default function CreateUserDialog({
           <h3 className="text-xl font-bold text-on-surface">Yeni Kullanıcı Ekle</h3>
           <button
             onClick={handleClose}
-            className="p-2 hover:bg-surface-container-high rounded-lg transition-colors text-on-surface-variant hover:text-on-surface"
+            className="p-2 hover:bg-(--surface-container-high) rounded-lg transition-colors text-on-surface-variant hover:text-(--on-surface)"
           >
             ✕
           </button>
@@ -188,7 +188,7 @@ export default function CreateUserDialog({
           <div className="flex gap-3 pt-2">
             <button
               onClick={handleClose}
-              className="flex-1 px-4 py-3 bg-surface-container-high text-on-surface rounded-lg font-medium hover:bg-surface-container-highest transition-colors"
+            className="flex-1 px-4 py-3 bg-surface-container-high text-on-surface rounded-lg font-medium hover:bg-(--surface-container-highest) transition-colors"
             >
               İptal
             </button>

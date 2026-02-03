@@ -41,7 +41,7 @@ export default function Filters({
               className={`px-4 py-3 rounded-lg border-2 transition-colors ${
                 isSelected
                   ? "bg-selected-bg border-selected-border text-on-surface font-bold"
-                  : "bg-surface-container-low border-outline-variant text-on-surface-variant hover:bg-surface-container-high"
+                  : "bg-surface-container-low border-outline-variant text-on-surface-variant hover:bg-(--surface-container-high)"
               }`}
             >
               <div className="text-center">
@@ -64,7 +64,7 @@ export default function Filters({
         </button>
         <button
           onClick={onClearAll}
-          className="px-4 py-2 bg-surface-container-high text-on-surface rounded-lg hover:bg-surface-container transition-colors"
+          className="px-4 py-2 bg-surface-container-high text-on-surface rounded-lg hover:bg-(--surface-container) transition-colors"
         >
           Clear
         </button>
@@ -88,7 +88,7 @@ export default function Filters({
                 className={`px-3 py-2 rounded-lg border transition-colors ${
                   isSelected
                     ? "bg-primary text-on-primary border-primary"
-                    : "bg-surface-container-low text-on-surface border-outline-variant hover:bg-surface-container-high"
+                    : "bg-surface-container-low text-on-surface border-outline-variant hover:bg-(--surface-container-high)"
                 }`}
               >
                 {project.name}

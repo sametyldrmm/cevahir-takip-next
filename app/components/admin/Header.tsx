@@ -63,7 +63,7 @@ export default function AdminHeader({
           {onExport && (
             <button
               onClick={onExport}
-              className="px-4 py-2 border border-outline rounded-lg text-on-surface hover:bg-surface-container-high transition-colors"
+              className="px-4 py-2 border border-outline rounded-lg text-on-surface hover:bg-(--surface-container-high) transition-colors"
             >
               Export
             </button>
@@ -73,7 +73,7 @@ export default function AdminHeader({
             className={`px-4 py-2 rounded-lg transition-colors ${
               editMode
                 ? "bg-primary text-on-primary"
-                : "border border-outline text-on-surface hover:bg-surface-container-high"
+                : "border border-outline text-on-surface hover:bg-(--surface-container-high)"
             }`}
             >
             {editMode ? "Düzenleme Modu" : "Düzenle"}
@@ -89,7 +89,7 @@ export default function AdminHeader({
               className={`px-4 py-2 font-medium transition-colors border-b-2 ${
                 currentTab === "all"
                   ? "text-primary border-primary"
-                  : "text-on-surface-variant border-transparent hover:text-on-surface"
+                  : "text-on-surface-variant border-transparent hover:text-(--on-surface)"
               }`}
             >
               Projeler ({projectsCount})
@@ -99,14 +99,14 @@ export default function AdminHeader({
               className={`px-4 py-2 font-medium transition-colors border-b-2 ${
                 currentTab === "archived"
                   ? "text-primary border-primary"
-                  : "text-on-surface-variant border-transparent hover:text-on-surface"
+                  : "text-on-surface-variant border-transparent hover:text-(--on-surface)"
               }`}
             >
               Arşivlenmiş ({archivedProjectsCount})
             </button>
             <button
               onClick={() => router.push("/users")}
-              className={`px-4 py-2 font-medium transition-colors border-b-2 border-transparent hover:text-on-surface ${
+              className={`px-4 py-2 font-medium transition-colors border-b-2 border-transparent hover:text-(--on-surface) ${
                 false
                   ? "text-primary border-primary"
                   : "text-on-surface-variant"
@@ -122,7 +122,7 @@ export default function AdminHeader({
               className={`px-4 py-2 font-medium transition-colors border-b-2 ${
                 currentTab === "users"
                   ? "text-primary border-primary"
-                  : "text-on-surface-variant border-transparent hover:text-on-surface"
+                  : "text-on-surface-variant border-transparent hover:text-(--on-surface)"
               }`}
             >
               Kullanıcılar ({usersCount})
@@ -132,7 +132,7 @@ export default function AdminHeader({
               className={`px-4 py-2 font-medium transition-colors border-b-2 ${
                 currentTab === "users_archived"
                   ? "text-primary border-primary"
-                  : "text-on-surface-variant border-transparent hover:text-on-surface"
+                  : "text-on-surface-variant border-transparent hover:text-(--on-surface)"
               }`}
             >
               Arşivlenmiş ({archivedUsersCount})

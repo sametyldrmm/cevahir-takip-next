@@ -79,7 +79,7 @@ export default function PasswordChangeDialog({
           </h3>
           <button
             onClick={handleClose}
-            className="p-2 hover:bg-surface-container-high rounded-lg transition-colors text-on-surface-variant hover:text-on-surface"
+            className="p-2 hover:bg-(--surface-container-high) rounded-lg transition-colors text-on-surface-variant hover:text-(--on-surface)"
           >
             ✕
           </button>
@@ -109,7 +109,7 @@ export default function PasswordChangeDialog({
               <button
                 type="button"
                 onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                className="absolute right-3 top-2.5 text-on-surface-variant hover:text-on-surface"
+                className="absolute right-3 top-2.5 text-on-surface-variant hover:text-(--on-surface)"
               >
                 {showCurrentPassword ? "👁️" : "👁️‍🗨️"}
               </button>
@@ -142,7 +142,7 @@ export default function PasswordChangeDialog({
               <button
                 type="button"
                 onClick={() => setShowNewPassword(!showNewPassword)}
-                className="absolute right-3 top-2.5 text-on-surface-variant hover:text-on-surface"
+                className="absolute right-3 top-2.5 text-on-surface-variant hover:text-(--on-surface)"
               >
                 {showNewPassword ? "👁️" : "👁️‍🗨️"}
               </button>
@@ -175,7 +175,7 @@ export default function PasswordChangeDialog({
               <button
                 type="button"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-3 top-2.5 text-on-surface-variant hover:text-on-surface"
+                className="absolute right-3 top-2.5 text-on-surface-variant hover:text-(--on-surface)"
               >
                 {showConfirmPassword ? "👁️" : "👁️‍🗨️"}
               </button>
@@ -189,7 +189,7 @@ export default function PasswordChangeDialog({
         <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-outline-variant">
           <button
             onClick={handleClose}
-            className="px-5 py-2.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-lg transition-all font-medium"
+            className="px-5 py-2.5 text-on-surface-variant hover:text-(--on-surface) hover:bg-(--surface-container-high) rounded-lg transition-all font-medium"
           >
             İptal
           </button>

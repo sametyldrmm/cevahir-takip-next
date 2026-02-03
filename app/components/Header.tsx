@@ -1,27 +1,27 @@
 "use client";
 
-import { useAuth } from "@/app/contexts/AuthContext";
-import { useRouter } from "next/navigation";
+// import { useAuth } from "@/app/contexts/AuthContext";
+// import { useRouter } from "next/navigation";
 
 interface HeaderProps {
   onToggleSidebar: () => void;
 }
 
 export default function Header({ onToggleSidebar }: HeaderProps) {
-  const { logout } = useAuth();
-  const router = useRouter();
+  // const { logout } = useAuth();
+  // const router = useRouter();
 
-  const handleLogout = () => {
-    logout();
-    router.push("/login");
-  };
+  // const handleLogout = () => {
+  //   logout();
+  //   router.push("/login");
+  // };
 
   return (
     <header className="h-16 bg-surface border-b border-outline-variant flex items-center justify-between px-6 shadow-sm">
       <div className="flex items-center">
         <button
           onClick={onToggleSidebar}
-          className="p-2 rounded-lg hover:bg-surface-container-high transition-colors text-on-surface"
+          className="p-2 rounded-lg hover:bg-(--surface-container-high) transition-colors text-on-surface"
           aria-label="Menüyü Aç/Kapat"
         >
           <svg
@@ -41,16 +41,16 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
         </button>
         <div className="w-4" />
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-primary-container flex items-center justify-center">
+          <div className="w-12 h-10 rounded-lg bg-primary-container flex items-center justify-center">
             <span className="text-primary text-lg font-bold">CPM</span>
           </div>
           <h1 className="text-xl font-semibold text-on-surface">Günlük Hedefler</h1>
         </div>
       </div>
       
-      <button
+      {/* <button
         onClick={handleLogout}
-        className="flex items-center gap-2 px-4 py-2 bg-error text-on-error rounded-lg text-sm font-medium hover:bg-error/90 transition-colors"
+        className="flex items-center gap-2 px-4 py-2 bg-error text-on-error rounded-lg text-sm font-medium hover:opacity-90 transition-colors"
         title="Çıkış Yap"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -62,7 +62,7 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
           />
         </svg>
         <span>Çıkış</span>
-      </button>
+      </button> */}
     </header>
   );
 }

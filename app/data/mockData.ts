@@ -298,9 +298,9 @@ export function getAllActiveProjects(): Project[] {
 }
 
 // Mutate functions for mock data
-let targetsList = [...mockTargets];
-let projectsList = [...mockProjects];
-let usersList = [...mockUsers];
+const targetsList = [...mockTargets];
+const projectsList = [...mockProjects];
+const usersList = [...mockUsers];
 
 export function addTarget(targetData: {
   projectId: string;

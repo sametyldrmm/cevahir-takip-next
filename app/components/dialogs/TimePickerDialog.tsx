@@ -25,8 +25,6 @@ export default function TimePickerDialog({
     setSelectedTime(initialTime);
   }, [initialTime]);
 
-  if (!isOpen) return null;
-
   // Saat seçenekleri (08:00 - 18:00, 30 dakika aralıklarla, 18:30 hariç)
   const allHourOptions: string[] = [];
   for (let hour = 8; hour < 19; hour++) {
@@ -54,6 +52,8 @@ export default function TimePickerDialog({
     }
   }, [hourOptions, selectedTime]);
 
+  if (!isOpen) return null;
+
   const handleConfirm = () => {
     onTimeSelected(selectedTime);
     onClose();
@@ -75,7 +75,7 @@ export default function TimePickerDialog({
           </div>
           <button
             onClick={onClose}
-            className="text-on-surface-variant hover:text-on-surface transition-colors"
+            className="text-on-surface-variant hover:text-(--on-surface) transition-colors"
           >
             ✕
           </button>
@@ -105,7 +105,7 @@ export default function TimePickerDialog({
         <div className="flex justify-end gap-3 p-5 border-t border-outline-variant">
           <button
             onClick={onClose}
-            className="px-5 py-2.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-lg transition-all font-medium"
+            className="px-5 py-2.5 text-on-surface-variant hover:text-(--on-surface) hover:bg-(--surface-container-high) rounded-lg transition-all font-medium"
           >
             İptal
           </button>
@@ -120,4 +120,3 @@ export default function TimePickerDialog({
     </div>
   );
 }
-

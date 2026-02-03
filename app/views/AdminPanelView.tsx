@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { isAxiosError } from "axios";
 import { projectsApi, Project as ApiProject } from "@/lib/api/projects";
 import { usersApi, User as ApiUser, CreateUserDto } from "@/lib/api/users";
 import { useNotification } from "@/app/contexts/NotificationContext";
@@ -55,6 +56,23 @@ export default function AdminPanelView() {
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set()); // userId'leri tutar
   const [isLoading, setIsLoading] = useState(true);
   const { showSuccess, showError } = useNotification();
+  const getApiErrorMessage = (error: unknown) => {
+    if (isAxiosError<{ message?: string }>(error)) {
+      const message = error.response?.data?.message;
+      if (typeof message === "string" && message.trim()) {
+        return message;
+      }
+    }
+    return undefined;
+  };
+
+  interface CreateProjectPayload {
+    name: string;
+    code?: string | null;
+    description?: string | null;
+    category?: string | null;
+    teamMembers?: string[];
+  }
 
   // Projeleri ve kullanıcıları API'den yükle
   useEffect(() => {
@@ -96,7 +114,7 @@ export default function AdminPanelView() {
           lastTargetDate: u.lastTargetDate,
         }));
         setUsers(convertedUsers);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Data load error:", error);
         showError("Veriler yüklenirken bir hata oluştu");
       } finally {
@@ -127,13 +145,12 @@ export default function AdminPanelView() {
     visualization: "🎨 Vizüalizasyon Projeleri",
   };
 
-  // Project handlers
-  const handleCreateProject = async (projectData: any) => {
+  const handleCreateProject = async (projectData: CreateProjectPayload) => {
     try {
       const newProject = await projectsApi.createProject({
         name: projectData.name,
-        code: projectData.code,
-        description: projectData.description,
+        code: projectData.code ?? undefined,
+        description: projectData.description ?? undefined,
         category: projectData.category || "special",
       });
 
@@ -144,7 +161,7 @@ export default function AdminPanelView() {
           if (user) {
             try {
               await projectsApi.addUserToProject(newProject.id, user.id);
-            } catch (error: any) {
+            } catch (error: unknown) {
               console.error(`Failed to add user ${username} to project:`, error);
             }
           }
@@ -164,9 +181,8 @@ export default function AdminPanelView() {
       setProjects([...projects, convertedProject]);
       setShowCreateProject(false);
       showSuccess("Proje başarıyla oluşturuldu");
-    } catch (error: any) {
-      const message = error.response?.data?.message || "Proje oluşturulurken bir hata oluştu";
-      showError(message);
+    } catch (error: unknown) {
+      showError(getApiErrorMessage(error) ?? "Proje oluşturulurken bir hata oluştu");
     }
   };
 
@@ -174,7 +190,7 @@ export default function AdminPanelView() {
     try {
       const updatedProject = await projectsApi.updateProject(projectData.id, {
         name: projectData.name,
-        code: projectData.code,
+        code: projectData.code ?? undefined,
         description: projectData.description,
         category: projectData.category || "special",
         isActive: !projectData.archived,
@@ -196,7 +212,7 @@ export default function AdminPanelView() {
           if (user && !currentUserIds.has(user.id)) {
             try {
               await projectsApi.addUserToProject(projectData.id, user.id);
-            } catch (error: any) {
+            } catch (error: unknown) {
               console.error(`Failed to add user ${username} to project:`, error);
             }
           }
@@ -209,8 +225,8 @@ export default function AdminPanelView() {
             ? {
                 ...p,
                 name: updatedProject.name,
-                code: updatedProject.code,
-                description: updatedProject.description,
+                code: updatedProject.code ?? undefined,
+                description: updatedProject.description ?? undefined,
                 isActive: updatedProject.isActive,
                 archived: !updatedProject.isActive,
                 teamMembers: projectData.teamMembers,
@@ -222,9 +238,8 @@ export default function AdminPanelView() {
       setEditingProject(null);
       setSelectedProjects(new Set());
       showSuccess("Proje başarıyla güncellendi");
-    } catch (error: any) {
-      const message = error.response?.data?.message || "Proje güncellenirken bir hata oluştu";
-      showError(message);
+    } catch (error: unknown) {
+      showError(getApiErrorMessage(error) ?? "Proje güncellenirken bir hata oluştu");
     }
   };
 
@@ -275,10 +290,8 @@ export default function AdminPanelView() {
       setUsers([...users, convertedUser]);
       setShowCreateUser(false);
       showSuccess("Kullanıcı başarıyla oluşturuldu");
-    } catch (error: any) {
-      const message =
-        error.response?.data?.message || "Kullanıcı oluşturulurken bir hata oluştu";
-      showError(message);
+    } catch (error: unknown) {
+      showError(getApiErrorMessage(error) ?? "Kullanıcı oluşturulurken bir hata oluştu");
     }
   };
 
@@ -302,10 +315,8 @@ export default function AdminPanelView() {
       setEditingUser(null);
       setSelectedUsers(new Set());
       showSuccess("Kullanıcı rolü başarıyla güncellendi");
-    } catch (error: any) {
-      const message =
-        error.response?.data?.message || "Kullanıcı rolü güncellenirken bir hata oluştu";
-      showError(message);
+    } catch (error: unknown) {
+      showError(getApiErrorMessage(error) ?? "Kullanıcı rolü güncellenirken bir hata oluştu");
     }
   };
 
@@ -316,10 +327,8 @@ export default function AdminPanelView() {
       setShowDeleteUserData(false);
       setSelectedUsers(new Set());
       showSuccess("Kullanıcı(lar) başarıyla silindi");
-    } catch (error: any) {
-      const message =
-        error.response?.data?.message || "Kullanıcı silinirken bir hata oluştu";
-      showError(message);
+    } catch (error: unknown) {
+      showError(getApiErrorMessage(error) ?? "Kullanıcı silinirken bir hata oluştu");
     }
   };
 
@@ -332,9 +341,8 @@ export default function AdminPanelView() {
       setUsers(users.map((u) => (userIds.includes(u.id) ? { ...u, status: "archived" as const } : u)));
       setSelectedUsers(new Set());
       showSuccess("Kullanıcı(lar) başarıyla arşivlendi");
-    } catch (error: any) {
-      const message = error.response?.data?.message || "Kullanıcı arşivlenirken bir hata oluştu";
-      showError(message);
+    } catch (error: unknown) {
+      showError(getApiErrorMessage(error) ?? "Kullanıcı arşivlenirken bir hata oluştu");
     }
   };
 
@@ -347,9 +355,8 @@ export default function AdminPanelView() {
       setUsers(users.map((u) => (userIds.includes(u.id) ? { ...u, status: "active" as const } : u)));
       setSelectedUsers(new Set());
       showSuccess("Kullanıcı(lar) başarıyla geri yüklendi");
-    } catch (error: any) {
-      const message = error.response?.data?.message || "Kullanıcı geri yüklenirken bir hata oluştu";
-      showError(message);
+    } catch (error: unknown) {
+      showError(getApiErrorMessage(error) ?? "Kullanıcı geri yüklenirken bir hata oluştu");
     }
   };
 

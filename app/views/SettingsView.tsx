@@ -10,7 +10,7 @@ import { apiClient } from "@/lib/api-client";
 
 export default function SettingsView() {
   const { themeSetting, accentColor, setThemeSetting, setAccentColor } = useTheme();
-  const { user, setUser } = useAuth();
+  const { user } = useAuth();
   const { showSuccess, showError } = useNotification();
   const {
     isSupported: isPushSupported,
@@ -30,10 +30,6 @@ export default function SettingsView() {
         setIsLoading(true);
         const userData = await authApi.getProfile();
         setProfile(userData);
-        // AuthContext'i de güncelle
-        if (setUser) {
-          setUser(userData);
-        }
       } catch (error) {
         console.error("Profile load error:", error);
         showError("Profil bilgileri yüklenirken bir hata oluştu");
@@ -45,7 +41,8 @@ export default function SettingsView() {
     if (user) {
       loadProfile();
     }
-  }, [user, setUser, showError]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Sadece component mount olduğunda çalış
 
   return (
     <div className="p-6">

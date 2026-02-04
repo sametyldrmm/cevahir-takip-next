@@ -293,3 +293,4 @@ Mevcut view'lar temel yapıya sahip ancak içerikleri basit mock data ile çalı
 
 
 
+

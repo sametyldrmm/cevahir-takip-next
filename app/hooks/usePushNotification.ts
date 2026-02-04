@@ -46,6 +46,7 @@ export function usePushNotification(): UsePushNotificationReturn {
       if (supported) {
         checkPermission();
         checkSubscription();
+        setIsLoading(false)
       } else {
         setIsLoading(false);
       }

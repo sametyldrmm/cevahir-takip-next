@@ -1,8 +1,5 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
-
 interface AdminHeaderProps {
   currentTab: "all" | "archived" | "users" | "users_archived";
   onTabChange: (tab: "all" | "archived" | "users" | "users_archived") => void;
@@ -33,7 +30,6 @@ export default function AdminHeader({
   onCreateUser,
   onExport,
 }: AdminHeaderProps) {
-  const router = useRouter();
   const isProjectsTab = currentTab === "all" || currentTab === "archived";
   const isUsersTab = currentTab === "users" || currentTab === "users_archived";
 
@@ -82,63 +78,46 @@ export default function AdminHeader({
       </div>
 
       <div className="flex gap-4 border-b border-outline-variant">
-        {isProjectsTab ? (
-          <>
-            <button
-              onClick={() => onTabChange("all")}
-              className={`px-4 py-2 font-medium transition-colors border-b-2 ${
-                currentTab === "all"
-                  ? "text-primary border-primary"
-                  : "text-on-surface-variant border-transparent hover:text-(--on-surface)"
-              }`}
-            >
-              Projeler ({projectsCount})
-            </button>
-            <button
-              onClick={() => onTabChange("archived")}
-              className={`px-4 py-2 font-medium transition-colors border-b-2 ${
-                currentTab === "archived"
-                  ? "text-primary border-primary"
-                  : "text-on-surface-variant border-transparent hover:text-(--on-surface)"
-              }`}
-            >
-              Arşivlenmiş ({archivedProjectsCount})
-            </button>
-            <button
-              onClick={() => router.push("/users")}
-              className={`px-4 py-2 font-medium transition-colors border-b-2 border-transparent hover:text-(--on-surface) ${
-                false
-                  ? "text-primary border-primary"
-                  : "text-on-surface-variant"
-              }`}
-            >
-              Kullanıcılar ({usersCount})
-            </button>
-          </>
-        ) : (
-          <>
-            <button
-              onClick={() => onTabChange("users")}
-              className={`px-4 py-2 font-medium transition-colors border-b-2 ${
-                currentTab === "users"
-                  ? "text-primary border-primary"
-                  : "text-on-surface-variant border-transparent hover:text-(--on-surface)"
-              }`}
-            >
-              Kullanıcılar ({usersCount})
-            </button>
-            <button
-              onClick={() => onTabChange("users_archived")}
-              className={`px-4 py-2 font-medium transition-colors border-b-2 ${
-                currentTab === "users_archived"
-                  ? "text-primary border-primary"
-                  : "text-on-surface-variant border-transparent hover:text-(--on-surface)"
-              }`}
-            >
-              Arşivlenmiş ({archivedUsersCount})
-            </button>
-          </>
-        )}
+        <button
+          onClick={() => onTabChange("all")}
+          className={`px-4 py-2 font-medium transition-colors border-b-2 ${
+            currentTab === "all"
+              ? "text-primary border-primary"
+              : "text-on-surface-variant border-transparent hover:text-(--on-surface)"
+          }`}
+        >
+          Projeler ({projectsCount})
+        </button>
+        <button
+          onClick={() => onTabChange("archived")}
+          className={`px-4 py-2 font-medium transition-colors border-b-2 ${
+            currentTab === "archived"
+              ? "text-primary border-primary"
+              : "text-on-surface-variant border-transparent hover:text-(--on-surface)"
+          }`}
+        >
+          Proje Arşivi ({archivedProjectsCount})
+        </button>
+        <button
+          onClick={() => onTabChange("users")}
+          className={`px-4 py-2 font-medium transition-colors border-b-2 ${
+            currentTab === "users"
+              ? "text-primary border-primary"
+              : "text-on-surface-variant border-transparent hover:text-(--on-surface)"
+          }`}
+        >
+          Kullanıcılar ({usersCount})
+        </button>
+        <button
+          onClick={() => onTabChange("users_archived")}
+          className={`px-4 py-2 font-medium transition-colors border-b-2 ${
+            currentTab === "users_archived"
+              ? "text-primary border-primary"
+              : "text-on-surface-variant border-transparent hover:text-(--on-surface)"
+          }`}
+        >
+          Kullanıcı Arşivi ({archivedUsersCount})
+        </button>
       </div>
     </div>
   );

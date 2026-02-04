@@ -249,7 +249,7 @@ export default function EditTargetDialog({
           <button
             onClick={handleClose}
             disabled={isLoading}
-            className="flex-1 px-4 py-3 bg-surface-container-high text-on-surface rounded-lg font-medium hover:bg-(--surface-container-highest) transition-colors disabled:opacity-50"
+            className="flex-1 px-4 py-3 bg-surface-container-high text-on-surface rounded-lg font-medium hover:bg-(--surface-container-highest)! transition-colors disabled:opacity-50"
           >
             İptal
           </button>

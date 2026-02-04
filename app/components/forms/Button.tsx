@@ -25,9 +25,9 @@ export default function Button({
 
   const variantClasses = {
     primary: "bg-primary text-on-primary hover:opacity-90",
-    secondary: "bg-surface-container text-on-surface hover:bg-surface-container-high",
+    secondary: "bg-surface-container text-on-surface hover:bg-(--surface-container-high)",
     danger: "bg-red-600 text-white hover:bg-red-700",
-    text: "text-on-surface-variant hover:text-on-surface",
+    text: "text-on-surface-variant hover:text-(--on-surface)",
   };
 
   return (

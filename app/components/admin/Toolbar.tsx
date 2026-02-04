@@ -40,7 +40,7 @@ export default function Toolbar({
           </span>
           <button
             onClick={onClearSelection}
-            className="text-sm text-on-surface-variant hover:text-on-surface transition-colors"
+            className="text-sm text-on-surface-variant hover:text-(--on-surface) transition-colors"
           >
             Temizle
           </button>
@@ -51,14 +51,14 @@ export default function Toolbar({
               {canEditSingle && (
                 <button
                   onClick={onEdit}
-                  className="px-3 py-1.5 border border-outline rounded-lg text-sm text-primary hover:bg-surface-container-high transition-colors"
+                  className="px-3 py-1.5 border border-outline rounded-lg text-sm text-primary hover:bg-(--surface-container-high) transition-colors"
                 >
                   Düzenle
                 </button>
               )}
               <button
                 onClick={onArchive || onRestore}
-                className="px-3 py-1.5 border border-outline rounded-lg text-sm text-on-surface hover:bg-surface-container-high transition-colors"
+                className="px-3 py-1.5 border border-outline rounded-lg text-sm text-on-surface hover:bg-(--surface-container-high) transition-colors"
               >
                 {onRestore ? "Geri Al" : "Arşivle"}
               </button>
@@ -68,14 +68,14 @@ export default function Toolbar({
               {selectionCount === 1 && (
                 <button
                   onClick={onEditRole}
-                  className="px-3 py-1.5 border border-primary rounded-lg text-sm text-primary hover:bg-primary-container transition-colors"
+                  className="px-3 py-1.5 border border-primary rounded-lg text-sm text-primary hover:bg-(--primary-container) transition-colors"
                 >
                   Rol Değiştir
                 </button>
               )}
               <button
                 onClick={onArchive}
-                className="px-3 py-1.5 border border-outline rounded-lg text-sm text-on-surface hover:bg-surface-container-high transition-colors"
+                className="px-3 py-1.5 border border-outline rounded-lg text-sm text-on-surface hover:bg-(--surface-container-high) transition-colors"
               >
                 Arşivle
               </button>

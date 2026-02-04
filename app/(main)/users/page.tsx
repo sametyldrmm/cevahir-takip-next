@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { isAxiosError } from "axios";
 import { usersApi, User as ApiUser, CreateUserDto, UpdateUserDto } from "@/lib/api/users";
 import { useNotification } from "@/app/contexts/NotificationContext";
 import {
@@ -18,8 +19,8 @@ interface User {
   displayName: string;
   email: string;
   isAdmin?: boolean;
-  status?: "active" | "archived";
-  totalTargets?: number;
+  status: "active" | "archived";
+  totalTargets: number;
   lastTargetDate?: string;
 }
 
@@ -34,6 +35,15 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [filter, setFilter] = useState<"all" | "active" | "archived">("all");
   const { showSuccess, showError } = useNotification();
+  const getApiErrorMessage = (error: unknown) => {
+    if (isAxiosError<{ message?: string }>(error)) {
+      const message = error.response?.data?.message;
+      if (typeof message === "string" && message.trim()) {
+        return message;
+      }
+    }
+    return undefined;
+  };
 
   // Kullanıcıları yükle
   useEffect(() => {
@@ -55,7 +65,7 @@ export default function UsersPage() {
         lastTargetDate: u.lastTargetDate,
       }));
       setUsers(convertedUsers);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Users load error:", error);
       showError("Kullanıcılar yüklenirken bir hata oluştu");
     } finally {
@@ -95,10 +105,8 @@ export default function UsersPage() {
       setUsers([...users, convertedUser]);
       setShowCreateUser(false);
       showSuccess("Kullanıcı başarıyla oluşturuldu");
-    } catch (error: any) {
-      const message =
-        error.response?.data?.message || "Kullanıcı oluşturulurken bir hata oluştu";
-      showError(message);
+    } catch (error: unknown) {
+      showError(getApiErrorMessage(error) ?? "Kullanıcı oluşturulurken bir hata oluştu");
     }
   };
 
@@ -123,10 +131,8 @@ export default function UsersPage() {
       setEditingUser(null);
       setSelectedUsers(new Set());
       showSuccess("Kullanıcı rolü başarıyla güncellendi");
-    } catch (error: any) {
-      const message =
-        error.response?.data?.message || "Kullanıcı rolü güncellenirken bir hata oluştu";
-      showError(message);
+    } catch (error: unknown) {
+      showError(getApiErrorMessage(error) ?? "Kullanıcı rolü güncellenirken bir hata oluştu");
     }
   };
 
@@ -138,10 +144,8 @@ export default function UsersPage() {
       setShowDeleteUserData(false);
       setSelectedUsers(new Set());
       showSuccess("Kullanıcı(lar) başarıyla silindi");
-    } catch (error: any) {
-      const message =
-        error.response?.data?.message || "Kullanıcı silinirken bir hata oluştu";
-      showError(message);
+    } catch (error: unknown) {
+      showError(getApiErrorMessage(error) ?? "Kullanıcı silinirken bir hata oluştu");
     }
   };
 
@@ -155,9 +159,8 @@ export default function UsersPage() {
       setUsers(users.map((u) => (userIds.includes(u.id) ? { ...u, status: "archived" as const } : u)));
       setSelectedUsers(new Set());
       showSuccess("Kullanıcı(lar) başarıyla arşivlendi");
-    } catch (error: any) {
-      const message = error.response?.data?.message || "Kullanıcı arşivlenirken bir hata oluştu";
-      showError(message);
+    } catch (error: unknown) {
+      showError(getApiErrorMessage(error) ?? "Kullanıcı arşivlenirken bir hata oluştu");
     }
   };
 
@@ -171,9 +174,8 @@ export default function UsersPage() {
       setUsers(users.map((u) => (userIds.includes(u.id) ? { ...u, status: "active" as const } : u)));
       setSelectedUsers(new Set());
       showSuccess("Kullanıcı(lar) başarıyla geri yüklendi");
-    } catch (error: any) {
-      const message = error.response?.data?.message || "Kullanıcı geri yüklenirken bir hata oluştu";
-      showError(message);
+    } catch (error: unknown) {
+      showError(getApiErrorMessage(error) ?? "Kullanıcı geri yüklenirken bir hata oluştu");
     }
   };
 
@@ -255,7 +257,7 @@ export default function UsersPage() {
               className={`px-4 py-2 rounded-lg transition-all font-medium ${
                 editMode
                   ? "bg-primary-container text-primary"
-                  : "bg-surface-container-high text-on-surface-variant hover:bg-surface-container"
+                  : "bg-surface-container-high text-on-surface-variant hover:bg-(--surface-container)"
               }`}
             >
               {editMode ? "Düzenleme Modu" : "Düzenle"}
@@ -273,7 +275,7 @@ export default function UsersPage() {
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
               filter === "all"
                 ? "bg-primary text-on-primary"
-                : "bg-surface-container-high text-on-surface-variant hover:bg-surface-container"
+                : "bg-surface-container-high text-on-surface-variant hover:bg-(--surface-container)"
             }`}
           >
             Tümü ({users.length})
@@ -286,7 +288,7 @@ export default function UsersPage() {
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
               filter === "active"
                 ? "bg-primary text-on-primary"
-                : "bg-surface-container-high text-on-surface-variant hover:bg-surface-container"
+                : "bg-surface-container-high text-on-surface-variant hover:bg-(--surface-container)"
             }`}
           >
             Aktif ({users.filter((u) => u.status === "active").length})
@@ -299,7 +301,7 @@ export default function UsersPage() {
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
               filter === "archived"
                 ? "bg-primary text-on-primary"
-                : "bg-surface-container-high text-on-surface-variant hover:bg-surface-container"
+                : "bg-surface-container-high text-on-surface-variant hover:bg-(--surface-container)"
             }`}
           >
             Arşivli ({users.filter((u) => u.status === "archived").length})
@@ -350,7 +352,7 @@ export default function UsersPage() {
               )}
               <button
                 onClick={() => setSelectedUsers(new Set())}
-                className="px-4 py-2 bg-surface-container-high text-on-surface-variant rounded-lg hover:bg-surface-container transition-all font-medium text-sm"
+                className="px-4 py-2 bg-surface-container-high text-on-surface-variant rounded-lg hover:bg-(--surface-container) transition-all font-medium text-sm"
               >
                 Seçimi Temizle
               </button>

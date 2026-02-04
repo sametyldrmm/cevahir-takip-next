@@ -69,7 +69,7 @@ export default function UserTargetsExportDialog({
           </div>
           <button
             onClick={handleClose}
-            className="p-2 hover:bg-surface-container-high rounded-lg transition-colors text-on-surface-variant hover:text-on-surface"
+            className="p-2 hover:bg-(--surface-container-high) rounded-lg transition-colors text-on-surface-variant hover:text-(--on-surface)"
           >
             ✕
           </button>
@@ -144,7 +144,7 @@ export default function UserTargetsExportDialog({
           <button
             onClick={handleClose}
             disabled={isExporting}
-            className="px-5 py-2.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-lg transition-all font-medium disabled:opacity-50"
+            className="px-5 py-2.5 text-on-surface-variant hover:text-(--on-surface) hover:bg-(--surface-container-high) rounded-lg transition-all font-medium disabled:opacity-50"
           >
             İptal
           </button>

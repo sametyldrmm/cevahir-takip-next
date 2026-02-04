@@ -91,7 +91,7 @@ export default function ProjectDetailDialog({
           <h3 className="text-2xl font-bold text-on-surface">Proje Detayları</h3>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-surface-container-high rounded-lg transition-colors text-on-surface-variant hover:text-on-surface"
+            className="p-2 hover:bg-(--surface-container-high) rounded-lg transition-colors text-on-surface-variant hover:text-(--on-surface)"
           >
             ✕
           </button>
@@ -228,7 +228,7 @@ export default function ProjectDetailDialog({
                     <div
                       key={target.id}
                       className={`p-3 bg-surface rounded-lg border border-outline-variant ${
-                        isAdmin ? "cursor-pointer hover:border-primary transition-colors" : ""
+                        isAdmin ? "cursor-pointer hover:border-(--primary) transition-colors" : ""
                       }`}
                       onClick={() => {
                         if (isAdmin) {

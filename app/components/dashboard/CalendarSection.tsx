@@ -104,7 +104,7 @@ export default function CalendarSection({
       <div className="flex items-center justify-between mb-4">
         <button
           onClick={prevMonth}
-          className="p-2 hover:bg-surface-container-high rounded-lg transition-colors"
+          className="p-2 hover:bg-(--surface-container-high) rounded-lg transition-colors"
         >
           ←
         </button>
@@ -113,7 +113,7 @@ export default function CalendarSection({
         </h3>
         <button
           onClick={nextMonth}
-          className="p-2 hover:bg-surface-container-high rounded-lg transition-colors"
+          className="p-2 hover:bg-(--surface-container-high) rounded-lg transition-colors"
         >
           →
         </button>
@@ -154,7 +154,7 @@ export default function CalendarSection({
                   ? "border-primary bg-primary-container"
                   : dayIsToday
                   ? "border-primary/50 bg-primary-container/50"
-                  : "border-transparent hover:bg-surface-container-high"
+                  : "border-transparent hover:bg-(--surface-container-high)"
               }`}
             >
               <div className="flex flex-col items-center justify-center h-full">

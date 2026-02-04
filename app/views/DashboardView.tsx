@@ -233,7 +233,7 @@ export default function DashboardView() {
                 </h3>
                 <button
                   onClick={handleClearFilter}
-                  className="px-4 py-2 bg-surface-container-high text-on-surface rounded-lg text-sm font-medium hover:bg-surface-container-highest transition-colors"
+                  className="px-4 py-2 bg-surface-container-high text-on-surface rounded-xl text-sm font-medium hover:bg-(--surface-container-highest) transition-colors"
                 >
                   Filtreyi Temizle
                 </button>
@@ -267,7 +267,7 @@ export default function DashboardView() {
                     return (
                       <div
                         key={target.id}
-                        className="p-4 bg-surface rounded-lg border border-outline-variant hover:border-primary transition-colors cursor-pointer"
+                        className="p-4 bg-surface rounded-xl border border-outline-variant hover:border-(--primary) transition-colors cursor-pointer"
                         onClick={() => {
                           setEditingTarget(target);
                           setShowEditTarget(true);
@@ -359,7 +359,7 @@ export default function DashboardView() {
                       return (
                         <div
                           key={target.id}
-                          className="p-4 bg-surface rounded-lg border border-outline-variant hover:border-primary transition-colors cursor-pointer"
+                          className="p-4 bg-surface rounded-xl border border-outline-variant hover:border-(--primary) transition-colors cursor-pointer"
                           onClick={() => {
                             setEditingTarget(target);
                             setShowEditTarget(true);
@@ -420,34 +420,32 @@ export default function DashboardView() {
                   />
                 ) : (
                   <>
-                    <div className="bg-surface-container p-6 rounded-xl border border-outline-variant shadow-sm">
-                      <button className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary text-on-primary rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors mb-4">
+                      {/* <button className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary text-on-primary rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors mb-4">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                         Hedef Takibi
-                      </button>
-                      <div className="bg-surface p-4 rounded-lg border border-outline-variant">
-                        <h4 className="text-base font-semibold text-on-surface mb-2">
+                      </button> */}
+                      <div className="bg-surface p-4 rounded-xl border border-outline-variant">
+                        <h4 className="text-base font-semibold text-on-surface mb-2 text-center">
                           {new Date().toLocaleDateString("tr-TR", {
                             day: "numeric",
                             month: "long",
                             year: "numeric",
                           })} Hedefi
                         </h4>
-                        <p className="text-sm text-on-surface-variant mb-2">
+                        <p className="text-sm text-on-surface-variant mb-2 text-center">
                           Bugün için hedef girişi yapabilirsiniz
                         </p>
-                        <p className="text-xs text-on-surface-variant">
-                          Hedef girişi yapmak için sol menüden Hedef Girişi seçeneğini kullanabilirsiniz.
+                        <p className="text-xs text-on-surface-variant text-center">
+                          Hedef girişi yapmak için sol menüden &apos;Hedef Girişi&apos; seçeneğini kullanabilirsiniz.
                         </p>
                       </div>
-                    </div>
                   </>
                 )}
 
                 <div className="bg-surface-container p-6 rounded-xl border border-outline-variant shadow-sm">
-                  <h3 className="text-lg font-semibold text-on-surface mb-4">Özet</h3>
+                  <h3 className="text-lg font-semibold text-on-surface mb-4 text-center">Özet</h3>
                 {stats ? (
                   <div className="space-y-4">
                     <div>

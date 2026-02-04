@@ -7,14 +7,18 @@ export function PushNotificationPrompt() {
   const {
     isSupported,
     isSubscribed,
-    isPermissionGranted,
     isLoading,
     subscribe,
-    requestPermission,
   } = usePushNotification();
 
   const [showPrompt, setShowPrompt] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
+  const [dismissed, setDismissed] = useState(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    return localStorage.getItem("push-notification-dismissed") === "true";
+  });
 
   useEffect(() => {
     // Eğer destekleniyor ve abone değilse, prompt göster
@@ -24,10 +28,25 @@ export function PushNotificationPrompt() {
       const timer = setTimeout(() => {
         setShowPrompt(true);
       }, 2000);
+    if (dismissed) {
+      return;
+    }
 
-      return () => clearTimeout(timer);
+    if (!isSupported || isSubscribed || isLoading || showPrompt) {
+      return;
+    }
+
+    if ("Notification" in window && Notification.permission === "denied") {
+      return;
     }
   }, [isSupported, isSubscribed, isLoading]);
+
+    const timer = setTimeout(() => {
+      setShowPrompt(true);
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [dismissed, isSupported, isSubscribed, isLoading, showPrompt]);
 
   const handleSubscribe = async () => {
     const success = await subscribe();

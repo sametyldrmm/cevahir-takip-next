@@ -12,7 +12,7 @@ export interface Report {
     userIds?: string[];
     startDate?: string;
     endDate?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   s3Path?: string;
   fileName?: string;
@@ -28,7 +28,7 @@ export interface CreateReportDto {
     userIds?: string[];
     startDate?: string;
     endDate?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   filename?: string;
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { isAxiosError } from "axios";
 import { permissionRequestsApi, PermissionRequest, CreatePermissionRequestDto, PermissionRequestType, PermissionRequestStatus } from "@/lib/api/permission-requests";
 import { useAuth } from "@/app/contexts/AuthContext";
 import { useNotification } from "@/app/contexts/NotificationContext";
@@ -16,6 +17,15 @@ export default function PermissionRequestsView() {
     title: "",
     description: "",
   });
+  const getApiErrorMessage = (error: unknown) => {
+    if (isAxiosError<{ message?: string }>(error)) {
+      const message = error.response?.data?.message;
+      if (typeof message === "string" && message.trim()) {
+        return message;
+      }
+    }
+    return undefined;
+  };
 
   const isAdmin = user?.role === "ADMIN";
 
@@ -52,9 +62,8 @@ export default function PermissionRequestsView() {
         description: "",
       });
       loadRequests();
-    } catch (error: any) {
-      const message = error.response?.data?.message || "İzin isteği oluşturulamadı";
-      showError(message);
+    } catch (error: unknown) {
+      showError(getApiErrorMessage(error) ?? "İzin isteği oluşturulamadı");
     }
   };
 
@@ -65,9 +74,8 @@ export default function PermissionRequestsView() {
       });
       showSuccess("İzin isteği onaylandı");
       loadRequests();
-    } catch (error: any) {
-      const message = error.response?.data?.message || "İzin isteği onaylanamadı";
-      showError(message);
+    } catch (error: unknown) {
+      showError(getApiErrorMessage(error) ?? "İzin isteği onaylanamadı");
     }
   };
 
@@ -84,9 +92,8 @@ export default function PermissionRequestsView() {
       });
       showSuccess("İzin isteği reddedildi");
       loadRequests();
-    } catch (error: any) {
-      const message = error.response?.data?.message || "İzin isteği reddedilemedi";
-      showError(message);
+    } catch (error: unknown) {
+      showError(getApiErrorMessage(error) ?? "İzin isteği reddedilemedi");
     }
   };
 
@@ -99,9 +106,8 @@ export default function PermissionRequestsView() {
       await permissionRequestsApi.delete(id);
       showSuccess("İzin isteği silindi");
       loadRequests();
-    } catch (error: any) {
-      const message = error.response?.data?.message || "İzin isteği silinemedi";
-      showError(message);
+    } catch (error: unknown) {
+      showError(getApiErrorMessage(error) ?? "İzin isteği silinemedi");
     }
   };
 
@@ -150,7 +156,7 @@ export default function PermissionRequestsView() {
         {!isAdmin && (
           <button
             onClick={() => setShowCreateDialog(true)}
-            className="px-4 py-2 bg-primary text-on-primary rounded-lg font-medium hover:bg-primary/90 transition-colors"
+            className="px-4 py-2 bg-primary text-on-primary rounded-lg font-medium hover:bg-(--primary)/90 transition-colors"
           >
             Yeni İzin İsteği
           </button>
@@ -207,7 +213,7 @@ export default function PermissionRequestsView() {
                     <>
                       <button
                         onClick={() => handleApprove(request.id)}
-                        className="px-4 py-2 bg-success text-on-success rounded-lg text-sm font-medium hover:bg-success/90 transition-colors"
+                        className="px-4 py-2 bg-success text-on-success rounded-lg text-sm font-medium hover:bg-(--success)/90 transition-colors"
                       >
                         Onayla
                       </button>
@@ -219,7 +225,7 @@ export default function PermissionRequestsView() {
                   {!isAdmin && request.status === PermissionRequestStatus.PENDING && (
                     <button
                       onClick={() => handleDelete(request.id)}
-                      className="px-4 py-2 bg-error text-on-error rounded-lg text-sm font-medium hover:bg-error/90 transition-colors"
+                      className="px-4 py-2 bg-error text-on-error rounded-lg text-sm font-medium hover:bg-(--error)/90 transition-colors"
                     >
                       Sil
                     </button>
@@ -264,7 +270,7 @@ function RejectDialog({ onReject }: { onReject: (reason: string) => void }) {
     <>
       <button
         onClick={() => setShowDialog(true)}
-        className="px-4 py-2 bg-error text-on-error rounded-lg text-sm font-medium hover:bg-error/90 transition-colors"
+        className="px-4 py-2 bg-error text-on-error rounded-lg text-sm font-medium hover:bg-(--error)/90 transition-colors"
       >
         Reddet
       </button>
@@ -285,7 +291,7 @@ function RejectDialog({ onReject }: { onReject: (reason: string) => void }) {
                   setShowDialog(false);
                   setReason("");
                 }}
-                className="px-4 py-2 bg-surface-container-high text-on-surface rounded-lg text-sm font-medium hover:bg-surface-container-highest transition-colors"
+                className="px-4 py-2 bg-surface-container-high text-on-surface rounded-lg text-sm font-medium hover:bg-(--surface-container-highest) transition-colors"
               >
                 İptal
               </button>
@@ -295,7 +301,7 @@ function RejectDialog({ onReject }: { onReject: (reason: string) => void }) {
                   setShowDialog(false);
                   setReason("");
                 }}
-                className="px-4 py-2 bg-error text-on-error rounded-lg text-sm font-medium hover:bg-error/90 transition-colors"
+                className="px-4 py-2 bg-error text-on-error rounded-lg text-sm font-medium hover:bg-(--error)/90 transition-colors"
               >
                 Reddet
               </button>
@@ -379,13 +385,13 @@ function CreatePermissionRequestDialog({
         <div className="flex gap-2 justify-end mt-6">
           <button
             onClick={onCancel}
-            className="px-4 py-2 bg-surface-container-high text-on-surface rounded-lg text-sm font-medium hover:bg-surface-container-highest transition-colors"
+            className="px-4 py-2 bg-surface-container-high text-on-surface rounded-lg text-sm font-medium hover:bg-(--surface-container-highest) transition-colors"
           >
             İptal
           </button>
           <button
             onClick={onSave}
-            className="px-4 py-2 bg-primary text-on-primary rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+            className="px-4 py-2 bg-primary text-on-primary rounded-lg text-sm font-medium hover:bg-(--primary)/90 transition-colors"
           >
             Oluştur
           </button>
@@ -394,7 +400,5 @@ function CreatePermissionRequestDialog({
     </div>
   );
 }
-
-
 
 

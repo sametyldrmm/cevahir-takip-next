@@ -119,7 +119,7 @@ export default function LoginView({
             <button
               type="button"
               onClick={onGuest}
-              className="w-full border border-outline text-on-surface py-3 rounded-lg hover:bg-hover-bg transition-colors"
+              className="w-full border border-outline text-on-surface py-3 rounded-lg hover:bg-(--hover-bg) transition-colors"
             >
               Misafir Olarak Devam Et
             </button>

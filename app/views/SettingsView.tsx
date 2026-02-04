@@ -23,8 +23,18 @@ export default function SettingsView() {
   const [profile, setProfile] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [pushToggleLoading, setPushToggleLoading] = useState(false);
+  const accentOptions = [
+    { name: "Mavi", value: "blue" },
+    { name: "Yeşil", value: "green" },
+    { name: "Turuncu", value: "orange" },
+  ] as const;
 
   useEffect(() => {
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
+
     const loadProfile = async () => {
       try {
         setIsLoading(true);
@@ -43,6 +53,8 @@ export default function SettingsView() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Sadece component mount olduğunda çalış
+    void loadProfile();
+  }, [user, showError]);
 
   return (
     <div className="p-6">
@@ -145,19 +157,14 @@ export default function SettingsView() {
         <div className="bg-surface-container p-6 rounded-lg border border-outline-variant shadow-sm">
           <h3 className="text-lg font-semibold text-on-surface mb-4">Vurgu Rengi</h3>
           <div className="grid grid-cols-4 gap-3">
-            {[
-              { name: "Mavi", value: "blue" },
-              { name: "Yeşil", value: "green" },
-              { name: "Mor", value: "purple" },
-              { name: "Turuncu", value: "orange" },
-            ].map((color) => (
+            {accentOptions.map((color) => (
               <button
                 key={color.value}
                 onClick={() => setAccentColor(color.value)}
                 className={`px-4 py-2 rounded-lg border-2 transition-all ${
                   accentColor === color.value
                     ? "border-primary bg-primary-container"
-                    : "border-outline bg-surface hover:border-primary"
+                    : "border-outline bg-surface hover:border-(--primary)"
                 }`}
               >
                 <span className="text-sm font-medium text-on-surface">{color.name}</span>

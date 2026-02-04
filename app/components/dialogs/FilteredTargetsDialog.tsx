@@ -101,7 +101,7 @@ export default function FilteredTargetsDialog({
             </h3>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-surface-container-high rounded-lg transition-colors text-on-surface-variant hover:text-on-surface"
+              className="p-2 hover:bg-(--surface-container-high) rounded-lg transition-colors text-on-surface-variant hover:text-(--on-surface)"
             >
               ✕
             </button>
@@ -122,7 +122,7 @@ export default function FilteredTargetsDialog({
               {targets.map((target) => (
                 <div
                   key={target.id}
-                  className="p-4 bg-surface rounded-lg border border-outline-variant hover:border-primary transition-colors cursor-pointer"
+                  className="p-4 bg-surface rounded-lg border border-outline-variant hover:border-(--primary) transition-colors cursor-pointer"
                   onClick={() => {
                     setEditingTarget(target);
                     setShowEditDialog(true);

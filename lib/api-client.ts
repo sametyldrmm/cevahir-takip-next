@@ -30,7 +30,13 @@ class ApiClient {
     this.client.interceptors.response.use(
       (response) => response,
       async (error: AxiosError) => {
-        const originalRequest = error.config as any;
+        type RetriableRequestConfig = NonNullable<AxiosError['config']> & {
+          _retry?: boolean;
+        };
+        const originalRequest = error.config as RetriableRequestConfig | undefined;
+        if (!originalRequest) {
+          return Promise.reject(error);
+        }
 
         // 401 hatası ve token refresh denenmemişse
         if (error.response?.status === 401 && !originalRequest._retry) {

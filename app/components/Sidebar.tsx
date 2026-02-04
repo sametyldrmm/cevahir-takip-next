@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/contexts/AuthContext";
+import { useTheme } from "@/app/contexts/ThemeContext";
 
 interface SidebarProps {
   currentView: string;
@@ -71,6 +71,28 @@ const PersonIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const SunIcon = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364-.707.707M6.343 17.657l-.707.707m12.728 0-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"
+    />
+  </svg>
+);
+
+const MoonIcon = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M21 12.79A9 9 0 1111.21 3a7 7 0 109.79 9.79z"
+    />
+  </svg>
+);
+
 const getIcon = (iconName: string, className: string = "w-5 h-5") => {
   switch (iconName) {
     case "grid":
@@ -101,10 +123,16 @@ export default function Sidebar({
 }: SidebarProps) {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { themeMode, setThemeSetting } = useTheme();
+  const isDarkMode = themeMode === "dark";
 
   const handleLogout = () => {
     logout();
     router.push("/login");
+  };
+
+  const handleThemeToggle = () => {
+    setThemeSetting(isDarkMode ? "light" : "dark");
   };
 
   const handleNavigate = (viewId: string) => {
@@ -162,7 +190,7 @@ export default function Sidebar({
             className={`w-12 h-12 rounded-lg flex items-center justify-center transition-all ${
               currentView === item.id
                 ? "bg-primary-container border-2 border-primary text-primary"
-                : "hover:bg-surface-container-high text-on-surface-variant"
+                : "hover:bg-surface text-on-surface-variant"
             }`}
             title={item.label}
           >
@@ -170,6 +198,24 @@ export default function Sidebar({
           </button>
         ))}
         <div className="flex-1" />
+        <button
+          onClick={handleThemeToggle}
+          className="w-12 h-12 rounded-lg flex items-center justify-center transition-all hover:bg-surface-container-high text-on-surface-variant"
+          title={isDarkMode ? "Koyu Tema" : "Açık Tema"}
+          aria-label={isDarkMode ? "Koyu tema açık" : "Açık tema açık"}
+        >
+          <div
+            className={`relative w-10 h-6 rounded-full transition-colors ${
+              isDarkMode ? "bg-primary" : "bg-outline-variant"
+            }`}
+          >
+            <div
+              className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-surface shadow-sm transition-transform ${
+                isDarkMode ? "translate-x-4" : ""
+              }`}
+            />
+          </div>
+        </button>
         <button
           onClick={() => handleNavigate("settings")}
           className={`w-12 h-12 rounded-lg flex items-center justify-center transition-all ${
@@ -225,7 +271,7 @@ export default function Sidebar({
             className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-all ${
               currentView === item.id
                 ? "bg-primary-container border-r-4 border-primary text-primary font-medium"
-                : "hover:bg-surface-container-high text-on-surface"
+                : "hover:bg-(--surface)"
             }`}
           >
             {getIcon(item.icon, "w-5 h-5")}
@@ -237,11 +283,39 @@ export default function Sidebar({
       {/* Settings & Logout */}
       <div className="border-t border-outline-variant p-2 space-y-2">
         <button
+          onClick={handleThemeToggle}
+          role="switch"
+          aria-checked={isDarkMode}
+          className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left rounded-lg border border-outline-variant bg-surface-container-low hover:bg-surface-container-high transition-all"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            {isDarkMode ? (
+              <MoonIcon className="w-5 h-5 text-on-surface-variant" />
+            ) : (
+              <SunIcon className="w-5 h-5 text-on-surface-variant" />
+            )}
+            <span className="text-sm text-on-surface truncate">
+              {isDarkMode ? "Koyu Mod" : "Açık Mod"}
+            </span>
+          </div>
+          <div
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              isDarkMode ? "bg-primary" : "bg-primary"
+            }`}
+          >
+            <span
+              className={`inline-block h-5 w-5 transform rounded-full bg-surface shadow-sm transition-transform ${
+                isDarkMode ? "translate-x-5" : "translate-x-1"
+              }`}
+            />
+          </div>
+        </button>
+        <button
           onClick={() => handleNavigate("settings")}
           className={`w-full flex items-center gap-3 px-4 py-3 text-left rounded-lg transition-all ${
             currentView === "settings"
               ? "bg-primary-container border-2 border-primary text-primary font-medium"
-              : "hover:bg-surface-container-high text-on-surface"
+              : "hover:bg-(--surface)"
           }`}
         >
           {getIcon("settings", "w-5 h-5")}
@@ -249,7 +323,7 @@ export default function Sidebar({
         </button>
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-4 py-3 text-left rounded-lg transition-all hover:bg-error-container text-error hover:text-on-error"
+          className="w-full flex items-center gap-3 px-4 py-3 text-left rounded-lg transition-all  hover:bg-(--error-container) text-error hover:text-on-error"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -263,7 +337,7 @@ export default function Sidebar({
         </button>
         <div className="px-4 py-2 mt-2">
           <p className="text-xs text-on-surface-variant text-center">
-            CPM - Günlük Hedefler v2.1.0
+            CPM - Günlük Hedefler v3.0.0
           </p>
         </div>
       </div>

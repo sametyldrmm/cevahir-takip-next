@@ -1,68 +1,143 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { usePushNotification } from '../hooks/usePushNotification';
+import Image from 'next/image';
 
 export function PushNotificationPrompt() {
-  const { isSupported, isSubscribed, isLoading, subscribe } =
-    usePushNotification();
+  const pathname = usePathname();
+  const {
+    isSupported,
+    isSubscribed,
+    isPermissionGranted,
+    isLoading,
+    subscribe,
+    requestPermission,
+  } = usePushNotification();
 
-  const [showPrompt, setShowPrompt] = useState(true);
-  const [dismissed, setDismissed] = useState(() => {
-    if (typeof window === 'undefined') {
-      return false;
-    }
-
-    return localStorage.getItem('push-notification-dismissed') === 'true';
+  const [permission, setPermission] = useState<NotificationPermission>(() => {
+    if (typeof window === 'undefined') return 'default';
+    if (!('Notification' in window)) return 'denied';
+    return Notification.permission;
+  });
+  const [permissionWasDenied, setPermissionWasDenied] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    if (!('Notification' in window)) return false;
+    return Notification.permission === 'denied';
   });
 
+  const hasAutoRequestedPermission = useRef(false);
+
+  const shouldBlock =
+    isSupported && !isSubscribed && !isPermissionGranted && !isLoading;
+
+  const isLoginPage = pathname?.startsWith('/login');
+
   useEffect(() => {
-    if (!isSupported || isSubscribed || isLoading || showPrompt) {
+    if (!shouldBlock) {
       return;
     }
 
-    if (dismissed) {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [shouldBlock]);
+
+  useEffect(() => {
+    if (isLoginPage) {
+      return;
+    }
+    if (!shouldBlock) {
+      return;
+    }
+    if (!('Notification' in window)) {
+      return;
+    }
+    if (permissionWasDenied) {
+      return;
+    }
+    const intervalId = window.setInterval(() => {
+      const nextPermission = Notification.permission;
+      if (nextPermission === 'denied') {
+        setPermissionWasDenied(true);
+      }
+      setPermission((prevPermission) =>
+        prevPermission === nextPermission ? prevPermission : nextPermission,
+      );
+    }, 500);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [isLoginPage, permissionWasDenied, shouldBlock]);
+
+  useEffect(() => {
+    if (isLoginPage) {
+      return;
+    }
+    if (!shouldBlock) {
+      return;
+    }
+    if (!('Notification' in window)) {
+      return;
+    }
+    if (Notification.permission !== 'default') {
+      return;
+    }
+    if (permissionWasDenied) {
+      return;
+    }
+    if (hasAutoRequestedPermission.current) {
       return;
     }
 
-    if ('Notification' in window && Notification.permission === 'denied') {
-      return;
-    }
+    hasAutoRequestedPermission.current = true;
 
-    // Kullanıcı sayfada biraz zaman geçirdikten sonra göster (2 saniye - daha hızlı)
-    const timer = setTimeout(() => {
-      setShowPrompt(true);
-    }, 2000);
+    (async () => {
+      const nextPermission = await requestPermission();
+      if (nextPermission !== 'granted') {
+        return;
+      }
+      await subscribe();
+    })();
+  }, [isLoginPage, permissionWasDenied, requestPermission, shouldBlock, subscribe]);
 
-    return () => clearTimeout(timer);
-  }, [dismissed, isSupported, isSubscribed, isLoading, showPrompt]);
-
-  const handleSubscribe = async () => {
-    const success = await subscribe();
-    console.log('success=>', success);
-    if (success) {
-      setShowPrompt(false);
-    }
-  };
-
-  const handleDismiss = () => {
-    setShowPrompt(false);
-  };
-
-  console.log("burda=>",isSupported, isSubscribed, showPrompt, isLoading)
-  // Desteklenmiyorsa veya zaten abone ise göster
-  if (!isSupported || isSubscribed || !showPrompt) {
+  if (isLoginPage) {
     return null;
   }
 
+  if (!shouldBlock) {
+    return null;
+  }
+
+  // const handleEnable = async () => {
+  //   const nextPermission = await requestPermission();
+  //   setPermission(nextPermission);
+
+  //   if (nextPermission !== 'granted') {
+  //     return;
+  //   }
+
+  //   await subscribe();
+  // };
+
   return (
-    <div className='fixed bottom-4 right-4 z-50 max-w-sm'>
-      <div className='bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-4'>
-        <div className='flex items-start gap-3'>
-          <div className='flex-shrink-0'>
-            <div className='w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center'>
+    <div className='fixed inset-0 z-[100]'>
+      <div className='absolute inset-0 bg-black/50 backdrop-blur-sm' />
+      <div className='absolute inset-0 flex items-center justify-center p-4'>
+        <div
+          role='dialog'
+          aria-modal='true'
+          className='w-full max-w-md bg-surface-container rounded-xl border border-outline-variant shadow-lg p-6'
+        >
+          <div className='flex items-start gap-4'>
+            <div className='w-12 h-12 rounded-full bg-primary-container flex items-center justify-center text-primary flex-shrink-0'>
               <svg
-                className='w-6 h-6 text-blue-600 dark:text-blue-400'
+                className='w-6 h-6'
                 fill='none'
                 stroke='currentColor'
                 viewBox='0 0 24 24'
@@ -75,28 +150,64 @@ export function PushNotificationPrompt() {
                 />
               </svg>
             </div>
-          </div>
-          <div className='flex-1 min-w-0'>
-            <h3 className='text-sm font-semibold text-gray-900 dark:text-white mb-1'>
-              Bildirimleri Etkinleştir
-            </h3>
-            <p className='text-xs text-gray-600 dark:text-gray-300 mb-3'>
-              Uygulama arka planda olsa bile önemli bildirimleri kaçırmayın.
-            </p>
-            <div className='flex gap-2'>
-              <button
-                onClick={handleSubscribe}
-                disabled={isLoading}
-                className='flex-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
-              >
-                {isLoading ? 'Yükleniyor...' : 'Etkinleştir'}
-              </button>
-              <button
-                onClick={handleDismiss}
-                className='px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors'
-              >
-                Daha Sonra
-              </button>
+
+            <div className='min-w-0 flex-1'>
+              <h3 className='text-lg font-semibold text-on-surface mb-1'>
+                Bildirim İzni Gerekli
+              </h3>
+              <p className='text-sm text-on-surface-variant'>
+                Uygulamayı kullanabilmek için tarayıcı bildirim iznini
+                etkinleştirmeniz gerekiyor.
+              </p>
+
+              {permission === 'denied' && (
+                <div className='mt-4 rounded-lg border border-outline-variant bg-surface p-4'>
+                  <p className='text-sm font-semibold text-on-surface mb-2'>
+                    İzinler daha önce engellenmiş
+                  </p>
+                  <ol className='text-sm text-on-surface-variant list-decimal pl-5 space-y-1'>
+                    <li>Adres çubuğunun sol ucunda bulunan bilgi simgesine tıklayın.</li>
+                    <Image src="/permission.png" alt="permission-image" width={300} height={300} />
+                    <li>Bildirimler seçeneğini aktifleştirin.</li>
+                    <li>&apos;Yeniden Kontrol Et&apos; butonuna tıklayın ve tekrar deneyin.</li>
+                  </ol>
+                </div>
+              )}
+
+              {permission !== 'denied' && !permissionWasDenied && (
+                <div className='mt-4 rounded-lg border border-outline-variant bg-surface p-4'>
+                  <Image src="/permission3.png" alt="permission-image-3" width={300} height={300} />
+                  <p className='text-sm text-on-surface-variant mt-2 mb-2'>
+                    Açılan tarayıcı izin penceresinde &apos;İzni Ver&apos; butonuna tıklayın.
+                  </p>
+                  <Image src="/permission2.png" alt="permission-image-3" width={300} height={300} />
+                    <p className='text-sm text-on-surface-variant mt-2'>Eğer otomatik olarak açılmadıysa &apos;Bildirimler engellendi&apos; butonuna tıklayın ve izin verdikten sonra &apos;Yeniden Kontrol Et&apos; butonuna tıklayın.</p>
+                    
+                </div>
+              )}
+
+              <div className='mt-6 flex flex-col gap-2'>
+                {/* <button
+                  type='button'
+                  onClick={handleEnable}
+                  disabled={isLoading}
+                  className='w-full px-4 py-3 rounded-lg bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed'
+                >
+                  {isLoading ? 'Yükleniyor...' : 'İzni Ver'}
+                </button> */}
+                <button
+                  type='button'
+                  onClick={() => {
+                    if ('Notification' in window) {
+                      setPermission(Notification.permission);
+                      window.location.reload()
+                    }
+                  }}
+                  className='w-full px-4 py-3 rounded-lg bg-(--on-surface) text-on-primary font-semibold hover:bg-(--primary)! transition-colors'
+                >
+                  Yeniden Kontrol Et
+                </button>
+              </div>
             </div>
           </div>
         </div>

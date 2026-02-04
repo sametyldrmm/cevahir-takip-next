@@ -29,6 +29,7 @@ export async function getVapidPublicKey(): Promise<string> {
  * Push notification izni iste ve subscription kaydet
  */
 export async function subscribeToPushNotifications(): Promise<boolean> {
+  let pushSubscription: PushSubscription | null = null;
   try {
     // 1. Tarayıcı desteği kontrol et
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
@@ -54,7 +55,7 @@ export async function subscribeToPushNotifications(): Promise<boolean> {
     // 5. Push subscription oluştur
     const subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+      applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as BufferSource,
     });
 
     // 6. Subscription'ı backend'e kaydet
@@ -65,7 +66,7 @@ export async function subscribeToPushNotifications(): Promise<boolean> {
       throw new Error('Push subscription keys bulunamadı');
     }
 
-    const pushSubscription: PushSubscription = {
+    pushSubscription = {
       endpoint: subscription.endpoint,
       keys: {
         p256dh: arrayBufferToBase64(p256dhKey as ArrayBuffer),
@@ -87,7 +88,9 @@ export async function subscribeToPushNotifications(): Promise<boolean> {
   } catch (error: any) {
     console.error('[Push] Subscription hatası:', error);
     console.error('[Push] Error response:', error.response?.data);
-    console.error('[Push] Subscription data:', pushSubscription);
+    if (pushSubscription) {
+      console.error('[Push] Subscription data:', pushSubscription);
+    }
     throw error; // Hatayı yukarı fırlat ki hook'ta gösterilebilsin
   }
 }
@@ -133,7 +136,8 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
     .replace(/_/g, '/');
 
   const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
+  const arrayBuffer = new ArrayBuffer(rawData.length);
+  const outputArray = new Uint8Array(arrayBuffer);
 
   for (let i = 0; i < rawData.length; ++i) {
     outputArray[i] = rawData.charCodeAt(i);

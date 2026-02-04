@@ -19,6 +19,7 @@ export interface Report {
   errorMessage?: string;
   createdAt: string;
   updatedAt: string;
+  mailGroupId?: string;
 }
 
 export interface CreateReportDto {

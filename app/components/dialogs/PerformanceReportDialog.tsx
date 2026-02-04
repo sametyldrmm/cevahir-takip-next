@@ -9,15 +9,15 @@ import { useNotification } from "@/app/contexts/NotificationContext";
 interface PerformanceReportDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onExportCompleted: (filePath: string) => void;
+  onReportCreated?: (report: any) => void;
 }
 
 export default function PerformanceReportDialog({
   isOpen,
   onClose,
-  onExportCompleted,
+  onReportCreated,
 }: PerformanceReportDialogProps) {
-  const { showError } = useNotification();
+  const { showError, showSuccess } = useNotification();
   const [reportType, setReportType] = useState<"monthly" | "yearly">("monthly");
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
@@ -31,33 +31,27 @@ export default function PerformanceReportDialog({
     
     try {
       if (reportType === "monthly") {
-        const result = await reportsApi.createPerformanceExport({
+        // Asenkron rapor oluştur (Report entity oluşturur, arka planda işlenir)
+        const report = await reportsApi.createPerformanceExport({
           year: selectedYear,
           month: selectedMonth,
         });
 
-        if (result.success && result.downloadUrl) {
-          // Dosyayı indir (CSV raporlardaki gibi)
-          const link = document.createElement("a");
-          link.href = result.downloadUrl;
-          link.download = result.downloadUrl.split('/').pop() || 'performance.xlsx';
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          
-          onExportCompleted(result.downloadUrl);
-          onClose();
-        } else {
-          showError(result.message || "Export başarısız");
+        if (onReportCreated) {
+          onReportCreated(report);
         }
+        
+        showSuccess("Performans raporu oluşturma isteği başarıyla gönderildi. Rapor hazır olduğunda indirilebilir.");
+        onClose();
       } else {
         // Yıllık proje raporu - şimdilik sadece aylık destekleniyor
         showError("Yıllık proje raporu henüz desteklenmiyor. Lütfen aylık rapor seçin.");
       }
     } catch (error: any) {
-      console.error("Export error:", error);
-      const errorMessage = error.response?.data?.message || error.message || "Export sırasında bir hata oluştu";
-      showError(errorMessage);
+      console.error("Report creation error:", error);
+      console.error("Error response:", error.response?.data);
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || "Rapor oluşturulurken bir hata oluştu";
+      showError(`Rapor oluşturma hatası: ${errorMessage}`);
     } finally {
       setIsExporting(false);
     }
@@ -216,8 +210,8 @@ export default function PerformanceReportDialog({
 
           <div className="p-4 bg-surface-container-low border border-outline-variant rounded-lg">
             <div className="flex items-center gap-3 text-sm text-on-surface-variant">
-              <span className="text-xl">📥</span>
-              <span>Excel dosyası S3&apos;e yüklenecek ve indirilecek</span>
+              <span className="text-xl">📊</span>
+              <span>Rapor arka planda oluşturulacak. Hazır olduğunda raporlar listesinden indirebilirsiniz.</span>
             </div>
           </div>
 
@@ -260,8 +254,8 @@ export default function PerformanceReportDialog({
               </>
             ) : (
               <>
-                <span>📥</span>
-                <span>Raporu Export Et</span>
+                <span>📊</span>
+                <span>Rapor Oluştur</span>
               </>
             )}
           </button>

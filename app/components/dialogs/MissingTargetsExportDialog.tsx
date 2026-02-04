@@ -7,15 +7,15 @@ import { useNotification } from "@/app/contexts/NotificationContext";
 interface MissingTargetsExportDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onExportCompleted: (filePath: string) => void;
+  onReportCreated?: (report: any) => void;
 }
 
 export default function MissingTargetsExportDialog({
   isOpen,
   onClose,
-  onExportCompleted,
+  onReportCreated,
 }: MissingTargetsExportDialogProps) {
-  const { showError } = useNotification();
+  const { showError, showSuccess } = useNotification();
   const [periodType, setPeriodType] = useState<"daily" | "weekly" | "monthly" | "yearly">("daily");
   const [dateRange, setDateRange] = useState<"single" | "range">("single");
   const [selectedDate, setSelectedDate] = useState(
@@ -45,30 +45,24 @@ export default function MissingTargetsExportDialog({
         exportEndDate = selectedDate;
       }
 
-      const result = await reportsApi.createMissingTargetsExport({
+      // Asenkron rapor oluştur (Report entity oluşturur, arka planda işlenir)
+      const report = await reportsApi.createMissingTargetsExport({
         startDate: exportStartDate,
         endDate: exportEndDate,
         periodType,
       });
 
-      if (result.success && result.downloadUrl) {
-        // Dosyayı indir (CSV raporlardaki gibi)
-        const link = document.createElement("a");
-        link.href = result.downloadUrl;
-        link.download = result.downloadUrl.split('/').pop() || 'missing_targets.xlsx';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        onExportCompleted(result.downloadUrl);
-        onClose();
-      } else {
-        showError(result.message || "Export başarısız");
+      if (onReportCreated) {
+        onReportCreated(report);
       }
+      
+      showSuccess("Eksik hedef girişleri raporu oluşturma isteği başarıyla gönderildi. Rapor hazır olduğunda indirilebilir.");
+      onClose();
     } catch (error: any) {
-      console.error("Export error:", error);
-      const errorMessage = error.response?.data?.message || error.message || "Export sırasında bir hata oluştu";
-      showError(errorMessage);
+      console.error("Report creation error:", error);
+      console.error("Error response:", error.response?.data);
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || "Rapor oluşturulurken bir hata oluştu";
+      showError(`Rapor oluşturma hatası: ${errorMessage}`);
     } finally {
       setIsExporting(false);
     }
@@ -162,8 +156,8 @@ export default function MissingTargetsExportDialog({
 
           <div className="p-4 bg-surface-container-low border border-outline-variant rounded-lg">
             <div className="flex items-center gap-3 text-sm text-on-surface-variant">
-              <span className="text-xl">📥</span>
-              <span>Excel dosyası S3&apos;e yüklenecek ve indirilecek</span>
+              <span className="text-xl">📊</span>
+              <span>Rapor arka planda oluşturulacak. Hazır olduğunda raporlar listesinden indirebilirsiniz.</span>
             </div>
           </div>
 
@@ -289,8 +283,8 @@ export default function MissingTargetsExportDialog({
               </>
             ) : (
               <>
-                <span>📥</span>
-                <span>Export Et</span>
+                <span>📊</span>
+                <span>Rapor Oluştur</span>
               </>
             )}
           </button>

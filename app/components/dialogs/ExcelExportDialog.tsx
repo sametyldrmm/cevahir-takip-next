@@ -123,21 +123,23 @@ export default function ExcelExportDialog({
         payload.endDate = weekDates.end;
       }
 
-      const response = await apiClient.getClient().post("/reports/excel-export", payload);
+      const result = await reportsApi.createExcelExport(payload);
       
-      if (response.data.success && response.data.downloadUrl) {
-        // Dosyayı indir (CSV raporlardaki gibi)
+      if (result.success && result.blob) {
+        // Blob'u indir
+        const url = window.URL.createObjectURL(result.blob);
         const link = document.createElement("a");
-        link.href = response.data.downloadUrl;
-        link.download = response.data.downloadUrl.split('/').pop() || 'export.xlsx';
+        link.href = url;
+        link.download = result.fileName || 'export.xlsx';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
         
-        onExportCompleted(response.data.downloadUrl);
+        onExportCompleted(result.fileName || 'export.xlsx');
         onClose();
       } else {
-        throw new Error(response.data.message || "Export başarısız");
+        throw new Error(result.message || "Export başarısız");
       }
     } catch (error: any) {
       console.error("Export error:", error);

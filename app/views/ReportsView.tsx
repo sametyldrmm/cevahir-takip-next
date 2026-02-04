@@ -60,13 +60,14 @@ export default function ReportsView() {
     loadReports();
   }, []);
 
-  // Rapor durumlarını polling ile kontrol et
+  // Rapor durumlarını polling ile kontrol et - arka planda çalışan raporlar için
   useEffect(() => {
     const interval = setInterval(() => {
       const processingReports = reports.filter(
         (r) => r.status === "STARTED" || r.status === "PROCESSING"
       );
       if (processingReports.length > 0) {
+        // Arka planda status güncellemelerini kontrol et
         loadReports();
       }
     }, 3000); // 3 saniyede bir kontrol et
@@ -102,22 +103,26 @@ export default function ReportsView() {
         parameters.endDate = endDate;
       }
 
+      // Rapor oluşturma isteğini gönder - backend'de asenkron olarak işlenecek
       const newReport = await reportsApi.createReport({
         type: selectedType,
         parameters: Object.keys(parameters).length > 0 ? parameters : undefined,
         filename: filename || undefined,
       });
 
+      // Rapor listesine ekle (status: STARTED veya PROCESSING olacak)
       setReports((prev) => [newReport, ...prev]);
-      setShowCreateDialog(false);
-      showSuccess("Rapor oluşturma isteği başarıyla gönderildi");
       
-      // Formu sıfırla
+      // Dialog'u kapat ve formu sıfırla
+      setShowCreateDialog(false);
       setSelectedType("TARGETS");
       setSelectedProjects([]);
       setStartDate("");
       setEndDate("");
       setFilename("");
+      
+      // Başarı mesajı göster - kullanıcı sayfayı kapatabilir, arka planda işlem devam edecek
+      showSuccess("Rapor oluşturma isteği gönderildi. Rapor arka planda hazırlanacak ve durumu otomatik güncellenecek.");
     } catch (error: unknown) {
       showError(getApiErrorMessage(error) ?? "Rapor oluşturulurken bir hata oluştu");
     } finally {
@@ -163,29 +168,35 @@ export default function ReportsView() {
     return colors[status] || "bg-surface-container-high text-on-surface-variant";
   };
 
-  const reportTypeLabels: Record<ReportType, string> = {
+  const reportTypeLabels: Record<string, string> = {
     TARGETS: "Hedef Raporu",
     PROJECTS: "Proje Raporu",
     USERS: "Kullanıcı Raporu",
     TEAM: "Takım Raporu",
+    PERFORMANCE: "Performans Raporu",
+    MISSING_TARGETS: "Hedef Eksiklikleri Raporu",
   };
 
+  const getReportTypeLabel = (type: string): string => {
+    return reportTypeLabels[type] || type;
+  };
+
+  // Excel export için callback (hala senkron)
   const handleExcelExportCompleted = (filePath: string) => {
     if (filePath) {
-      showSuccess("Excel export başarıyla oluşturuldu");
+      showSuccess("Excel export başarıyla oluşturuldu ve indirildi");
     }
   };
 
-  const handleMissingTargetsCompleted = (filePath: string) => {
-    if (filePath) {
-      showSuccess("Eksik hedef girişleri raporu başarıyla oluşturuldu");
-    }
+  // Performans raporu callback (asenkron - Report entity oluşturur)
+  const handlePerformanceReportCreated = (report: Report) => {
+    setReports((prev) => [report, ...prev]);
+    loadReports(); // Rapor listesini yenile
   };
 
-  const handlePerformanceCompleted = (filePath: string) => {
-    if (filePath) {
-      showSuccess("Performans raporu başarıyla oluşturuldu");
-    }
+  const handleMissingTargetsReportCreated = (report: Report) => {
+    setReports((prev) => [report, ...prev]);
+    loadReports(); // Rapor listesini yenile
   };
 
   return (
@@ -195,7 +206,7 @@ export default function ReportsView() {
           <div>
             <h2 className="text-2xl font-bold text-on-surface mb-2">Raporlama</h2>
             <p className="text-on-surface-variant">
-              Hedef verilerinizi Excel formatında export edin ve indirin
+              Hedef verilerinizi Excel formatında export edin ve indirin. Raporlar arka planda hazırlanır, sayfayı kapatabilirsiniz.
             </p>
           </div>
         </div>
@@ -302,7 +313,7 @@ export default function ReportsView() {
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
                     <h3 className="text-lg font-semibold text-on-surface">
-                      {reportTypeLabels[report.type]}
+                      {getReportTypeLabel(report.type)}
                     </h3>
                     <span
                       className={`px-3 py-1 rounded text-xs font-medium ${getStatusColor(
@@ -336,8 +347,9 @@ export default function ReportsView() {
                     </button>
                   )}
                   {(report.status === "STARTED" || report.status === "PROCESSING") && (
-                    <div className="px-4 py-2 bg-surface-container-high rounded-lg text-on-surface-variant">
-                      Hazırlanıyor...
+                    <div className="px-4 py-2 bg-surface-container-high rounded-lg text-on-surface-variant flex items-center gap-2">
+                      <span className="animate-spin">⏳</span>
+                      <span>Arka planda hazırlanıyor...</span>
                     </div>
                   )}
                 </div>
@@ -352,9 +364,14 @@ export default function ReportsView() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto p-4">
           <div className="bg-surface-container rounded-xl p-6 shadow-2xl max-w-2xl w-full border border-outline-variant">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-on-surface">Yeni Rapor Oluştur</h3>
+              <h3 className="text-xl font-bold text-on-surface">
+                {reportTypeLabels[selectedType]} Oluştur
+              </h3>
               <button
-                onClick={() => setShowCreateDialog(false)}
+                onClick={() => {
+                  setShowCreateDialog(false);
+                  setSelectedType("TARGETS");
+                }}
                 className="p-2 hover:bg-(--surface-container-high) rounded-lg transition-colors text-on-surface-variant hover:text-(--on-surface)"
               >
                 ✕
@@ -468,7 +485,14 @@ export default function ReportsView() {
 
             <div className="flex gap-3 pt-6 mt-6 border-t border-outline-variant">
               <button
-                onClick={() => setShowCreateDialog(false)}
+                onClick={() => {
+                  setShowCreateDialog(false);
+                  setSelectedType("TARGETS");
+                  setSelectedProjects([]);
+                  setStartDate("");
+                  setEndDate("");
+                  setFilename("");
+                }}
                 disabled={isCreating}
                 className="flex-1 px-4 py-3 bg-surface-container-high text-on-surface rounded-lg font-medium hover:bg-(--surface-container-highest) transition-colors disabled:opacity-50"
               >
@@ -479,9 +503,14 @@ export default function ReportsView() {
                 disabled={isCreating}
                 className="flex-1 px-4 py-3 bg-primary text-on-primary rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
               >
-                {isCreating ? "Oluşturuluyor..." : "Rapor Oluştur"}
+                {isCreating ? "Gönderiliyor..." : "Rapor Oluştur"}
               </button>
             </div>
+            {isCreating && (
+              <p className="mt-3 text-xs text-on-surface-variant text-center">
+                Rapor oluşturma isteği gönderiliyor...
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -497,14 +526,14 @@ export default function ReportsView() {
       <MissingTargetsExportDialog
         isOpen={showMissingTargetsDialog}
         onClose={() => setShowMissingTargetsDialog(false)}
-        onExportCompleted={handleMissingTargetsCompleted}
+        onReportCreated={handleMissingTargetsReportCreated}
       />
 
       {/* Performance Report Dialog */}
       <PerformanceReportDialog
         isOpen={showPerformanceDialog}
         onClose={() => setShowPerformanceDialog(false)}
-        onExportCompleted={handlePerformanceCompleted}
+        onReportCreated={handlePerformanceReportCreated}
       />
     </div>
   );

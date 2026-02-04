@@ -1,7 +1,7 @@
 import { apiClient } from '../api-client';
 
 export type ReportStatus = 'STARTED' | 'PROCESSING' | 'READY' | 'FAILED';
-export type ReportType = 'TARGETS' | 'PROJECTS' | 'USERS' | 'TEAM';
+export type ReportType = 'TARGETS' | 'PROJECTS' | 'USERS' | 'TEAM' | 'PERFORMANCE' | 'MISSING_TARGETS' | string;
 
 export interface Report {
   id: string;
@@ -68,7 +68,7 @@ export const reportsApi = {
     return response.data;
   },
 
-  // Excel export oluştur
+  // Excel export oluştur - Backend direkt dosya gönderiyor (binary response)
   async createExcelExport(dto: {
     exportType: 'daily' | 'weekly' | 'date_range';
     targetDate?: string;
@@ -76,29 +76,47 @@ export const reportsApi = {
     endDate?: string;
     filename?: string;
     email?: string;
-  }): Promise<{ success: boolean; downloadUrl?: string; message: string }> {
-    const response = await apiClient.getClient().post('/reports/excel-export', dto);
-    return response.data;
+  }): Promise<{ success: boolean; downloadUrl?: string; message: string; blob?: Blob; fileName?: string }> {
+    const response = await apiClient.getClient().post('/reports/excel-export', dto, {
+      responseType: 'blob',
+    });
+    
+    // Content-Disposition header'ından dosya adını al
+    const contentDisposition = response.headers['content-disposition'];
+    let fileName = 'export.xlsx';
+    if (contentDisposition) {
+      const fileNameMatch = contentDisposition.match(/filename="?(.+)"?/i);
+      if (fileNameMatch) {
+        fileName = decodeURIComponent(fileNameMatch[1].replace(/"/g, ''));
+      }
+    }
+    
+    return {
+      success: true,
+      blob: response.data,
+      fileName,
+      message: 'Excel export başarıyla oluşturuldu',
+    };
   },
 
-  // Eksik hedef girişleri export
+  // Eksik hedef girişleri export - Asenkron (Report entity oluşturur)
   async createMissingTargetsExport(dto: {
     startDate: string;
     endDate: string;
     periodType?: 'daily' | 'weekly' | 'monthly' | 'yearly';
     filename?: string;
-  }): Promise<{ success: boolean; downloadUrl?: string; message: string }> {
-    const response = await apiClient.getClient().post('/reports/missing-targets-export', dto);
+  }): Promise<Report> {
+    const response = await apiClient.getClient().post<Report>('/reports/missing-targets-export', dto);
     return response.data;
   },
 
-  // Performans raporu export
+  // Performans raporu export - Asenkron (Report entity oluşturur)
   async createPerformanceExport(dto: {
     year: number;
     month: number;
     filename?: string;
-  }): Promise<{ success: boolean; downloadUrl?: string; message: string }> {
-    const response = await apiClient.getClient().post('/reports/performance-export', dto);
+  }): Promise<Report> {
+    const response = await apiClient.getClient().post<Report>('/reports/performance-export', dto);
     return response.data;
   },
 };

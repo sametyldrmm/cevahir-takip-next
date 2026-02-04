@@ -196,3 +196,4 @@ DATABASE_URL=sqlite:///data/Gunluk_Hedefler.db
 
 
 
+

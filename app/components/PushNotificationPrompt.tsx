@@ -21,6 +21,13 @@ export function PushNotificationPrompt() {
   });
 
   useEffect(() => {
+    // Eğer destekleniyor ve abone değilse, prompt göster
+    // Dismissed kontrolünü kaldırdık - settings'ten açılabilsin
+    if (isSupported && !isSubscribed && !isLoading) {
+      // Kullanıcı sayfada biraz zaman geçirdikten sonra göster (2 saniye - daha hızlı)
+      const timer = setTimeout(() => {
+        setShowPrompt(true);
+      }, 2000);
     if (dismissed) {
       return;
     }
@@ -32,6 +39,7 @@ export function PushNotificationPrompt() {
     if ("Notification" in window && Notification.permission === "denied") {
       return;
     }
+  }, [isSupported, isSubscribed, isLoading]);
 
     const timer = setTimeout(() => {
       setShowPrompt(true);
@@ -49,12 +57,11 @@ export function PushNotificationPrompt() {
 
   const handleDismiss = () => {
     setShowPrompt(false);
-    setDismissed(true);
-    localStorage.setItem("push-notification-dismissed", "true");
+    // Dismissed flag'i kaldırdık - settings'ten tekrar açılabilsin
   };
 
   // Desteklenmiyorsa veya zaten abone ise göster
-  if (!isSupported || isSubscribed || dismissed || !showPrompt) {
+  if (!isSupported || isSubscribed || !showPrompt) {
     return null;
   }
 

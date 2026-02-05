@@ -3,6 +3,9 @@ import { apiClient } from '../api-client';
 export type ReportStatus = 'STARTED' | 'PROCESSING' | 'READY' | 'FAILED';
 export type ReportType = 'TARGETS' | 'PROJECTS' | 'USERS' | 'TEAM';
 
+export type AutoMailIntervalUnit = 'DAY' | 'WEEK' | 'MONTH';
+export type AutoMailIntervalPreset = '1D' | '1W' | '1M' | 'CUSTOM';
+
 export interface Report {
   id: string;
   type: ReportType;
@@ -38,6 +41,15 @@ export interface ReportDownload {
   downloadUrl: string;
   fileName: string;
   expiresIn: number;
+}
+
+export interface UpsertAutoMailScheduleDto {
+  reportTypes: ReportType[];
+  mailGroupIds?: string[];
+  emails?: string[];
+  intervalPreset: AutoMailIntervalPreset;
+  customEvery?: number;
+  customUnit?: AutoMailIntervalUnit;
 }
 
 export const reportsApi = {
@@ -100,6 +112,18 @@ export const reportsApi = {
     filename?: string;
   }): Promise<{ success: boolean; downloadUrl?: string; message: string }> {
     const response = await apiClient.getClient().post('/reports/performance-export', dto);
+    return response.data;
+  },
+
+  async upsertAutoMailSchedule(
+    dto: UpsertAutoMailScheduleDto,
+  ): Promise<{ success: boolean; message?: string }> {
+    const response = await apiClient
+      .getClient()
+      .post<{ success: boolean; message?: string }>(
+        '/reports/auto-mail-schedule',
+        dto,
+      );
     return response.data;
   },
 };

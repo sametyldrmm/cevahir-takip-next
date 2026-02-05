@@ -389,7 +389,7 @@ export default function ReportsView() {
             <div className='space-y-2'>
               <button
                 onClick={() => setShowPerformanceDialog(true)}
-                className='w-full px-4 py-3 bg-surface hover:bg-(--surface-container-high) rounded-lg text-left transition-colors border border-outline-variant'
+                className='w-full px-4 py-3 bg-surface hover:bg-(--surface-container-high)! rounded-lg text-left transition-colors border border-outline-variant'
               >
                 <div className='flex items-center gap-3'>
                   <span className='text-xl'>📈</span>
@@ -405,7 +405,7 @@ export default function ReportsView() {
               </button>
               <button
                 onClick={() => setShowMissingTargetsDialog(true)}
-                className='w-full px-4 py-3 bg-surface hover:bg-(--surface-container-high) rounded-lg text-left transition-colors border border-outline-variant'
+                className='w-full px-4 py-3 bg-surface hover:bg-(--surface-container-high)! rounded-lg text-left transition-colors border border-outline-variant'
               >
                 <div className='flex items-center gap-3'>
                   <span className='text-xl'>⚠️</span>
@@ -430,7 +430,7 @@ export default function ReportsView() {
             <div className='space-y-2'>
               <button
                 onClick={() => setShowExcelExportDialog(true)}
-                className='w-full px-4 py-3 bg-surface hover:bg-(--surface-container-high) rounded-lg text-left transition-colors border border-outline-variant'
+                className='w-full px-4 py-3 bg-surface hover:bg-(--surface-container-high)! rounded-lg text-left transition-colors border border-outline-variant'
               >
                 <div className='flex items-center gap-3'>
                   <span className='text-xl'>📊</span>
@@ -446,7 +446,7 @@ export default function ReportsView() {
               </button>
               <button
                 onClick={() => setShowExcelExportDialog(true)}
-                className='w-full px-4 py-3 bg-surface hover:bg-(--surface-container-high) rounded-lg text-left transition-colors border border-outline-variant'
+                className='w-full px-4 py-3 bg-surface hover:bg-(--surface-container-high)! rounded-lg text-left transition-colors border border-outline-variant'
               >
                 <div className='flex items-center gap-3'>
                   <span className='text-xl'>✉️</span>

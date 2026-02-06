@@ -2,12 +2,11 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import { isAxiosError } from 'axios';
+import { useRouter } from 'next/navigation';
 import {
   reportsApi,
   Report,
   ReportType,
-  AutoMailIntervalPreset,
-  AutoMailIntervalUnit,
 } from '@/lib/api/reports';
 import { projectsApi, Project as ApiProject } from '@/lib/api/projects';
 import { apiClient } from '@/lib/api-client';
@@ -25,6 +24,7 @@ interface MailGroup {
 }
 
 export default function ReportsView() {
+  const router = useRouter();
   const { user } = useAuth();
   const { showSuccess, showError } = useNotification();
   const [reports, setReports] = useState<Report[]>([]);
@@ -35,8 +35,6 @@ export default function ReportsView() {
   const [showMissingTargetsDialog, setShowMissingTargetsDialog] =
     useState(false);
   const [showPerformanceDialog, setShowPerformanceDialog] = useState(false);
-  const [showAutoMailScheduleDialog, setShowAutoMailScheduleDialog] =
-    useState(false);
   const [showTargetsDialog, setShowTargetsDialog] = useState(false);
   const [selectedPeriodType, setSelectedPeriodType] = useState<'daily' | 'weekly'>('weekly');
   const [selectedTeamProjects, setSelectedTeamProjects] = useState<string[]>([]);
@@ -116,25 +114,6 @@ export default function ReportsView() {
   >(new Set());
   const [isSendingMail, setIsSendingMail] = useState(false);
 
-  const [autoMailGroupsFilterText, setAutoMailGroupsFilterText] = useState('');
-  const [selectedMailGroupIdsForAutoMail, setSelectedMailGroupIdsForAutoMail] =
-    useState<Set<string>>(new Set());
-
-  const [autoMailUsersFilterText, setAutoMailUsersFilterText] = useState('');
-  const [selectedUserIdsForAutoMail, setSelectedUserIdsForAutoMail] = useState<
-    Set<string>
-  >(new Set());
-
-  const [selectedReportTypesForAutoMail, setSelectedReportTypesForAutoMail] =
-    useState<Set<ReportType>>(new Set());
-  const [autoMailIntervalPreset, setAutoMailIntervalPreset] =
-    useState<AutoMailIntervalPreset>('1W');
-  const [autoMailCustomEvery, setAutoMailCustomEvery] = useState(1);
-  const [autoMailCustomUnit, setAutoMailCustomUnit] =
-    useState<AutoMailIntervalUnit>('WEEK');
-  const [isSavingAutoMailSchedule, setIsSavingAutoMailSchedule] =
-    useState(false);
-
   const getApiErrorMessage = (error: unknown) => {
     if (isAxiosError<{ message?: string }>(error)) {
       const message = error.response?.data?.message;
@@ -146,7 +125,7 @@ export default function ReportsView() {
   };
 
   useEffect(() => {
-    if (!showSendMailDialog && !showAutoMailScheduleDialog) return;
+    if (!showSendMailDialog) return;
 
     const loadGroups = async (): Promise<void> => {
       try {
@@ -175,7 +154,7 @@ export default function ReportsView() {
     };
 
     void Promise.all([loadGroups(), loadUsers()]);
-  }, [showSendMailDialog, showAutoMailScheduleDialog, showError]);
+  }, [showSendMailDialog, showError]);
 
   // Projeleri yükle
   useEffect(() => {
@@ -267,18 +246,6 @@ export default function ReportsView() {
     });
   };
 
-  const toggleSelectedUserForAutoMail = (userId: string) => {
-    setSelectedUserIdsForAutoMail((prev) => {
-      const next = new Set(prev);
-      if (next.has(userId)) {
-        next.delete(userId);
-      } else {
-        next.add(userId);
-      }
-      return next;
-    });
-  };
-
   const filteredUsersForMail = useMemo(() => {
     const needle = usersFilterText.trim().toLowerCase();
     if (!needle) return usersForMail;
@@ -290,31 +257,8 @@ export default function ReportsView() {
     });
   }, [usersFilterText, usersForMail]);
 
-  const filteredUsersForAutoMail = useMemo(() => {
-    const needle = autoMailUsersFilterText.trim().toLowerCase();
-    if (!needle) return usersForMail;
-    return usersForMail.filter((u) => {
-      const haystack = `${u.displayName ?? ''} ${u.username ?? ''} ${u.email ?? ''}`
-        .trim()
-        .toLowerCase();
-      return haystack.includes(needle);
-    });
-  }, [autoMailUsersFilterText, usersForMail]);
-
   const toggleSelectedGroupForMail = (groupId: string) => {
     setSelectedMailGroupIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(groupId)) {
-        next.delete(groupId);
-      } else {
-        next.add(groupId);
-      }
-      return next;
-    });
-  };
-
-  const toggleSelectedGroupForAutoMail = (groupId: string) => {
-    setSelectedMailGroupIdsForAutoMail((prev) => {
       const next = new Set(prev);
       if (next.has(groupId)) {
         next.delete(groupId);
@@ -331,12 +275,6 @@ export default function ReportsView() {
     return mailGroups.filter((g) => g.name.toLowerCase().includes(needle));
   }, [groupsFilterText, mailGroups]);
 
-  const filteredGroupsForAutoMail = useMemo(() => {
-    const needle = autoMailGroupsFilterText.trim().toLowerCase();
-    if (!needle) return mailGroups;
-    return mailGroups.filter((g) => g.name.toLowerCase().includes(needle));
-  }, [autoMailGroupsFilterText, mailGroups]);
-
   const selectedEmailsForMail = useMemo(() => {
     const normalizedEmails = new Set<string>();
 
@@ -349,19 +287,6 @@ export default function ReportsView() {
 
     return [...normalizedEmails].sort((a, b) => a.localeCompare(b, 'tr-TR'));
   }, [selectedUserIdsForMail, usersForMail]);
-
-  const selectedEmailsForAutoMail = useMemo(() => {
-    const normalizedEmails = new Set<string>();
-
-    for (const u of usersForMail) {
-      if (!selectedUserIdsForAutoMail.has(u.id)) continue;
-      const normalized = u.email.trim().toLowerCase();
-      if (!normalized) continue;
-      normalizedEmails.add(normalized);
-    }
-
-    return [...normalizedEmails].sort((a, b) => a.localeCompare(b, 'tr-TR'));
-  }, [selectedUserIdsForAutoMail, usersForMail]);
 
   const sendMail = async () => {
     if (!sendMailReport) return;
@@ -414,18 +339,6 @@ export default function ReportsView() {
     );
   };
 
-  const toggleSelectedReportTypeForAutoMail = (type: ReportType) => {
-    setSelectedReportTypesForAutoMail((prev) => {
-      const next = new Set(prev);
-      if (next.has(type)) {
-        next.delete(type);
-      } else {
-        next.add(type);
-      }
-      return next;
-    });
-  };
-
   const closeSendMailDialog = () => {
     if (isSendingMail) return;
     setShowSendMailDialog(false);
@@ -436,21 +349,7 @@ export default function ReportsView() {
     setSelectedUserIdsForMail(new Set());
   };
 
-  const closeAutoMailScheduleDialog = () => {
-    if (isSavingAutoMailSchedule) return;
-    setShowAutoMailScheduleDialog(false);
-    setAutoMailGroupsFilterText('');
-    setSelectedMailGroupIdsForAutoMail(new Set());
-    setAutoMailUsersFilterText('');
-    setSelectedUserIdsForAutoMail(new Set());
-    setSelectedReportTypesForAutoMail(new Set());
-    setAutoMailIntervalPreset('1W');
-    setAutoMailCustomEvery(1);
-    setAutoMailCustomUnit('WEEK');
-  };
-
   const openSendMailDialog = (report: Report) => {
-    setShowAutoMailScheduleDialog(false);
     setSendMailReport(report);
     setShowSendMailDialog(true);
     setIsSendingMail(false);
@@ -460,72 +359,6 @@ export default function ReportsView() {
     );
     setUsersFilterText('');
     setSelectedUserIdsForMail(new Set());
-  };
-
-  const openAutoMailScheduleDialog = () => {
-    setShowSendMailDialog(false);
-    setSendMailReport(null);
-    setShowAutoMailScheduleDialog(true);
-    setIsSavingAutoMailSchedule(false);
-    setAutoMailGroupsFilterText('');
-    setSelectedMailGroupIdsForAutoMail(new Set());
-    setAutoMailUsersFilterText('');
-    setSelectedUserIdsForAutoMail(new Set());
-    setSelectedReportTypesForAutoMail(new Set());
-    setAutoMailIntervalPreset('1W');
-    setAutoMailCustomEvery(1);
-    setAutoMailCustomUnit('WEEK');
-  };
-
-  const saveAutoMailSchedule = async () => {
-    try {
-      setIsSavingAutoMailSchedule(true);
-
-      if (selectedReportTypesForAutoMail.size === 0) {
-        showError('Lütfen en az bir rapor tipi seçin');
-        return;
-      }
-
-      const mailGroupIds = [...selectedMailGroupIdsForAutoMail];
-      const emails = selectedEmailsForAutoMail;
-
-      if (mailGroupIds.length === 0 && emails.length === 0) {
-        showError('Lütfen en az bir mail grubu veya kullanıcı seçin');
-        return;
-      }
-
-      if (autoMailIntervalPreset === 'CUSTOM') {
-        const every = Number.isFinite(autoMailCustomEvery)
-          ? autoMailCustomEvery
-          : 0;
-        if (!Number.isInteger(every) || every <= 0) {
-          showError('Özel aralık için geçerli bir sayı girin');
-          return;
-        }
-      }
-
-      const payload = {
-        reportTypes: [...selectedReportTypesForAutoMail],
-        mailGroupIds: mailGroupIds.length ? mailGroupIds : undefined,
-        emails: emails.length ? emails : undefined,
-        intervalPreset: autoMailIntervalPreset,
-        customEvery:
-          autoMailIntervalPreset === 'CUSTOM' ? autoMailCustomEvery : undefined,
-        customUnit:
-          autoMailIntervalPreset === 'CUSTOM' ? autoMailCustomUnit : undefined,
-      };
-
-      await reportsApi.upsertAutoMailSchedule(payload);
-      showSuccess('Otomatik mail ayarları kaydedildi');
-      closeAutoMailScheduleDialog();
-    } catch (error: unknown) {
-      showError(
-        getApiErrorMessage(error) ??
-          'Otomatik mail ayarları kaydedilirken bir hata oluştu',
-      );
-    } finally {
-      setIsSavingAutoMailSchedule(false);
-    }
   };
 
   const reportTypeLabels: Record<ReportType, string> = {
@@ -627,7 +460,7 @@ export default function ReportsView() {
             </h3>
             <div className='space-y-2'>
               <button
-                onClick={openAutoMailScheduleDialog}
+                onClick={() => router.push('/mail-settings')}
                 className='w-full px-4 py-3 bg-surface hover:bg-(--surface-container-high)! rounded-lg text-left transition-colors border border-outline-variant'
               >
                 <div className='flex items-center gap-3'>
@@ -900,319 +733,6 @@ export default function ReportsView() {
                   className='px-4 py-2 bg-primary text-on-primary rounded-lg hover:opacity-90 transition-opacity font-medium disabled:opacity-60'
                 >
                   {isSendingMail ? 'Gönderiliyor...' : 'Gönder'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showAutoMailScheduleDialog && (
-        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto p-4'>
-          <div className='bg-surface-container rounded-xl p-6 shadow-2xl max-w-4xl w-full border border-outline-variant'>
-            <div className='flex items-center justify-between mb-6'>
-              <div>
-                <h3 className='text-xl font-bold text-on-surface'>
-                  Otomatik Mail Gönderimi
-                </h3>
-                <p className='text-xs text-on-surface-variant mt-1'>
-                  Seçilen rapor tipleri belirlenen aralıkla otomatik gönderilir
-                </p>
-              </div>
-              <button
-                onClick={closeAutoMailScheduleDialog}
-                disabled={isSavingAutoMailSchedule}
-                className='p-2 hover:bg-(--surface-container-high) rounded-lg transition-colors text-on-surface-variant hover:text-(--on-surface) disabled:opacity-50'
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className='space-y-5'>
-              <div className='grid grid-cols-1 lg:grid-cols-3 gap-4'>
-                <div className='rounded-lg border border-outline-variant bg-surface p-4'>
-                  <div className='flex items-center justify-between gap-4'>
-                    <div className='text-sm font-semibold text-on-surface'>
-                      Rapor Tipleri
-                    </div>
-                    <span className='text-xs text-on-surface-variant'>
-                      {selectedReportTypesForAutoMail.size} seçili
-                    </span>
-                  </div>
-
-                  <div className='mt-3 grid grid-cols-1 gap-2'>
-                    {Object.entries(reportTypeLabels).map(([key, label]) => {
-                      const type = key as ReportType;
-                      const isChecked = selectedReportTypesForAutoMail.has(type);
-                      return (
-                        <label
-                          key={key}
-                          className='flex items-center gap-3 p-3 rounded-lg border border-outline-variant hover:bg-(--surface-container-high) cursor-pointer'
-                        >
-                          <input
-                            type='checkbox'
-                            checked={isChecked}
-                            onChange={() => toggleSelectedReportTypeForAutoMail(type)}
-                            disabled={isSavingAutoMailSchedule}
-                            className='w-4 h-4 text-primary bg-surface border-outline rounded focus:ring-2 focus:ring-primary'
-                          />
-                          <span className='text-sm text-on-surface'>{label}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className='rounded-lg border border-outline-variant bg-surface p-4'>
-                  <div className='text-sm font-semibold text-on-surface'>
-                    Gönderim Aralığı
-                  </div>
-
-                  <div className='mt-3 space-y-2'>
-                    <label className='flex items-center gap-2 cursor-pointer'>
-                      <input
-                        type='radio'
-                        name='autoMailInterval'
-                        checked={autoMailIntervalPreset === '1D'}
-                        onChange={() => setAutoMailIntervalPreset('1D')}
-                        disabled={isSavingAutoMailSchedule}
-                        className='w-4 h-4 text-primary bg-surface border-outline rounded focus:ring-2 focus:ring-primary'
-                      />
-                      <span className='text-sm text-on-surface'>Günde 1</span>
-                    </label>
-                    <label className='flex items-center gap-2 cursor-pointer'>
-                      <input
-                        type='radio'
-                        name='autoMailInterval'
-                        checked={autoMailIntervalPreset === '1W'}
-                        onChange={() => setAutoMailIntervalPreset('1W')}
-                        disabled={isSavingAutoMailSchedule}
-                        className='w-4 h-4 text-primary bg-surface border-outline rounded focus:ring-2 focus:ring-primary'
-                      />
-                      <span className='text-sm text-on-surface'>Haftada 1</span>
-                    </label>
-                    <label className='flex items-center gap-2 cursor-pointer'>
-                      <input
-                        type='radio'
-                        name='autoMailInterval'
-                        checked={autoMailIntervalPreset === '1M'}
-                        onChange={() => setAutoMailIntervalPreset('1M')}
-                        disabled={isSavingAutoMailSchedule}
-                        className='w-4 h-4 text-primary bg-surface border-outline rounded focus:ring-2 focus:ring-primary'
-                      />
-                      <span className='text-sm text-on-surface'>Ayda 1</span>
-                    </label>
-                    <label className='flex items-center gap-2 cursor-pointer'>
-                      <input
-                        type='radio'
-                        name='autoMailInterval'
-                        checked={autoMailIntervalPreset === 'CUSTOM'}
-                        onChange={() => setAutoMailIntervalPreset('CUSTOM')}
-                        disabled={isSavingAutoMailSchedule}
-                        className='w-4 h-4 text-primary bg-surface border-outline rounded focus:ring-2 focus:ring-primary'
-                      />
-                      <span className='text-sm text-on-surface'>Özel</span>
-                    </label>
-                  </div>
-
-                  {autoMailIntervalPreset === 'CUSTOM' && (
-                    <div className='mt-4 grid grid-cols-2 gap-3'>
-                      <div>
-                        <label className='block text-xs text-on-surface-variant mb-1'>
-                          Her
-                        </label>
-                        <input
-                          type='number'
-                          min={1}
-                          step={1}
-                          value={autoMailCustomEvery}
-                          onChange={(e) =>
-                            setAutoMailCustomEvery(
-                              Number.parseInt(e.target.value || '0', 10),
-                            )
-                          }
-                          disabled={isSavingAutoMailSchedule}
-                          className='w-full px-4 py-3 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary transition-all disabled:opacity-60'
-                        />
-                      </div>
-                      <div>
-                        <label className='block text-xs text-on-surface-variant mb-1'>
-                          Birim
-                        </label>
-                        <select
-                          value={autoMailCustomUnit}
-                          onChange={(e) =>
-                            setAutoMailCustomUnit(
-                              e.target.value as AutoMailIntervalUnit,
-                            )
-                          }
-                          disabled={isSavingAutoMailSchedule}
-                          className='w-full px-4 py-3 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary transition-all disabled:opacity-60'
-                        >
-                          <option value='DAY'>Gün</option>
-                          <option value='WEEK'>Hafta</option>
-                          <option value='MONTH'>Ay</option>
-                        </select>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className='rounded-lg border border-outline-variant bg-surface p-4'>
-                  <div className='flex items-center justify-between gap-4'>
-                    <div className='text-sm font-semibold text-on-surface'>
-                      Alıcı Özeti
-                    </div>
-                    <span className='text-xs text-on-surface-variant'>
-                      {selectedEmailsForAutoMail.length} e-posta
-                    </span>
-                  </div>
-                  <div className='mt-3 text-xs text-on-surface-variant'>
-                    {selectedMailGroupIdsForAutoMail.size} grup •{' '}
-                    {selectedUserIdsForAutoMail.size} kullanıcı
-                  </div>
-                </div>
-              </div>
-
-              <div className='grid grid-cols-1 lg:grid-cols-2 gap-4'>
-                <div className='rounded-lg border border-outline-variant bg-surface p-4'>
-                  <div className='flex items-center justify-between gap-4'>
-                    <label className='block text-sm font-semibold text-on-surface'>
-                      Mail Grupları
-                    </label>
-                    <span className='text-xs text-on-surface-variant'>
-                      {selectedMailGroupIdsForAutoMail.size} seçili
-                    </span>
-                  </div>
-
-                  <div className='mt-3'>
-                    <input
-                      value={autoMailGroupsFilterText}
-                      onChange={(e) => setAutoMailGroupsFilterText(e.target.value)}
-                      disabled={isSavingAutoMailSchedule || isMailGroupsLoading}
-                      className='w-full px-4 py-3 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary transition-all disabled:opacity-60'
-                      placeholder='Grup ara'
-                    />
-                  </div>
-
-                  <div className='mt-3 max-h-64 overflow-y-auto rounded-lg border border-outline bg-surface'>
-                    {isMailGroupsLoading ? (
-                      <div className='p-4 text-sm text-on-surface-variant'>
-                        Yükleniyor...
-                      </div>
-                    ) : filteredGroupsForAutoMail.length === 0 ? (
-                      <div className='p-4 text-sm text-on-surface-variant'>
-                        Mail grubu bulunamadı.
-                      </div>
-                    ) : (
-                      [...filteredGroupsForAutoMail]
-                        .sort((a, b) => a.name.localeCompare(b.name, 'tr-TR'))
-                        .map((g) => {
-                          const isChecked =
-                            selectedMailGroupIdsForAutoMail.has(g.id);
-                          return (
-                            <label
-                              key={g.id}
-                              className='flex items-center gap-3 p-3 border-b border-outline-variant last:border-b-0 hover:bg-(--surface-container-high) cursor-pointer'
-                            >
-                              <input
-                                type='checkbox'
-                                checked={isChecked}
-                                onChange={() => toggleSelectedGroupForAutoMail(g.id)}
-                                disabled={isSavingAutoMailSchedule}
-                                className='w-4 h-4 text-primary bg-surface border-outline rounded focus:ring-2 focus:ring-primary'
-                              />
-                              <div className='min-w-0 flex-1'>
-                                <div className='text-sm font-medium text-on-surface truncate'>
-                                  {g.name}
-                                </div>
-                                <div className='text-xs text-on-surface-variant truncate'>
-                                  {g.emails.length} e-posta
-                                </div>
-                              </div>
-                            </label>
-                          );
-                        })
-                    )}
-                  </div>
-                </div>
-
-                <div className='rounded-lg border border-outline-variant bg-surface p-4'>
-                  <div className='flex items-center justify-between gap-4'>
-                    <label className='block text-sm font-semibold text-on-surface'>
-                      Kullanıcılar
-                    </label>
-                    <span className='text-xs text-on-surface-variant'>
-                      {selectedUserIdsForAutoMail.size} seçili
-                    </span>
-                  </div>
-
-                  <div className='mt-3'>
-                    <input
-                      value={autoMailUsersFilterText}
-                      onChange={(e) => setAutoMailUsersFilterText(e.target.value)}
-                      disabled={isSavingAutoMailSchedule || isUsersForMailLoading}
-                      className='w-full px-4 py-3 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary transition-all disabled:opacity-60'
-                      placeholder='İsim / kullanıcı adı / e-posta ara'
-                    />
-                  </div>
-
-                  <div className='mt-3 max-h-64 overflow-y-auto rounded-lg border border-outline bg-surface'>
-                    {isUsersForMailLoading ? (
-                      <div className='p-4 text-sm text-on-surface-variant'>
-                        Yükleniyor...
-                      </div>
-                    ) : filteredUsersForAutoMail.length === 0 ? (
-                      <div className='p-4 text-sm text-on-surface-variant'>
-                        Kullanıcı bulunamadı.
-                      </div>
-                    ) : (
-                      filteredUsersForAutoMail.map((u) => {
-                        const isChecked = selectedUserIdsForAutoMail.has(u.id);
-                        return (
-                          <label
-                            key={u.id}
-                            className='flex items-center gap-3 p-3 border-b border-outline-variant last:border-b-0 hover:bg-(--surface-container-high) cursor-pointer'
-                          >
-                            <input
-                              type='checkbox'
-                              checked={isChecked}
-                              onChange={() => toggleSelectedUserForAutoMail(u.id)}
-                              disabled={isSavingAutoMailSchedule}
-                              className='w-4 h-4 text-primary bg-surface border-outline rounded focus:ring-2 focus:ring-primary'
-                            />
-                            <div className='min-w-0'>
-                              <div className='text-sm font-medium text-on-surface truncate'>
-                                {u.displayName || u.username || 'Kullanıcı'}
-                              </div>
-                              <div className='text-xs text-on-surface-variant truncate'>
-                                {u.email}
-                              </div>
-                            </div>
-                          </label>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className='flex items-center justify-end gap-3 pt-2'>
-                <button
-                  type='button'
-                  onClick={closeAutoMailScheduleDialog}
-                  disabled={isSavingAutoMailSchedule}
-                  className='px-4 py-2 border border-outline text-on-surface rounded-lg hover:bg-(--surface-container-high) transition-colors disabled:opacity-60'
-                >
-                  Vazgeç
-                </button>
-                <button
-                  type='button'
-                  onClick={saveAutoMailSchedule}
-                  disabled={isSavingAutoMailSchedule}
-                  className='px-4 py-2 bg-primary text-on-primary rounded-lg hover:opacity-90 transition-opacity font-medium disabled:opacity-60'
-                >
-                  {isSavingAutoMailSchedule ? 'Kaydediliyor...' : 'Kaydet'}
                 </button>
               </div>
             </div>

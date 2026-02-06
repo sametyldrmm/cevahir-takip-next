@@ -14,7 +14,6 @@ import { apiClient } from '@/lib/api-client';
 import { usersApi, User as ApiUser } from '@/lib/api/users';
 import { useNotification } from '@/app/contexts/NotificationContext';
 import { useAuth } from '@/app/contexts/AuthContext';
-import ExcelExportDialog from '@/app/components/dialogs/ExcelExportDialog';
 import MissingTargetsExportDialog from '@/app/components/dialogs/MissingTargetsExportDialog';
 import PerformanceReportDialog from '@/app/components/dialogs/PerformanceReportDialog';
 import { mailsApi } from '@/lib/api/mails';
@@ -31,19 +30,74 @@ export default function ReportsView() {
   const [reports, setReports] = useState<Report[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [selectedType, setSelectedType] = useState<ReportType>('TARGETS');
-  const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
   const [filename, setFilename] = useState('');
   const [projects, setProjects] = useState<ApiProject[]>([]);
-  const [showExcelExportDialog, setShowExcelExportDialog] = useState(false);
   const [showMissingTargetsDialog, setShowMissingTargetsDialog] =
     useState(false);
   const [showPerformanceDialog, setShowPerformanceDialog] = useState(false);
   const [showAutoMailScheduleDialog, setShowAutoMailScheduleDialog] =
     useState(false);
+  const [showTargetsDialog, setShowTargetsDialog] = useState(false);
+  const [selectedPeriodType, setSelectedPeriodType] = useState<'daily' | 'weekly'>('weekly');
+  const [selectedTeamProjects, setSelectedTeamProjects] = useState<string[]>([]);
+  const [targetsDate, setTargetsDate] = useState('');
+  const [selectedWeek, setSelectedWeek] = useState<string>('current');
+
+  // Hafta seçeneklerini oluştur
+  const getWeekOptions = () => {
+    const options: Array<{ value: string; label: string }> = [];
+    const today = new Date();
+    const currentWeekStart = new Date(today);
+    currentWeekStart.setDate(today.getDate() - today.getDay() + 1); // Pazartesi
+    currentWeekStart.setHours(0, 0, 0, 0);
+
+    // Güncel hafta
+    const currentWeekEnd = new Date(currentWeekStart);
+    currentWeekEnd.setDate(currentWeekStart.getDate() + 6); // Pazar
+    options.push({
+      value: 'current',
+      label: `Bu Hafta (${currentWeekStart.getDate().toString().padStart(2, '0')}.${(currentWeekStart.getMonth() + 1).toString().padStart(2, '0')}.${currentWeekStart.getFullYear()} - ${currentWeekEnd.getDate().toString().padStart(2, '0')}.${(currentWeekEnd.getMonth() + 1).toString().padStart(2, '0')}.${currentWeekEnd.getFullYear()})`,
+    });
+
+    // Geçmiş 52 hafta
+    for (let i = 1; i <= 52; i++) {
+      const weekStart = new Date(currentWeekStart);
+      weekStart.setDate(currentWeekStart.getDate() - 7 * i);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6); // Pazar
+      options.push({
+        value: `last${i}`,
+        label: `${i} Hafta Öncesi (${weekStart.getDate().toString().padStart(2, '0')}.${(weekStart.getMonth() + 1).toString().padStart(2, '0')}.${weekStart.getFullYear()} - ${weekEnd.getDate().toString().padStart(2, '0')}.${(weekEnd.getMonth() + 1).toString().padStart(2, '0')}.${weekEnd.getFullYear()})`,
+      });
+    }
+
+    return options;
+  };
+
+  // Hafta seçimine göre tarihleri hesapla
+  const calculateWeekDates = (weekValue: string) => {
+    const today = new Date();
+    const currentWeekStart = new Date(today);
+    currentWeekStart.setDate(today.getDate() - today.getDay() + 1); // Pazartesi
+    currentWeekStart.setHours(0, 0, 0, 0);
+
+    let weekStart: Date;
+    if (weekValue === 'current') {
+      weekStart = new Date(currentWeekStart);
+    } else {
+      const weekNum = parseInt(weekValue.replace('last', ''));
+      weekStart = new Date(currentWeekStart);
+      weekStart.setDate(currentWeekStart.getDate() - 7 * weekNum);
+    }
+
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6); // Pazar
+
+    return {
+      start: weekStart.toISOString().split('T')[0],
+      end: weekEnd.toISOString().split('T')[0],
+    };
+  };
 
   const [showSendMailDialog, setShowSendMailDialog] = useState(false);
   const [sendMailReport, setSendMailReport] = useState<Report | null>(null);
@@ -176,45 +230,6 @@ export default function ReportsView() {
     }
   };
 
-  const handleCreateReport = async () => {
-    try {
-      setIsCreating(true);
-      const parameters: Record<string, unknown> = {};
-
-      if (selectedProjects.length > 0) {
-        parameters.projectIds = selectedProjects;
-      }
-      if (startDate) {
-        parameters.startDate = startDate;
-      }
-      if (endDate) {
-        parameters.endDate = endDate;
-      }
-
-      const newReport = await reportsApi.createReport({
-        type: selectedType,
-        parameters: Object.keys(parameters).length > 0 ? parameters : undefined,
-        filename: filename || undefined,
-      });
-
-      setReports((prev) => [newReport, ...prev]);
-      setShowCreateDialog(false);
-      showSuccess('Rapor oluşturma isteği başarıyla gönderildi');
-
-      // Formu sıfırla
-      setSelectedType('TARGETS');
-      setSelectedProjects([]);
-      setStartDate('');
-      setEndDate('');
-      setFilename('');
-    } catch (error: unknown) {
-      showError(
-        getApiErrorMessage(error) ?? 'Rapor oluşturulurken bir hata oluştu',
-      );
-    } finally {
-      setIsCreating(false);
-    }
-  };
 
   const handleDownload = async (report: Report) => {
     try {
@@ -520,12 +535,6 @@ export default function ReportsView() {
     TEAM: 'Takım Raporu',
   };
 
-  const handleExcelExportCompleted = (filePath: string) => {
-    if (filePath) {
-      showSuccess('Excel export başarıyla oluşturuldu');
-    }
-  };
-
   const handleMissingTargetsCompleted = (filePath: string) => {
     if (filePath) {
       showSuccess('Eksik hedef girişleri raporu başarıyla oluşturuldu');
@@ -553,13 +562,13 @@ export default function ReportsView() {
         </div>
 
         {/* Hızlı Erişim Butonları */}
-        <div className='grid grid-cols-1 md:grid-cols-3 gap-4 mb-6'>
+        <div className='mb-6'>
           {/* RAPORLAR Bölümü */}
           <div className='bg-surface-container p-4 rounded-lg border border-outline-variant'>
             <h3 className='text-sm font-bold text-on-surface-variant uppercase mb-3'>
               RAPORLAR
             </h3>
-            <div className='space-y-2'>
+            <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
               <button
                 onClick={() => setShowPerformanceDialog(true)}
                 className='w-full px-4 py-3 bg-surface hover:bg-(--surface-container-high)! rounded-lg text-left transition-colors border border-outline-variant'
@@ -592,31 +601,31 @@ export default function ReportsView() {
                   </div>
                 </div>
               </button>
-            </div>
-          </div>
-
-          {/* DIŞA AKTARMA Bölümü */}
-          <div className='bg-surface-container p-4 rounded-lg border border-outline-variant'>
-            <h3 className='text-sm font-bold text-on-surface-variant uppercase mb-3'>
-              DIŞA AKTARMA
-            </h3>
-            <div className='space-y-2'>
               <button
-                onClick={() => setShowExcelExportDialog(true)}
+                onClick={() => setShowTargetsDialog(true)}
                 className='w-full px-4 py-3 bg-surface hover:bg-(--surface-container-high)! rounded-lg text-left transition-colors border border-outline-variant'
               >
                 <div className='flex items-center gap-3'>
-                  <span className='text-xl'>📊</span>
+                  <span className='text-xl'>🎯</span>
                   <div>
                     <div className='font-semibold text-on-surface'>
-                      Excel Export
+                      Hedefler
                     </div>
                     <div className='text-xs text-on-surface-variant'>
-                      Günlük veya haftalık Excel export
+                      Hedef raporları oluştur
                     </div>
                   </div>
                 </div>
               </button>
+            </div>
+          </div>
+
+          {/* DIŞA AKTARMA Bölümü */}
+          <div className='bg-surface-container p-4 rounded-lg border border-outline-variant mt-4'>
+            <h3 className='text-sm font-bold text-on-surface-variant uppercase mb-3'>
+              DIŞA AKTARMA
+            </h3>
+            <div className='space-y-2'>
               <button
                 onClick={openAutoMailScheduleDialog}
                 className='w-full px-4 py-3 bg-surface hover:bg-(--surface-container-high)! rounded-lg text-left transition-colors border border-outline-variant'
@@ -633,24 +642,6 @@ export default function ReportsView() {
                   </div>
                 </div>
               </button>
-            </div>
-          </div>
-
-          {/* CSV RAPORLAR Bölümü (Mevcut) */}
-          <div className='bg-surface-container p-4 rounded-lg border border-outline-variant'>
-            <h3 className='text-sm font-bold text-on-surface-variant uppercase mb-3'>
-              CSV RAPORLAR
-            </h3>
-            <div className='space-y-2'>
-              <button
-                onClick={() => setShowCreateDialog(true)}
-                className='w-full px-4 py-3 bg-primary text-on-primary rounded-lg hover:opacity-90 transition-opacity font-medium'
-              >
-                + Yeni Rapor Oluştur
-              </button>
-              <p className='text-xs text-on-surface-variant mt-2'>
-                Hedef, proje, kullanıcı ve takım raporları
-              </p>
             </div>
           </div>
         </div>
@@ -1229,164 +1220,6 @@ export default function ReportsView() {
         </div>
       )}
 
-      {/* Rapor Oluşturma Dialog */}
-      {showCreateDialog && (
-        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto p-4'>
-          <div className='bg-surface-container rounded-xl p-6 shadow-2xl max-w-2xl w-full border border-outline-variant'>
-            <div className='flex items-center justify-between mb-6'>
-              <h3 className='text-xl font-bold text-on-surface'>
-                Yeni Rapor Oluştur
-              </h3>
-              <button
-                onClick={() => setShowCreateDialog(false)}
-                className='p-2 hover:bg-(--surface-container-high) rounded-lg transition-colors text-on-surface-variant hover:text-(--on-surface)'
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className='space-y-5'>
-              {/* Rapor Tipi */}
-              <div>
-                <label className='block text-sm font-semibold text-on-surface mb-2'>
-                  Rapor Tipi <span className='text-error'>*</span>
-                </label>
-                <select
-                  value={selectedType}
-                  onChange={(e) =>
-                    setSelectedType(e.target.value as ReportType)
-                  }
-                  className='w-full px-4 py-3 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary transition-all'
-                >
-                  {Object.entries(reportTypeLabels).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Proje Seçimi */}
-              <div>
-                <label className='block text-sm font-semibold text-on-surface mb-2'>
-                  Projeler (Opsiyonel)
-                </label>
-                {projects.length > 0 ? (
-                  <div className='max-h-48 overflow-y-auto border border-outline rounded-lg p-3 bg-surface'>
-                    {projects.map((project) => {
-                      const isSelected = selectedProjects.includes(project.id);
-                      return (
-                        <label
-                          key={project.id}
-                          className='flex items-center gap-2 p-2 hover:bg-(--surface-container-high) rounded cursor-pointer'
-                        >
-                          <input
-                            type='checkbox'
-                            checked={isSelected}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedProjects([
-                                  ...selectedProjects,
-                                  project.id,
-                                ]);
-                              } else {
-                                setSelectedProjects(
-                                  selectedProjects.filter(
-                                    (id) => id !== project.id,
-                                  ),
-                                );
-                              }
-                            }}
-                            className='w-4 h-4 text-primary bg-surface border-outline rounded focus:ring-2 focus:ring-primary'
-                          />
-                          <span className='text-sm text-on-surface'>
-                            {project.name}
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className='border border-outline rounded-lg p-3 bg-surface-container-high'>
-                    <p className='text-sm text-on-surface-variant'>
-                      Proje bulunamadı veya yüklenemedi. Rapor tüm projeler için
-                      oluşturulacak.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Tarih Aralığı */}
-              <div className='grid grid-cols-2 gap-4'>
-                <div>
-                  <label className='block text-sm font-semibold text-on-surface mb-2'>
-                    Başlangıç Tarihi (Opsiyonel)
-                  </label>
-                  <input
-                    type='date'
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className='w-full px-4 py-3 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary transition-all'
-                  />
-                </div>
-                <div>
-                  <label className='block text-sm font-semibold text-on-surface mb-2'>
-                    Bitiş Tarihi (Opsiyonel)
-                  </label>
-                  <input
-                    type='date'
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className='w-full px-4 py-3 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary transition-all'
-                  />
-                </div>
-              </div>
-
-              {/* Dosya Adı */}
-              <div>
-                <label className='block text-sm font-semibold text-on-surface mb-2'>
-                  Dosya Adı (Opsiyonel)
-                </label>
-                <input
-                  type='text'
-                  value={filename}
-                  onChange={(e) => setFilename(e.target.value)}
-                  placeholder='Dosya Adı (opsiyonel)'
-                  className='w-full px-4 py-3 bg-surface border border-outline rounded-lg text-on-surface placeholder-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all'
-                />
-                <p className='mt-2 text-xs text-on-surface-variant'>
-                  Boş bırakırsanız otomatik ad oluşturulur
-                </p>
-              </div>
-            </div>
-
-            <div className='flex gap-3 pt-6 mt-6 border-t border-outline-variant'>
-              <button
-                onClick={() => setShowCreateDialog(false)}
-                disabled={isCreating}
-                className='flex-1 px-4 py-3 bg-surface-container-high text-on-surface rounded-lg font-medium hover:bg-(--surface-container-highest) transition-colors disabled:opacity-50'
-              >
-                İptal
-              </button>
-              <button
-                onClick={handleCreateReport}
-                disabled={isCreating}
-                className='flex-1 px-4 py-3 bg-primary text-on-primary rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50'
-              >
-                {isCreating ? 'Oluşturuluyor...' : 'Rapor Oluştur'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Excel Export Dialog */}
-      <ExcelExportDialog
-        isOpen={showExcelExportDialog}
-        onClose={() => setShowExcelExportDialog(false)}
-        onExportCompleted={handleExcelExportCompleted}
-      />
-
       {/* Missing Targets Export Dialog */}
       <MissingTargetsExportDialog
         isOpen={showMissingTargetsDialog}
@@ -1400,6 +1233,312 @@ export default function ReportsView() {
         onClose={() => setShowPerformanceDialog(false)}
         onExportCompleted={handlePerformanceCompleted}
       />
+
+      {/* Hedefler Dialog */}
+      {showTargetsDialog && (
+        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto p-4'>
+          <div className='bg-surface-container rounded-2xl shadow-2xl max-w-2xl w-full border border-outline-variant overflow-hidden'>
+            {/* Header */}
+            <div className='bg-gradient-to-r from-primary-container to-primary-container/80 p-6 border-b border-outline-variant'>
+              <div className='flex items-center justify-between'>
+                <div className='flex items-center gap-4'>
+                  <div className='w-14 h-14 rounded-xl bg-primary flex items-center justify-center shadow-lg'>
+                    <span className='text-3xl'>🎯</span>
+                  </div>
+                  <div>
+                    <h3 className='text-2xl font-bold text-on-surface'>
+                      Hedef Raporu Oluştur
+                    </h3>
+                    <p className='text-sm text-on-surface-variant mt-1'>
+                      Hedef verilerinizi rapor olarak oluşturun
+                    </p>
+                  </div>
+                </div>
+                <button
+                onClick={() => {
+                  setShowTargetsDialog(false);
+                  setSelectedPeriodType('weekly');
+                  setSelectedTeamProjects([]);
+                  setTargetsDate('');
+                  setSelectedWeek('current');
+                }}
+                  disabled={isCreating}
+                  className='w-10 h-10 flex items-center justify-center hover:bg-black/10 rounded-lg transition-colors text-on-surface-variant hover:text-on-surface disabled:opacity-50'
+                >
+                  <span className='text-xl'>✕</span>
+                </button>
+              </div>
+            </div>
+
+            <div className='p-6 space-y-6'>
+              {/* Periyot Tipi */}
+              <div>
+                <label className='block text-sm font-bold text-on-surface mb-4'>
+                  Rapor Periyodu <span className='text-error'>*</span>
+                </label>
+                <div className='grid grid-cols-2 gap-4'>
+                  <button
+                    onClick={() => setSelectedPeriodType('daily')}
+                    disabled={isCreating}
+                    className={`group relative px-6 py-5 rounded-xl border-2 transition-all duration-200 font-semibold overflow-hidden ${
+                      selectedPeriodType === 'daily'
+                        ? 'border-primary bg-primary-container text-primary shadow-lg scale-105'
+                        : 'border-outline-variant bg-surface text-on-surface hover:border-primary hover:shadow-md hover:scale-[1.02]'
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    <div className='flex flex-col items-center gap-2'>
+                      <span className='text-3xl'>📅</span>
+                      <span>Günlük</span>
+                    </div>
+                    {selectedPeriodType === 'daily' && (
+                      <div className='absolute inset-0 bg-primary/5 pointer-events-none' />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setSelectedPeriodType('weekly')}
+                    disabled={isCreating}
+                    className={`group relative px-6 py-5 rounded-xl border-2 transition-all duration-200 font-semibold overflow-hidden ${
+                      selectedPeriodType === 'weekly'
+                        ? 'border-primary bg-primary-container text-primary shadow-lg scale-105'
+                        : 'border-outline-variant bg-surface text-on-surface hover:border-primary hover:shadow-md hover:scale-[1.02]'
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    <div className='flex flex-col items-center gap-2'>
+                      <span className='text-3xl'>📆</span>
+                      <span>Haftalık</span>
+                    </div>
+                    {selectedPeriodType === 'weekly' && (
+                      <div className='absolute inset-0 bg-primary/5 pointer-events-none' />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Tarih/Hafta Seçimi */}
+              {selectedPeriodType === 'daily' ? (
+                <div className='bg-surface rounded-xl p-5 border border-outline-variant'>
+                  <label className='block text-sm font-bold text-on-surface mb-3'>
+                    📅 Tarih <span className='text-error'>*</span>
+                  </label>
+                  <input
+                    type='date'
+                    value={targetsDate}
+                    onChange={(e) => setTargetsDate(e.target.value)}
+                    disabled={isCreating}
+                    className='w-full px-4 py-3.5 bg-surface-container border-2 border-outline rounded-xl text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all disabled:opacity-50 font-medium'
+                  />
+                </div>
+              ) : (
+                <div className='bg-surface rounded-xl p-5 border border-outline-variant'>
+                  <label className='block text-sm font-bold text-on-surface mb-3'>
+                    📆 Hafta Seçimi <span className='text-error'>*</span>
+                  </label>
+                  <select
+                    value={selectedWeek}
+                    onChange={(e) => {
+                      setSelectedWeek(e.target.value);
+                      const weekDates = calculateWeekDates(e.target.value);
+                      setTargetsDate(weekDates.start); // Başlangıç tarihini sakla
+                    }}
+                    disabled={isCreating}
+                    className='w-full px-4 py-3.5 bg-surface-container border-2 border-outline rounded-xl text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all disabled:opacity-50 font-medium'
+                  >
+                    {getWeekOptions().map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className='mt-3 text-xs text-on-surface-variant flex items-center gap-2'>
+                    <span className='text-primary'>ℹ️</span>
+                    Geçmiş 52 hafta (1 yıl) ve güncel hafta seçilebilir. Hafta Pazartesi-Pazar arasındadır.
+                  </p>
+                </div>
+              )}
+
+              {/* Takım Seçimi */}
+              <div className='bg-surface rounded-xl p-5 border border-outline-variant'>
+                <div className='flex items-center justify-between mb-3'>
+                  <label className='block text-sm font-bold text-on-surface'>
+                    👥 Takım/Proje Seçimi
+                  </label>
+                  {selectedTeamProjects.length > 0 && (
+                    <span className='text-xs px-3 py-1 bg-primary-container text-primary rounded-full font-medium'>
+                      {selectedTeamProjects.length} seçili
+                    </span>
+                  )}
+                </div>
+                <p className='text-xs text-on-surface-variant mb-4'>
+                  Seçmezseniz tüm takımlar için rapor oluşturulur
+                </p>
+                {projects.length > 0 ? (
+                  <div className='max-h-64 overflow-y-auto space-y-2'>
+                    {projects.map((project) => {
+                      const isSelected = selectedTeamProjects.includes(project.id);
+                      return (
+                        <label
+                          key={project.id}
+                          className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                            isSelected
+                              ? 'border-primary bg-primary-container/30 shadow-md'
+                              : 'border-outline-variant bg-surface-container hover:border-primary/50 hover:shadow-sm'
+                          }`}
+                        >
+                          <div className='relative'>
+                            <input
+                              type='checkbox'
+                              checked={isSelected}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedTeamProjects([
+                                    ...selectedTeamProjects,
+                                    project.id,
+                                  ]);
+                                } else {
+                                  setSelectedTeamProjects(
+                                    selectedTeamProjects.filter(
+                                      (id) => id !== project.id,
+                                    ),
+                                  );
+                                }
+                              }}
+                              disabled={isCreating}
+                              className='w-5 h-5 text-primary bg-surface border-2 border-outline rounded-md focus:ring-2 focus:ring-primary cursor-pointer disabled:cursor-not-allowed'
+                            />
+                          </div>
+                          <div className='flex-1 min-w-0'>
+                            <div className='text-sm font-semibold text-on-surface truncate'>
+                              {project.name}
+                            </div>
+                            {project.category && (
+                              <div className='text-xs text-on-surface-variant mt-1'>
+                                {project.category}
+                              </div>
+                            )}
+                          </div>
+                          {isSelected && (
+                            <div className='w-6 h-6 rounded-full bg-primary flex items-center justify-center'>
+                              <span className='text-white text-xs'>✓</span>
+                            </div>
+                          )}
+                        </label>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className='border-2 border-outline-variant rounded-xl p-4 bg-surface-container-high'>
+                    <p className='text-sm text-on-surface-variant text-center'>
+                      Proje bulunamadı veya yüklenemedi. Rapor tüm projeler için oluşturulacak.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Dosya Adı */}
+              <div className='bg-surface rounded-xl p-5 border border-outline-variant'>
+                <label className='block text-sm font-bold text-on-surface mb-3'>
+                  📄 Dosya Adı <span className='text-xs font-normal text-on-surface-variant'>(Opsiyonel)</span>
+                </label>
+                <input
+                  type='text'
+                  value={filename}
+                  onChange={(e) => setFilename(e.target.value)}
+                  placeholder='Örn: Hedef_Raporu_Ocak_2026'
+                  disabled={isCreating}
+                  className='w-full px-4 py-3.5 bg-surface-container border-2 border-outline rounded-xl text-on-surface placeholder-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all disabled:opacity-50 font-medium'
+                />
+                <p className='mt-2 text-xs text-on-surface-variant flex items-center gap-2'>
+                  <span>💡</span>
+                  Boş bırakırsanız otomatik ad oluşturulur
+                </p>
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className='bg-surface-container-high px-6 py-4 border-t border-outline-variant flex gap-3'>
+              <button
+                onClick={() => {
+                  setShowTargetsDialog(false);
+                  setSelectedPeriodType('weekly');
+                  setSelectedTeamProjects([]);
+                  setTargetsDate('');
+                  setSelectedWeek('current');
+                  setFilename('');
+                }}
+                disabled={isCreating}
+                className='flex-1 px-6 py-3.5 bg-surface text-on-surface rounded-xl font-semibold hover:bg-surface-container-high transition-all disabled:opacity-50 border-2 border-outline-variant'
+              >
+                İptal
+              </button>
+              <button
+                onClick={async () => {
+                  if (selectedPeriodType === 'daily' && !targetsDate) {
+                    showError('Lütfen bir tarih seçin');
+                    return;
+                  }
+                  if (selectedPeriodType === 'weekly' && !selectedWeek) {
+                    showError('Lütfen bir hafta seçin');
+                    return;
+                  }
+
+                  try {
+                    setIsCreating(true);
+                    const parameters: Record<string, unknown> = {};
+
+                    if (selectedTeamProjects.length > 0) {
+                      parameters.projectIds = selectedTeamProjects;
+                    }
+
+                    if (selectedPeriodType === 'daily') {
+                      parameters.startDate = targetsDate;
+                      parameters.endDate = targetsDate;
+                    } else {
+                      // Haftalık: Seçilen haftanın tarihlerini hesapla
+                      const weekDates = calculateWeekDates(selectedWeek);
+                      parameters.startDate = weekDates.start;
+                      parameters.endDate = weekDates.end;
+                    }
+
+                    const newReport = await reportsApi.createReport({
+                      type: 'TARGETS',
+                      parameters: Object.keys(parameters).length > 0 ? parameters : undefined,
+                      filename: filename || undefined,
+                    });
+
+                    setReports((prev) => [newReport, ...prev]);
+                    setShowTargetsDialog(false);
+                    showSuccess('Hedef raporu oluşturma isteği başarıyla gönderildi');
+
+                    // Formu sıfırla
+                    setSelectedPeriodType('weekly');
+                    setSelectedTeamProjects([]);
+                    setTargetsDate('');
+                    setSelectedWeek('current');
+                    setFilename('');
+                  } catch (error: unknown) {
+                    showError(
+                      getApiErrorMessage(error) ?? 'Rapor oluşturulurken bir hata oluştu',
+                    );
+                  } finally {
+                    setIsCreating(false);
+                  }
+                }}
+                disabled={isCreating}
+                className='flex-1 px-6 py-3.5 bg-primary text-on-primary rounded-xl font-semibold hover:opacity-90 transition-all disabled:opacity-50 shadow-lg hover:shadow-xl'
+              >
+                {isCreating ? (
+                  <span className='flex items-center justify-center gap-2'>
+                    <div className='w-4 h-4 border-2 border-on-primary border-t-transparent rounded-full animate-spin'></div>
+                    Oluşturuluyor...
+                  </span>
+                ) : (
+                  '✨ Rapor Oluştur'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

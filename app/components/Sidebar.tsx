@@ -249,6 +249,7 @@ export default function Sidebar({
       reports: '/reports',
       permission_requests: '/permission-requests',
       mail_groups: '/mail-groups',
+      mail_settings: '/mail-settings',
       admin_panel: '/admin-panel',
       settings: '/settings',
     };
@@ -287,6 +288,7 @@ export default function Sidebar({
         { id: 'reports', label: 'Raporlama', icon: 'chart' },
         { id: 'permission_requests', label: 'İzin İstekleri', icon: 'request' },
         { id: 'mail_groups', label: 'Mail Grupları', icon: 'mail' },
+        { id: 'mail_settings', label: 'Mail Gönderim Ayarları', icon: 'mail' },
         { id: 'admin_panel', label: 'Admin Panel', icon: 'admin' },
       ]
     : navItems;

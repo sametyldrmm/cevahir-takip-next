@@ -21,6 +21,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
     if (pathname?.startsWith("/team-tracking")) return "team_tracking";
     if (pathname?.startsWith("/reports")) return "reports";
     if (pathname?.startsWith("/permission-requests")) return "permission_requests";
+    if (pathname?.startsWith("/mail-groups")) return "mail_groups";
+    if (pathname?.startsWith("/mail-settings")) return "mail_settings";
     if (pathname?.startsWith("/admin-panel")) return "admin_panel";
     if (pathname?.startsWith("/settings")) return "settings";
     return "dashboard";

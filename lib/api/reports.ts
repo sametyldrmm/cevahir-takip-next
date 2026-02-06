@@ -6,6 +6,9 @@ export type ReportType = 'TARGETS' | 'PROJECTS' | 'USERS' | 'TEAM';
 export type AutoMailIntervalUnit = 'DAY' | 'WEEK' | 'MONTH';
 export type AutoMailIntervalPreset = '1D' | '1W' | '1M' | 'CUSTOM';
 
+export type AutoMailReportType = 'PERFORMANCE' | 'TARGETS' | 'MISSING_TARGETS';
+export type AutoMailReportPeriod = 'daily' | 'weekly' | 'monthly' | 'yearly';
+
 export interface Report {
   id: string;
   type: ReportType;
@@ -44,12 +47,28 @@ export interface ReportDownload {
 }
 
 export interface UpsertAutoMailScheduleDto {
-  reportTypes: ReportType[];
+  reportTypes: AutoMailReportType[];
   mailGroupIds?: string[];
   emails?: string[];
+  projectIds?: string[];
   intervalPreset: AutoMailIntervalPreset;
   customEvery?: number;
   customUnit?: AutoMailIntervalUnit;
+  periodByReportType: Partial<Record<AutoMailReportType, AutoMailReportPeriod>>;
+}
+
+export interface AutoMailSchedule {
+  id?: string;
+  reportTypes: AutoMailReportType[];
+  mailGroupIds?: string[];
+  emails?: string[];
+  projectIds?: string[];
+  intervalPreset: AutoMailIntervalPreset;
+  customEvery?: number;
+  customUnit?: AutoMailIntervalUnit;
+  periodByReportType?: Partial<Record<AutoMailReportType, AutoMailReportPeriod>>;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export const reportsApi = {
@@ -125,6 +144,30 @@ export const reportsApi = {
         dto,
       );
     return response.data;
+  },
+
+  async getAutoMailSchedules(): Promise<AutoMailSchedule[]> {
+    const response = await apiClient
+      .getClient()
+      .get<AutoMailSchedule[] | AutoMailSchedule | null>(
+        '/reports/auto-mail-schedule',
+      );
+
+    const data = response.data;
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    return [data];
+  },
+
+  async deleteAutoMailSchedule(scheduleId?: string): Promise<void> {
+    if (scheduleId) {
+      await apiClient
+        .getClient()
+        .delete(`/reports/auto-mail-schedule/${scheduleId}`);
+      return;
+    }
+
+    await apiClient.getClient().delete('/reports/auto-mail-schedule');
   },
 };
 

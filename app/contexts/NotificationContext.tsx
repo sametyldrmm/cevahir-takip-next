@@ -28,8 +28,10 @@ const NotificationContext = createContext<NotificationContextType | null>(null);
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const [realTimeNotifications, setRealTimeNotifications] = useState<NotificationPayload[]>([]);
 
-  // Token kontrolü (circular dependency'yi önlemek için)
-  const isAuthenticated = typeof window !== "undefined" && !!Cookies.get("accessToken");
+  const [accessToken, setAccessToken] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return Cookies.get("accessToken") ?? null;
+  });
 
   const showSuccess = (message: string, options?: ToastOptions) =>
     toast.success(message, options);
@@ -43,9 +45,75 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       icon: "⚠️",
     });
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const syncToken = () => {
+      setAccessToken(Cookies.get("accessToken") ?? null);
+    };
+
+    syncToken();
+    window.addEventListener("focus", syncToken);
+    document.addEventListener("visibilitychange", syncToken);
+
+    const intervalId = window.setInterval(syncToken, 1500);
+
+    return () => {
+      window.removeEventListener("focus", syncToken);
+      document.removeEventListener("visibilitychange", syncToken);
+      window.clearInterval(intervalId);
+    };
+  }, []);
+
+  const showBrowserNotification = useCallback((notification: NotificationPayload) => {
+    void (async () => {
+      try {
+        if (
+          typeof window === "undefined" ||
+          !("Notification" in window) ||
+          Notification.permission !== "granted"
+        ) {
+          return;
+        }
+
+        const url =
+          typeof notification.data === "object" && notification.data !== null
+            ? String((notification.data as any).url ?? "")
+            : "";
+
+        if ("serviceWorker" in navigator) {
+          const registration = await navigator.serviceWorker.ready;
+          await registration.showNotification(notification.title, {
+            body: notification.message,
+            tag: `${notification.type}-${notification.timestamp}`,
+            icon: "/favicon.png",
+            badge: "/favicon.png",
+            data: { url: url || "/" },
+            requireInteraction: false,
+            silent: false,
+          });
+          return;
+        }
+
+        const browserNotification = new Notification(notification.title, {
+          body: notification.message,
+          icon: "/favicon.png",
+        });
+
+        if (url) {
+          browserNotification.onclick = () => {
+            window.open(url, "_blank", "noopener,noreferrer");
+          };
+        }
+      } catch {
+        return;
+      }
+    })();
+  }, []);
+
   // WebSocket bildirimlerini yönet
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!accessToken) {
       return;
     }
 
@@ -69,10 +137,21 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       });
 
       // Toast bildirimi de göster
+      const iconByType: Record<string, string> = {
+        "morning-reminder": "🌅",
+        "evening-reminder": "🌆",
+        "meeting-reminder": "⏰",
+        test: "🧪",
+      };
+
       toast(notification.message, {
-        icon: notification.type === "morning-reminder" ? "🌅" : "🌆",
+        icon: iconByType[notification.type] ?? "🔔",
         duration: 6000,
       });
+
+      if (notification.type === "meeting-reminder") {
+        showBrowserNotification(notification);
+      }
     };
 
     // Connected listener
@@ -97,7 +176,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       client.off("error", handleError);
       client.disconnect();
     };
-  }, [isAuthenticated]);
+  }, [accessToken, showBrowserNotification]);
 
   // Bildirim kaldırma
   const removeNotification = useCallback((timestamp: string) => {

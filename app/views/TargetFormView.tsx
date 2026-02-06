@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { projectsApi, Project } from '@/lib/api/projects';
 import { targetsApi, CreateTargetDto, GoalStatus } from '@/lib/api/targets';
 import { useNotification } from '@/app/contexts/NotificationContext';
@@ -45,6 +45,41 @@ const createEmptyDraft = (date: string): ProjectTargetDraft => ({
 const createDefaultDraft = (): ProjectTargetDraft =>
   createEmptyDraft(getTodayIsoDate());
 
+const MAX_SET_TIMEOUT_MS = 2_147_483_647;
+const MEETING_REMINDER_OFFSET_MS = 5 * 60 * 1000;
+
+const parseMeetingLocalDateTime = (dateIso: string, timeHHMM: string) => {
+  const dateParts = dateIso.split('-').map((v) => Number.parseInt(v, 10));
+  if (dateParts.length !== 3 || dateParts.some((n) => !Number.isFinite(n))) {
+    return null;
+  }
+
+  const timeParts = timeHHMM.split(':').map((v) => Number.parseInt(v, 10));
+  if (timeParts.length !== 2 || timeParts.some((n) => !Number.isFinite(n))) {
+    return null;
+  }
+
+  const [year, month, day] = dateParts;
+  const [hours, minutes] = timeParts;
+  if (
+    year < 1970 ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > 31 ||
+    hours < 0 ||
+    hours > 23 ||
+    minutes < 0 ||
+    minutes > 59
+  ) {
+    return null;
+  }
+
+  const date = new Date(year, month - 1, day, hours, minutes, 0, 0);
+  if (Number.isNaN(date.getTime())) return null;
+  return date;
+};
+
 export default function TargetFormView() {
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [draftsByProjectId, setDraftsByProjectId] = useState<
@@ -57,10 +92,143 @@ export default function TargetFormView() {
     string | null
   >(null);
 
-  const { showSuccess, showError } = useNotification();
+  const { showSuccess, showError, showWarning } = useNotification();
   const dialog = useDialog();
 
   const isSubmittingAny = isSubmittingProjectId !== null;
+
+  const meetingReminderTimeoutByKey = useRef<Map<string, number>>(new Map());
+
+  const triggerMeetingReminder = useCallback(
+    (params: {
+      projectId: string;
+      projectName: string;
+      dateIso: string;
+      meetingStart: string;
+      isSoon: boolean;
+    }) => {
+      const message = params.isSoon
+        ? `${params.projectName} toplantısı birazdan başlıyor (${params.meetingStart})`
+        : `${params.projectName} toplantısı 5 dakika sonra başlıyor (${params.meetingStart})`;
+
+      void (async () => {
+        try {
+          if (
+            typeof window === 'undefined' ||
+            !('Notification' in window) ||
+            Notification.permission !== 'granted' ||
+            !('serviceWorker' in navigator)
+          ) {
+            return;
+          }
+          const registration = await navigator.serviceWorker.ready;
+          await registration.showNotification('Toplantı Hatırlatma', {
+            body: message,
+            tag: `meeting-reminder-${params.projectId}-${params.dateIso}`,
+            icon: '/favicon.png',
+            badge: '/favicon.png',
+            data: { url: '/target-form' },
+            requireInteraction: false,
+            silent: false,
+          });
+        } catch {
+          return;
+        }
+      })();
+
+      showWarning(message, { duration: 8000 });
+    },
+    [showWarning],
+  );
+
+  const clearMeetingReminder = useCallback(
+    (params: { projectId: string; dateIso: string }) => {
+      const key = `${params.projectId}|${params.dateIso}`;
+      const existing = meetingReminderTimeoutByKey.current.get(key);
+      if (existing !== undefined) {
+        window.clearTimeout(existing);
+        meetingReminderTimeoutByKey.current.delete(key);
+      }
+    },
+    [],
+  );
+
+  const clearProjectMeetingReminders = useCallback(
+    (projectId: string) => {
+      for (const [key, timeoutId] of meetingReminderTimeoutByKey.current.entries()) {
+        if (!key.startsWith(`${projectId}|`)) continue;
+        window.clearTimeout(timeoutId);
+        meetingReminderTimeoutByKey.current.delete(key);
+      }
+    },
+    [],
+  );
+
+  const scheduleMeetingReminder = useCallback(
+    (params: {
+      projectId: string;
+      projectName: string;
+      dateIso: string;
+      meetingStart: string;
+    }) => {
+      const meetingDateTime = parseMeetingLocalDateTime(
+        params.dateIso,
+        params.meetingStart,
+      );
+      if (!meetingDateTime) return;
+
+      const now = Date.now();
+      const meetingTimeMs = meetingDateTime.getTime();
+      if (meetingTimeMs <= now) return;
+
+      const reminderAtMs = meetingTimeMs - MEETING_REMINDER_OFFSET_MS;
+
+      const key = `${params.projectId}|${params.dateIso}`;
+      const existing = meetingReminderTimeoutByKey.current.get(key);
+      if (existing !== undefined) {
+        window.clearTimeout(existing);
+        meetingReminderTimeoutByKey.current.delete(key);
+      }
+
+      if (reminderAtMs <= now) {
+        triggerMeetingReminder({
+          projectId: params.projectId,
+          projectName: params.projectName,
+          dateIso: params.dateIso,
+          meetingStart: params.meetingStart,
+          isSoon: true,
+        });
+        return;
+      }
+
+      const delay = reminderAtMs - now;
+      if (delay > MAX_SET_TIMEOUT_MS) return;
+
+      const timeoutId = window.setTimeout(() => {
+        triggerMeetingReminder({
+          projectId: params.projectId,
+          projectName: params.projectName,
+          dateIso: params.dateIso,
+          meetingStart: params.meetingStart,
+          isSoon: false,
+        });
+        meetingReminderTimeoutByKey.current.delete(key);
+      }, delay);
+
+      meetingReminderTimeoutByKey.current.set(key, timeoutId);
+    },
+    [triggerMeetingReminder],
+  );
+
+  useEffect(() => {
+    const timeouts = meetingReminderTimeoutByKey.current;
+    return () => {
+      for (const timeoutId of timeouts.values()) {
+        window.clearTimeout(timeoutId);
+      }
+      timeouts.clear();
+    };
+  }, []);
 
   // Projeleri yükle
   useEffect(() => {
@@ -115,6 +283,14 @@ export default function TargetFormView() {
     try {
       await targetsApi.createTarget(createTargetPayload(project.id, draft));
       showSuccess(`${project.name} hedefi kaydedildi!`);
+      if (draft.meetingStart) {
+        scheduleMeetingReminder({
+          projectId: project.id,
+          projectName: project.name,
+          dateIso: draft.date,
+          meetingStart: draft.meetingStart,
+        });
+      }
       setDraftsByProjectId((prev) => ({
         ...prev,
         [project.id]: createEmptyDraft(draft.date),
@@ -142,6 +318,7 @@ export default function TargetFormView() {
       return;
     }
 
+    clearProjectMeetingReminders(projectId);
     setSelectedProjectIds((prev) => prev.filter((id) => id !== projectId));
     setDraftsByProjectId((prev) => {
       const next = { ...prev };
@@ -269,9 +446,22 @@ export default function TargetFormView() {
                       id={`${idPrefix}-date`}
                       type='date'
                       value={draft.date}
-                      onChange={(e) =>
-                        updateProjectDraft(project.id, { date: e.target.value })
-                      }
+                      onChange={(e) => {
+                        const nextDate = e.target.value;
+                        clearMeetingReminder({
+                          projectId: project.id,
+                          dateIso: draft.date,
+                        });
+                        updateProjectDraft(project.id, { date: nextDate });
+                        if (draft.meetingStart) {
+                          scheduleMeetingReminder({
+                            projectId: project.id,
+                            projectName: project.name,
+                            dateIso: nextDate,
+                            meetingStart: draft.meetingStart,
+                          });
+                        }
+                      }}
                       className='w-full px-4 py-3 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all'
                       required
                       disabled={isSubmittingAny}
@@ -423,11 +613,25 @@ export default function TargetFormView() {
                         id={`${idPrefix}-meeting-start`}
                         type='time'
                         value={draft.meetingStart}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const nextMeetingStart = e.target.value;
                           updateProjectDraft(project.id, {
-                            meetingStart: e.target.value,
-                          })
-                        }
+                            meetingStart: nextMeetingStart,
+                          });
+                          if (nextMeetingStart) {
+                            scheduleMeetingReminder({
+                              projectId: project.id,
+                              projectName: project.name,
+                              dateIso: draft.date,
+                              meetingStart: nextMeetingStart,
+                            });
+                            return;
+                          }
+                          clearMeetingReminder({
+                            projectId: project.id,
+                            dateIso: draft.date,
+                          });
+                        }}
                         className='w-full px-4 py-3 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all'
                         disabled={isSubmittingAny}
                       />

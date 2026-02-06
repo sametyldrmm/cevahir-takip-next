@@ -9,6 +9,7 @@ export interface NotificationPayload {
   message: string;
   timestamp: string;
   userId?: string | null;
+  data?: Record<string, unknown> | null;
 }
 
 export class NotificationClient {

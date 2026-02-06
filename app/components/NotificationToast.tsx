@@ -54,6 +54,11 @@ export function NotificationToast({
           bgColor: "bg-gradient-to-r from-purple-500 to-pink-500",
           icon: "🌆",
         };
+      case "meeting-reminder":
+        return {
+          bgColor: "bg-gradient-to-r from-emerald-600 to-teal-600",
+          icon: "⏰",
+        };
       case "test":
         return {
           bgColor: "bg-gradient-to-r from-blue-500 to-cyan-500",

@@ -55,6 +55,10 @@ export interface UpsertAutoMailScheduleDto {
   customEvery?: number;
   customUnit?: AutoMailIntervalUnit;
   periodByReportType: Partial<Record<AutoMailReportType, AutoMailReportPeriod>>;
+  hour?: number;
+  minute?: number;
+  dayOfWeek?: number;
+  dayOfMonth?: number;
 }
 
 export interface AutoMailSchedule {
@@ -67,6 +71,10 @@ export interface AutoMailSchedule {
   customEvery?: number;
   customUnit?: AutoMailIntervalUnit;
   periodByReportType?: Partial<Record<AutoMailReportType, AutoMailReportPeriod>>;
+  hour?: number;
+  minute?: number;
+  dayOfWeek?: number;
+  dayOfMonth?: number;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -119,18 +127,19 @@ export const reportsApi = {
     endDate: string;
     periodType?: 'daily' | 'weekly' | 'monthly' | 'yearly';
     filename?: string;
-  }): Promise<{ success: boolean; downloadUrl?: string; message: string }> {
-    const response = await apiClient.getClient().post('/reports/missing-targets-export', dto);
+  }): Promise<Report> {
+    const response = await apiClient.getClient().post<Report>('/reports/missing-targets-export', dto);
     return response.data;
   },
 
   // Performans raporu export
   async createPerformanceExport(dto: {
+    periodType: 'monthly' | 'yearly';
     year: number;
-    month: number;
+    month?: number;
     filename?: string;
-  }): Promise<{ success: boolean; downloadUrl?: string; message: string }> {
-    const response = await apiClient.getClient().post('/reports/performance-export', dto);
+  }): Promise<Report> {
+    const response = await apiClient.getClient().post<Report>('/reports/performance-export', dto);
     return response.data;
   },
 

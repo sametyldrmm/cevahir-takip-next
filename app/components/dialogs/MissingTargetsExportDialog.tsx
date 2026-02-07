@@ -7,7 +7,7 @@ import { useNotification } from "@/app/contexts/NotificationContext";
 interface MissingTargetsExportDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onExportCompleted: (filePath: string) => void;
+  onExportCompleted: (reportId: string) => void;
 }
 
 export default function MissingTargetsExportDialog({
@@ -15,7 +15,7 @@ export default function MissingTargetsExportDialog({
   onClose,
   onExportCompleted,
 }: MissingTargetsExportDialogProps) {
-  const { showError } = useNotification();
+  const { showError, showSuccess } = useNotification();
   const [periodType, setPeriodType] = useState<"daily" | "weekly" | "monthly" | "yearly">("daily");
   const [dateRange, setDateRange] = useState<"single" | "range">("single");
   const [selectedDate, setSelectedDate] = useState(
@@ -45,25 +45,24 @@ export default function MissingTargetsExportDialog({
         exportEndDate = selectedDate;
       }
 
-      const result = await reportsApi.createMissingTargetsExport({
+      const report = await reportsApi.createMissingTargetsExport({
         startDate: exportStartDate,
         endDate: exportEndDate,
         periodType,
       });
 
-      if (result.success && result.downloadUrl) {
-        // Dosyayı indir (CSV raporlardaki gibi)
-        const link = document.createElement("a");
-        link.href = result.downloadUrl;
-        link.download = result.downloadUrl.split('/').pop() || 'missing_targets.xlsx';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        onExportCompleted(result.downloadUrl);
+      // Rapor başarıyla oluşturuldu (status: STARTED)
+      if (report.id && report.status === 'STARTED') {
+        const periodTypeLabel = periodType === 'daily' ? 'Günlük' : 
+                                periodType === 'weekly' ? 'Haftalık' : 
+                                periodType === 'monthly' ? 'Aylık' : 'Yıllık';
+        showSuccess(
+          `${periodTypeLabel} eksik hedef girişleri raporu oluşturma isteği başarıyla gönderildi. Rapor hazır olduğunda raporlar sayfasından indirebilirsiniz.`
+        );
+        onExportCompleted(report.id);
         onClose();
       } else {
-        showError(result.message || "Export başarısız");
+        showError("Rapor oluşturulamadı. Lütfen tekrar deneyin.");
       }
     } catch (error: any) {
       console.error("Export error:", error);

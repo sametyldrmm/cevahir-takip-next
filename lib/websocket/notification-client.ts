@@ -34,8 +34,20 @@ export class NotificationClient {
       return;
     }
 
+    // Teşhis için detaylı loglar
+    const socketUrl = `${API_BASE_URL}/notifications`;
+    console.log('[WebSocket] Bağlantı başlatılıyor...');
+    console.log('[WebSocket] API_BASE_URL:', API_BASE_URL);
+    console.log('[WebSocket] Socket URL:', socketUrl);
+    console.log('[WebSocket] Token var mı:', !!token);
+    console.log('[WebSocket] Token uzunluğu:', token.length);
+    console.log('[WebSocket] Environment:', {
+      NODE_ENV: process.env.NODE_ENV,
+      NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+    });
+
     try {
-      this.socket = io(`${API_BASE_URL}/notifications`, {
+      this.socket = io(socketUrl, {
         auth: {
           token,
         },
@@ -50,11 +62,25 @@ export class NotificationClient {
         reconnectionAttempts: this.maxReconnectAttempts,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
+        timeout: 20000, // 20 saniye timeout
+        forceNew: false,
+        upgrade: true,
+      });
+
+      console.log('[WebSocket] Socket instance oluşturuldu:', {
+        id: this.socket.id,
+        connected: this.socket.connected,
+        disconnected: this.socket.disconnected,
       });
 
       this.setupEventHandlers();
     } catch (error) {
-      console.error('[WebSocket] Bağlantı hatası:', error);
+      console.error('[WebSocket] Bağlantı hatası (catch):', error);
+      console.error('[WebSocket] Hata detayları:', {
+        message: error instanceof Error ? error.message : 'Bilinmeyen hata',
+        stack: error instanceof Error ? error.stack : undefined,
+        error: error,
+      });
     }
   }
 
@@ -62,18 +88,30 @@ export class NotificationClient {
    * Event handler'ları kur
    */
   private setupEventHandlers(): void {
-    if (!this.socket) return;
+    if (!this.socket) {
+      console.error('[WebSocket] Socket instance yok, event handler kurulamadı');
+      return;
+    }
+
+    console.log('[WebSocket] Event handler\'lar kuruluyor...');
 
     this.socket.on('connect', () => {
       this.isConnected = true;
       this.reconnectAttempts = 0;
-      console.log('[WebSocket] Bağlantı kuruldu');
+      console.log('[WebSocket] ✅ Bağlantı kuruldu');
+      console.log('[WebSocket] Socket ID:', this.socket?.id);
+      console.log('[WebSocket] Transport:', this.socket?.io?.engine?.transport?.name);
       this.emit('connected', { success: true });
     });
 
     this.socket.on('disconnect', (reason) => {
       this.isConnected = false;
-      console.log('[WebSocket] Bağlantı kesildi:', reason);
+      console.log('[WebSocket] ❌ Bağlantı kesildi:', reason);
+      console.log('[WebSocket] Disconnect detayları:', {
+        reason,
+        socketId: this.socket?.id,
+        wasConnected: this.isConnected,
+      });
       this.emit('disconnected', { reason });
     });
 
@@ -88,18 +126,74 @@ export class NotificationClient {
     });
 
     this.socket.on('error', (error) => {
-      console.error('[WebSocket] Hata:', error);
+      console.error('[WebSocket] ⚠️ Hata eventi:', error);
+      console.error('[WebSocket] Hata detayları:', {
+        message: error instanceof Error ? error.message : String(error),
+        error: error,
+        socketId: this.socket?.id,
+        connected: this.socket?.connected,
+      });
       this.emit('error', error);
     });
 
-    this.socket.on('connect_error', (error) => {
+    this.socket.on('connect_error', (error: Error & { type?: string; description?: string; context?: any }) => {
       this.reconnectAttempts++;
-      console.error('[WebSocket] Bağlantı hatası:', error.message);
+      console.error('[WebSocket] ⚠️ Bağlantı hatası (connect_error):', error.message);
+      console.error('[WebSocket] Connect error detayları:', {
+        message: error.message,
+        type: error.type || 'unknown',
+        description: error.description || 'no description',
+        context: error.context || null,
+        socketId: this.socket?.id,
+        reconnectAttempts: this.reconnectAttempts,
+        maxReconnectAttempts: this.maxReconnectAttempts,
+        transport: this.socket?.io?.engine?.transport?.name,
+        readyState: this.socket?.io?.engine?.readyState,
+      });
+      
+      // Socket.io engine durumunu kontrol et
+      if (this.socket?.io?.engine) {
+        const engine = this.socket.io.engine;
+        console.error('[WebSocket] Engine durumu:', {
+          transport: engine.transport?.name,
+          readyState: engine.readyState,
+        });
+      }
+
       if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-        console.error('[WebSocket] Maksimum yeniden bağlanma denemesi aşıldı');
+        console.error('[WebSocket] ❌ Maksimum yeniden bağlanma denemesi aşıldı');
         this.disconnect();
+      } else {
+        console.log(`[WebSocket] 🔄 Yeniden bağlanma denemesi ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
       }
     });
+
+    // Ek event handler'lar
+    this.socket.on('reconnect', (attemptNumber) => {
+      console.log('[WebSocket] 🔄 Yeniden bağlandı, deneme sayısı:', attemptNumber);
+    });
+
+    this.socket.on('reconnect_attempt', (attemptNumber) => {
+      console.log('[WebSocket] 🔄 Yeniden bağlanma denemesi:', attemptNumber);
+    });
+
+    this.socket.on('reconnect_error', (error: Error & { type?: string; description?: string }) => {
+      console.error('[WebSocket] ⚠️ Yeniden bağlanma hatası:', error);
+      console.error('[WebSocket] Reconnect error detayları:', {
+        message: error.message,
+        type: error.type || 'unknown',
+        description: error.description || 'no description',
+      });
+    });
+
+    this.socket.on('reconnect_failed', () => {
+      console.error('[WebSocket] ❌ Yeniden bağlanma başarısız oldu');
+    });
+
+    // Ping durumunu izle (pong event manager'da yok, kaldırıldı)
+    // Ping/Pong otomatik olarak socket.io tarafından yönetiliyor
+
+    console.log('[WebSocket] Event handler\'lar kuruldu');
   }
 
   /**

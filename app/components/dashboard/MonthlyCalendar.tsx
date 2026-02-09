@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Target, CalendarDay } from '@/lib/api/targets';
 
 interface MonthlyCalendarProps {
@@ -41,6 +41,11 @@ export default function MonthlyCalendar({
   leaves = {},
 }: MonthlyCalendarProps) {
   const [viewDate, setViewDate] = useState(currentDate);
+  const [dayEntriesDialog, setDayEntriesDialog] = useState<{
+    isOpen: boolean;
+    date: Date;
+    entries: Target[];
+  } | null>(null);
 
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
@@ -165,6 +170,34 @@ export default function MonthlyCalendar({
         return 'Ulaşılamadı';
       default:
         return '';
+    }
+  };
+
+  const getGoalStatusColor = (goalStatus?: Target['goalStatus']) => {
+    switch (goalStatus) {
+      case 'REACHED':
+        return 'bg-green-500';
+      case 'PARTIAL':
+        return 'bg-yellow-500';
+      case 'FAILED':
+        return 'bg-red-500';
+      case 'NOT_SET':
+      default:
+        return 'bg-gray-400';
+    }
+  };
+
+  const getGoalStatusLabel = (goalStatus?: Target['goalStatus']) => {
+    switch (goalStatus) {
+      case 'REACHED':
+        return 'Hedefime ulaştım';
+      case 'PARTIAL':
+        return 'Hedefime kısmen ulaştım';
+      case 'FAILED':
+        return 'Hedefime ulaşamadım';
+      case 'NOT_SET':
+      default:
+        return 'Belirtilmemiş';
     }
   };
 
@@ -325,6 +358,8 @@ export default function MonthlyCalendar({
             );
             const isWeekend =
               day.date.getDay() === 0 || day.date.getDay() === 6;
+            const hasOverflowTargets =
+              !editMode && day.targets && day.targets.length > 3;
 
             return (
               <button
@@ -334,6 +369,14 @@ export default function MonthlyCalendar({
                   if (editMode && onDayToggle && !hasTarget && !isWeekend) {
                     onDayToggle(day.date);
                   } else if (!editMode) {
+                    if (hasOverflowTargets && day.targets) {
+                      setDayEntriesDialog({
+                        isOpen: true,
+                        date: day.date,
+                        entries: day.targets,
+                      });
+                      return;
+                    }
                     onDateSelect(day.date);
                   }
                 }}
@@ -410,14 +453,7 @@ export default function MonthlyCalendar({
                   {day.targets && day.targets.length > 0 && (
                     <div className='flex-1 space-y-1 overflow-hidden mt-1'>
                       {day.targets.slice(0, 3).map((target, idx) => {
-                        const statusColor =
-                          target.goalStatus === 'REACHED'
-                            ? 'bg-green-500'
-                            : target.goalStatus === 'PARTIAL'
-                              ? 'bg-yellow-500'
-                              : target.goalStatus === 'FAILED'
-                                ? 'bg-red-500'
-                                : 'bg-gray-400';
+                        const statusColor = getGoalStatusColor(target.goalStatus);
 
                         const projectName =
                           target.selectedProjects?.[0] ||
@@ -439,7 +475,7 @@ export default function MonthlyCalendar({
                         );
                       })}
                       {day.targets.length > 3 && (
-                        <div className='text-xs text-on-surface-variant text-center px-2 py-1 rounded-full bg-surface-container-low'>
+                        <div className='text-xs text-on-surface-variant text-center px-2 py-1 rounded-full bg-surface-container-low hover:bg-(--surface-container-high) transition-colors'>
                           +{day.targets.length - 3} daha
                         </div>
                       )}
@@ -491,6 +527,89 @@ export default function MonthlyCalendar({
           }),
         )}
       </div>
+
+      {dayEntriesDialog?.isOpen && (
+        <div
+          className='fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4'
+          onClick={() => setDayEntriesDialog(null)}
+        >
+          <div
+            className='bg-surface-container rounded-xl p-6 shadow-2xl max-w-lg w-full border border-outline-variant'
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className='flex items-center justify-between gap-4 mb-4'>
+              <div className='min-w-0'>
+                <h3 className='text-xl font-bold text-on-surface truncate'>
+                  {dayEntriesDialog.date.toLocaleDateString('tr-TR', {
+                    day: '2-digit',
+                    month: 'long',
+                    year: 'numeric',
+                  })}
+                </h3>
+                <p className='text-sm text-on-surface-variant'>
+                  {dayEntriesDialog.entries.length} kayıt
+                </p>
+              </div>
+              <button
+                onClick={() => setDayEntriesDialog(null)}
+                className='px-4 py-2 rounded-lg text-sm font-medium text-on-surface-variant hover:text-(--on-surface) hover:bg-(--surface-container-high) transition-all'
+              >
+                Kapat
+              </button>
+            </div>
+
+            <div className='space-y-2 max-h-[60vh] overflow-y-auto pr-1'>
+              {dayEntriesDialog.entries.map((target) => {
+                const projectName =
+                  target.selectedProjects?.[0] || target.customProject || 'Proje';
+                const title = target.taskContent?.trim()
+                  ? target.taskContent
+                  : projectName;
+
+                return (
+                  <div
+                    key={target.id}
+                    className='p-3 rounded-lg border border-outline-variant bg-surface-container-low'
+                  >
+                    <div className='flex items-start gap-3'>
+                      <div
+                        className={`mt-1 w-2.5 h-2.5 rounded-full ${getGoalStatusColor(
+                          target.goalStatus,
+                        )}`}
+                        title={getGoalStatusLabel(target.goalStatus)}
+                      />
+                      <div className='min-w-0 flex-1'>
+                        <p className='text-sm font-medium text-on-surface truncate'>
+                          {title}
+                        </p>
+                        <div className='flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-on-surface-variant'>
+                          <span className='truncate'>{projectName}</span>
+                          <span>{getGoalStatusLabel(target.goalStatus)}</span>
+                          {(target.workStart || target.workEnd) && (
+                            <span>
+                              {target.workStart ?? '--:--'} - {target.workEnd ?? '--:--'}
+                            </span>
+                          )}
+                          {(target.meetingStart || target.meetingEnd) && (
+                            <span>
+                              Toplantı: {target.meetingStart ?? '--:--'} - {target.meetingEnd ?? '--:--'}
+                            </span>
+                          )}
+                        </div>
+                        {target.description?.trim() && (
+                          <p className='text-xs text-on-surface-variant mt-2 whitespace-pre-wrap'>
+                            {target.description}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

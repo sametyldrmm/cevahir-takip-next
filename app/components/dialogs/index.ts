@@ -4,6 +4,7 @@ export { default as CreateProjectDialog } from "./CreateProjectDialog";
 export { default as EditProjectDialog } from "./EditProjectDialog";
 export { default as DeleteProjectDialog } from "./DeleteProjectDialog";
 export { default as ArchiveProjectDialog } from "./ArchiveProjectDialog";
+export { default as ArchiveUserDialog } from "./ArchiveUserDialog";
 export { default as DeleteUserDataDialog } from "./DeleteUserDataDialog";
 export { default as PasswordChangeDialog } from "./PasswordChangeDialog";
 export { default as TimePickerDialog } from "./TimePickerDialog";

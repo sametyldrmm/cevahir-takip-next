@@ -12,6 +12,7 @@ import {
   EditProjectDialog,
   DeleteProjectDialog,
   ArchiveProjectDialog,
+  ArchiveUserDialog,
   DeleteUserDataDialog,
 } from "@/app/components/dialogs";
 import ProjectDetailDialog from "@/app/components/dialogs/ProjectDetailDialog";
@@ -131,6 +132,7 @@ export default function AdminPanelView() {
   const [showEditProject, setShowEditProject] = useState(false);
   const [showDeleteProject, setShowDeleteProject] = useState(false);
   const [showArchiveProject, setShowArchiveProject] = useState(false);
+  const [showArchiveUser, setShowArchiveUser] = useState(false);
   const [showEditUserRole, setShowEditUserRole] = useState(false);
   const [showDeleteUserData, setShowDeleteUserData] = useState(false);
   const [showProjectDetail, setShowProjectDetail] = useState(false);
@@ -249,12 +251,41 @@ export default function AdminPanelView() {
     setSelectedProjects(new Set());
   };
 
-  const handleArchiveProjects = (projectIds: string[]) => {
-    setProjects(
-      projects.map((p) => (projectIds.includes(p.id) ? { ...p, archived: true, updatedBy: "Admin" } : p))
-    );
-    setShowArchiveProject(false);
-    setSelectedProjects(new Set());
+  const handleArchiveProjects = async (projectIds: string[]) => {
+    try {
+      await Promise.all(projectIds.map((id) => projectsApi.updateProject(id, { isActive: false })));
+      setProjects((currentProjects) =>
+        currentProjects.map((p) =>
+          projectIds.includes(p.id)
+            ? { ...p, isActive: false, archived: true, updatedBy: "Admin" }
+            : p
+        )
+      );
+      showSuccess("Proje(ler) başarıyla arşivlendi");
+    } catch (error: unknown) {
+      showError(getApiErrorMessage(error) ?? "Proje arşivlenirken bir hata oluştu");
+    } finally {
+      setShowArchiveProject(false);
+      setSelectedProjects(new Set());
+    }
+  };
+
+  const handleRestoreProjects = async (projectIds: string[]) => {
+    try {
+      await Promise.all(projectIds.map((id) => projectsApi.updateProject(id, { isActive: true })));
+      setProjects((currentProjects) =>
+        currentProjects.map((p) =>
+          projectIds.includes(p.id)
+            ? { ...p, isActive: true, archived: false, updatedBy: "Admin" }
+            : p
+        )
+      );
+      showSuccess("Proje(ler) başarıyla geri alındı");
+    } catch (error: unknown) {
+      showError(getApiErrorMessage(error) ?? "Proje geri alınırken bir hata oluştu");
+    } finally {
+      setSelectedProjects(new Set());
+    }
   };
 
   // User handlers
@@ -332,17 +363,18 @@ export default function AdminPanelView() {
     }
   };
 
-  const handleArchiveUsers = async () => {
-    const userIds = Array.from(selectedUsers);
+  const handleArchiveUsers = async (userIds: string[]) => {
     try {
-      await Promise.all(
-        userIds.map((id) => usersApi.updateUser(id, { isActive: false }))
+      await Promise.all(userIds.map((id) => usersApi.updateUser(id, { isActive: false })));
+      setUsers((currentUsers) =>
+        currentUsers.map((u) => (userIds.includes(u.id) ? { ...u, status: "archived" as const } : u))
       );
-      setUsers(users.map((u) => (userIds.includes(u.id) ? { ...u, status: "archived" as const } : u)));
       setSelectedUsers(new Set());
       showSuccess("Kullanıcı(lar) başarıyla arşivlendi");
     } catch (error: unknown) {
       showError(getApiErrorMessage(error) ?? "Kullanıcı arşivlenirken bir hata oluştu");
+    } finally {
+      setShowArchiveUser(false);
     }
   };
 
@@ -494,19 +526,28 @@ export default function AdminPanelView() {
                   setShowArchiveProject(true);
                 }
               }
-            : undefined
+            : activeTab === "users"
+              ? () => {
+                  if (selectedUsers.size > 0) {
+                    setShowArchiveUser(true);
+                  }
+                }
+              : undefined
         }
         onRestore={
           activeTab === "archived"
             ? () => {
                 const projectIds = Array.from(selectedProjects);
-                setProjects(
-                  projects.map((p) =>
-                    projectIds.includes(p.id) ? { ...p, archived: false, updatedBy: "Admin" } : p
-                  )
-                );
-                setSelectedProjects(new Set());
+                if (projectIds.length > 0) {
+                  void handleRestoreProjects(projectIds);
+                }
               }
+            : activeTab === "users_archived"
+              ? () => {
+                  if (selectedUsers.size > 0) {
+                    void handleRestoreUsers();
+                  }
+                }
             : undefined
         }
         onDelete={
@@ -624,15 +665,33 @@ export default function AdminPanelView() {
       )}
 
       {selectedUsers.size > 0 && (
-        <DeleteUserDataDialog
-          isOpen={showDeleteUserData}
-          userIds={Array.from(selectedUsers)}
-          usernames={users
-            .filter((u) => selectedUsers.has(u.id))
-            .map((u) => u.username)}
-          onClose={() => setShowDeleteUserData(false)}
-          onUserDataDeleted={handleDeleteUserData}
-        />
+        <>
+          <ArchiveUserDialog
+            isOpen={showArchiveUser}
+            users={users
+              .filter((u) => selectedUsers.has(u.id))
+              .map((u) => ({
+                id: u.id,
+                username: u.username,
+                displayName: u.displayName,
+                email: u.email,
+              }))}
+            onClose={() => setShowArchiveUser(false)}
+            onUsersArchived={(archivedIds) => {
+              void handleArchiveUsers(archivedIds);
+            }}
+          />
+
+          <DeleteUserDataDialog
+            isOpen={showDeleteUserData}
+            userIds={Array.from(selectedUsers)}
+            usernames={users
+              .filter((u) => selectedUsers.has(u.id))
+              .map((u) => u.username)}
+            onClose={() => setShowDeleteUserData(false)}
+            onUserDataDeleted={handleDeleteUserData}
+          />
+        </>
       )}
     </div>
   );

@@ -1,7 +1,7 @@
 import { io, Socket } from 'socket.io-client';
 import Cookies from 'js-cookie';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://8w2syfi6w8.eu-central-1.awsapprunner.com';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 export interface NotificationPayload {
   type: string;
@@ -42,10 +42,10 @@ export class NotificationClient {
         query: {
           token, // Query string olarak da gönder (fallback)
         },
-        // extraHeaders: {
-        //   Authorization: `Bearer ${token}`, // Header olarak da gönder
-        // },
-        transports: ['polling', 'websocket'],
+        extraHeaders: {
+          Authorization: `Bearer ${token}`, // Header olarak da gönder
+        },
+        transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionAttempts: this.maxReconnectAttempts,
         reconnectionDelay: 1000,

@@ -9,7 +9,7 @@ import { useNotification } from "@/app/contexts/NotificationContext";
 interface PerformanceReportDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onExportCompleted: (filePath: string) => void;
+  onExportCompleted: (reportId: string) => void;
 }
 
 export default function PerformanceReportDialog({
@@ -17,7 +17,7 @@ export default function PerformanceReportDialog({
   onClose,
   onExportCompleted,
 }: PerformanceReportDialogProps) {
-  const { showError } = useNotification();
+  const { showError, showSuccess } = useNotification();
   const [reportType, setReportType] = useState<"monthly" | "yearly">("monthly");
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
@@ -30,29 +30,21 @@ export default function PerformanceReportDialog({
     setIsExporting(true);
     
     try {
-      if (reportType === "monthly") {
-        const result = await reportsApi.createPerformanceExport({
-          year: selectedYear,
-          month: selectedMonth,
-        });
+      const report = await reportsApi.createPerformanceExport({
+        periodType: reportType,
+        year: selectedYear,
+        ...(reportType === "monthly" && { month: selectedMonth }),
+      });
 
-        if (result.success && result.downloadUrl) {
-          // Dosyayı indir (CSV raporlardaki gibi)
-          const link = document.createElement("a");
-          link.href = result.downloadUrl;
-          link.download = result.downloadUrl.split('/').pop() || 'performance.xlsx';
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          
-          onExportCompleted(result.downloadUrl);
-          onClose();
-        } else {
-          showError(result.message || "Export başarısız");
-        }
+      // Rapor başarıyla oluşturuldu (status: STARTED)
+      if (report.id && report.status === 'STARTED') {
+        showSuccess(
+          `${reportType === 'monthly' ? 'Aylık' : 'Yıllık'} performans raporu oluşturma isteği başarıyla gönderildi. Rapor hazır olduğunda raporlar sayfasından indirebilirsiniz.`
+        );
+        onExportCompleted(report.id);
+        onClose();
       } else {
-        // Yıllık proje raporu - şimdilik sadece aylık destekleniyor
-        showError("Yıllık proje raporu henüz desteklenmiyor. Lütfen aylık rapor seçin.");
+        showError("Rapor oluşturulamadı. Lütfen tekrar deneyin.");
       }
     } catch (error: any) {
       console.error("Export error:", error);

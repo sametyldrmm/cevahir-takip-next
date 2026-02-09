@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { targetsApi, TargetStatistics, Target, CalendarDay } from "@/lib/api/targets";
+import { projectsApi, Project } from "@/lib/api/projects";
 import { useAuth } from "@/app/contexts/AuthContext";
 import { StatsCards, TargetCard, HeaderCard, MonthlyCalendar } from "@/app/components/dashboard";
 import LeaveEditPanel from "@/app/components/dashboard/LeaveEditPanel";
@@ -26,6 +27,7 @@ export default function DashboardView() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [currentDate, setCurrentDate] = useState(new Date());
   const [allTargets, setAllTargets] = useState<Target[]>([]);
+  const [projectNamesById, setProjectNamesById] = useState<Record<string, string>>({});
   const [leaveEditMode, setLeaveEditMode] = useState(false);
   const [selectedLeaveDays, setSelectedLeaveDays] = useState<Date[]>([]);
   const [selectedLeaveType, setSelectedLeaveType] = useState<string | null>(null);
@@ -43,17 +45,24 @@ export default function DashboardView() {
         const startDateStr = startDate.toISOString().split("T")[0];
         const endDateStr = endDate.toISOString().split("T")[0];
         
-        const [statistics, targets, calendar, allTargetsData, leavesData] = await Promise.all([
+        const [statistics, targets, calendar, allTargetsData, leavesData, projects] = await Promise.all([
           targetsApi.getStatistics(),
           targetsApi.getTodayTargets(),
           targetsApi.getCalendarData(60),
           targetsApi.getMyTargets(),
           leavesApi.getByRange(startDateStr, endDateStr).catch(() => []),
+          projectsApi.getMyProjects().catch(() => []),
         ]);
         setStats(statistics);
         setTodayTargets(targets);
         setCalendarData(calendar);
         setAllTargets(allTargetsData);
+        setProjectNamesById(
+          projects.reduce<Record<string, string>>((acc, project: Project) => {
+            acc[project.id] = project.name;
+            return acc;
+          }, {}),
+        );
         
         // Leaves'i formatla
         const leavesMap: Record<string, { type: string; note?: string }> = {};
@@ -326,6 +335,7 @@ export default function DashboardView() {
                   onDateSelect={handleDateSelect}
                   calendarData={calendarData}
                   targets={allTargets}
+                  projectNamesById={projectNamesById}
                   onEditLeaves={handleEditLeaves}
                   editMode={leaveEditMode}
                   selectedDays={selectedLeaveDays}

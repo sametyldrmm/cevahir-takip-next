@@ -47,6 +47,8 @@ export class NotificationClient {
     });
 
     try {
+      // AWS App Runner WebSocket desteği için polling'i önce dene
+      // WebSocket başarısız olursa otomatik polling'e geçer
       this.socket = io(socketUrl, {
         auth: {
           token,
@@ -57,7 +59,9 @@ export class NotificationClient {
         extraHeaders: {
           Authorization: `Bearer ${token}`, // Header olarak da gönder
         },
-        transports: ['websocket', 'polling'],
+        // Polling'i önce dene (AWS App Runner WebSocket desteği için)
+        // WebSocket başarısız olursa otomatik polling'e geçer
+        transports: ['polling', 'websocket'],
         reconnection: true,
         reconnectionAttempts: this.maxReconnectAttempts,
         reconnectionDelay: 1000,

@@ -368,15 +368,17 @@ export default function ReportsView() {
     TEAM: 'Takım Raporu',
   };
 
-  const handleMissingTargetsCompleted = (filePath: string) => {
-    if (filePath) {
-      showSuccess('Eksik hedef girişleri raporu başarıyla oluşturuldu');
+  const handleMissingTargetsCompleted = (reportId: string) => {
+    if (reportId) {
+      // Raporları yeniden yükle
+      loadReports();
     }
   };
 
-  const handlePerformanceCompleted = (filePath: string) => {
-    if (filePath) {
-      showSuccess('Performans raporu başarıyla oluşturuldu');
+  const handlePerformanceCompleted = (reportId: string) => {
+    if (reportId) {
+      // Raporları yeniden yükle
+      loadReports();
     }
   };
 

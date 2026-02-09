@@ -183,38 +183,23 @@ export default function SettingsView() {
             Bildirimler
           </h3>
           <div className='space-y-4'>
-            {/* WebSocket Bildirimleri (Her zaman açık) */}
+            {/* Birleştirilmiş Bildirim Toggle */}
             <div className='flex items-center justify-between'>
               <div className='flex-1'>
                 <h4 className='text-sm font-medium text-on-surface mb-1'>
-                  Anlık Bildirimler (WebSocket)
+                  Bildirimler
                 </h4>
                 <p className='text-xs text-on-surface-variant'>
-                  Site açıkken anlık bildirimler alırsınız
-                </p>
-              </div>
-              <div className='flex items-center gap-2'>
-                <div className='w-12 h-6 bg-success rounded-full flex items-center justify-end px-1'>
-                  <div className='w-4 h-4 bg-white rounded-full'></div>
-                </div>
-              </div>
-            </div>
-
-            {/* Push Notification (OS Bildirimleri) */}
-            <div className='flex items-center justify-between border-t border-outline-variant pt-4'>
-              <div className='flex-1'>
-                <h4 className='text-sm font-medium text-on-surface mb-1'>
-                  OS Bildirimleri (Push)
-                </h4>
-                <p className='text-xs text-on-surface-variant'>
-                  Site kapalıyken bile bildirim alırsınız (WhatsApp tarzı)
+                  {isPushSubscribed && isPushPermissionGranted
+                    ? 'Site açıkken ve kapalıyken bildirim alırsınız'
+                    : 'Site açıkken bildirim alırsınız (kapalıyken bildirim için açın)'}
                 </p>
                 {!isPushSupported && (
                   <p className='text-xs text-error mt-1'>
                     ⚠️ Tarayıcınız push notification desteklemiyor
                   </p>
                 )}
-                {isPushSupported && !isPushPermissionGranted && (
+                {isPushSupported && !isPushPermissionGranted && isPushSubscribed && (
                   <p className='text-xs text-warning mt-1'>
                     ⚠️ Bildirim izni verilmedi
                   </p>
@@ -233,23 +218,22 @@ export default function SettingsView() {
                         if (isPushSubscribed) {
                           const success = await unsubscribePush();
                           if (success) {
-                            showSuccess('OS bildirimleri kapatıldı');
-                            // Dismissed flag'i temizle ki tekrar açabilsin
+                            showSuccess('Bildirimler kapatıldı (sadece site açıkken bildirim alırsınız)');
                             localStorage.removeItem(
                               'push-notification-dismissed',
                             );
                           } else {
-                            showError('OS bildirimleri kapatılamadı');
+                            showError('Bildirimler kapatılamadı');
                           }
                         } else {
                           const success = await subscribePush();
                           if (success) {
-                            showSuccess('OS bildirimleri etkinleştirildi!');
+                            showSuccess('Bildirimler etkinleştirildi! Site kapalıyken bile bildirim alacaksınız.');
                             localStorage.removeItem(
                               'push-notification-dismissed',
                             );
                           } else {
-                            showError('OS bildirimleri etkinleştirilemedi');
+                            showError('Bildirimler etkinleştirilemedi');
                           }
                         }
                       } catch (error) {

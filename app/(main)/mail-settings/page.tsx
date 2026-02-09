@@ -167,6 +167,12 @@ function MailSettingsView() {
   const [autoMailCustomEvery, setAutoMailCustomEvery] = useState(1);
   const [autoMailCustomUnit, setAutoMailCustomUnit] =
     useState<AutoMailIntervalUnit>("WEEK");
+  
+  // Zamanlama ayarları
+  const [hour, setHour] = useState<number>(9); // Varsayılan 09:00
+  const [minute, setMinute] = useState<number>(0);
+  const [dayOfWeek, setDayOfWeek] = useState<number>(1); // Varsayılan Pazartesi
+  const [dayOfMonth, setDayOfMonth] = useState<number>(1); // Varsayılan ayın 1'i
 
   const [schedules, setSchedules] = useState<AutoMailSchedule[]>([]);
   const [isSchedulesLoading, setIsSchedulesLoading] = useState(false);
@@ -213,6 +219,10 @@ function MailSettingsView() {
     setAutoMailIntervalPreset("1W");
     setAutoMailCustomEvery(1);
     setAutoMailCustomUnit("WEEK");
+    setHour(9);
+    setMinute(0);
+    setDayOfWeek(1);
+    setDayOfMonth(1);
   };
 
   useEffect(() => {
@@ -466,20 +476,73 @@ function MailSettingsView() {
   };
 
   const startEditingSchedule = (schedule: AutoMailSchedule) => {
-    setEditingSchedule(schedule);
+    try {
+      console.log("Editing schedule:", schedule);
+      
+      if (!schedule) {
+        showError("Düzenlenecek ayar bulunamadı");
+        return;
+      }
 
-    const scheduleReportTypes = schedule.reportTypes ?? [];
-    if (scheduleReportTypes.length > 1) {
-      showError("Bu ayarda birden fazla rapor tipi var. İlk rapor tipi ile düzenlenebilir.");
-    }
-    const primaryReportType = scheduleReportTypes[0] ?? null;
-    setSelectedReportTypes(new Set(primaryReportType ? [primaryReportType] : []));
-    const nextPeriod =
-      (primaryReportType
-        ? schedule.periodByReportType?.[primaryReportType] ??
-          allowedPeriodsByReportType[primaryReportType]?.[0]
-        : null) ?? null;
-    setSelectedReportPeriod(nextPeriod);
+      setEditingSchedule(schedule);
+
+      // Backend'den gelen reportTypes'ı AutoMailReportType'a dönüştür
+      // Backend ReportType kullanıyor: 'TARGETS' | 'PROJECTS' | 'USERS' | 'TEAM'
+      // Frontend AutoMailReportType bekliyor: 'PERFORMANCE' | 'TARGETS' | 'MISSING_TARGETS'
+      const scheduleReportTypes = (schedule.reportTypes ?? []).map((type: string) => {
+        // Backend'den gelen ReportType'ı AutoMailReportType'a map et
+        if (type === 'TARGETS') return 'TARGETS' as AutoMailReportType;
+        if (type === 'PERFORMANCE') return 'PERFORMANCE' as AutoMailReportType;
+        if (type === 'MISSING_TARGETS') return 'MISSING_TARGETS' as AutoMailReportType;
+        // Eğer farklı bir tip gelirse, olduğu gibi bırak (hata verecek ama)
+        return type as AutoMailReportType;
+      });
+      
+      console.log("Original reportTypes:", schedule.reportTypes);
+      console.log("Mapped reportTypes:", scheduleReportTypes);
+      
+      if (scheduleReportTypes.length === 0) {
+        showError("Bu ayarda rapor tipi bulunamadı");
+        return;
+      }
+      
+      if (scheduleReportTypes.length > 1) {
+        showError("Bu ayarda birden fazla rapor tipi var. İlk rapor tipi ile düzenlenebilir.");
+      }
+      const primaryReportType = scheduleReportTypes[0] ?? null;
+      if (!primaryReportType) {
+        showError("Rapor tipi belirlenemedi");
+        return;
+      }
+      
+      setSelectedReportTypes(new Set([primaryReportType]));
+      
+      // periodByReportType'dan period'u al, yoksa varsayılanı kullan
+      let nextPeriod: AutoMailReportPeriod | null = null;
+      
+      console.log("primaryReportType:", primaryReportType);
+      console.log("schedule.periodByReportType:", schedule.periodByReportType);
+      console.log("allowedPeriodsByReportType:", allowedPeriodsByReportType);
+      
+      if (schedule.periodByReportType && schedule.periodByReportType[primaryReportType]) {
+        nextPeriod = schedule.periodByReportType[primaryReportType] as AutoMailReportPeriod;
+        console.log("Period from periodByReportType:", nextPeriod);
+      } else {
+        // Varsayılan period'u al
+        const defaultPeriods = allowedPeriodsByReportType[primaryReportType];
+        nextPeriod = defaultPeriods?.[0] ?? null;
+        console.log("Default period:", nextPeriod, "from periods:", defaultPeriods);
+      }
+      
+      if (!nextPeriod) {
+        const errorMsg = `Rapor tipi ${primaryReportType} için geçerli bir dönem bulunamadı. Lütfen yeni bir ayar oluşturun.`;
+        console.error(errorMsg);
+        showError(errorMsg);
+        return;
+      }
+      
+      console.log("Setting selectedReportPeriod to:", nextPeriod);
+      setSelectedReportPeriod(nextPeriod);
     setSelectedMailGroupIds(new Set(schedule.mailGroupIds ?? []));
     setSelectedProjectIds(
       primaryReportType === "TARGETS" ? new Set(schedule.projectIds ?? []) : new Set(),
@@ -533,11 +596,25 @@ function MailSettingsView() {
       setAutoMailCustomEvery(1);
       setAutoMailCustomUnit("WEEK");
     } else {
-      setUiIntervalPreset((schedule.intervalPreset ?? "1W") as UiIntervalPreset);
-      setAutoMailIntervalPreset(schedule.intervalPreset ?? "1W");
+      // intervalPreset değerini kontrol et ve dönüştür
+      const preset = schedule.intervalPreset;
+      if (preset === "1D" || preset === "1W" || preset === "1M") {
+        setUiIntervalPreset(preset as UiIntervalPreset);
+        setAutoMailIntervalPreset(preset);
+      } else {
+        // Varsayılan değer
+        setUiIntervalPreset("1W");
+        setAutoMailIntervalPreset("1W");
+      }
       setAutoMailCustomEvery(1);
       setAutoMailCustomUnit("WEEK");
     }
+
+    // Zamanlama ayarlarını yükle
+    setHour(schedule.hour ?? 9);
+    setMinute(schedule.minute ?? 0);
+    setDayOfWeek(schedule.dayOfWeek ?? 1);
+    setDayOfMonth(schedule.dayOfMonth ?? 1);
 
     const scheduleEmails = (schedule.emails ?? [])
       .map((e) => toNormalizedEmail(e))
@@ -562,6 +639,10 @@ function MailSettingsView() {
     setSelectedUserIds(nextSelectedUserIds);
 
     window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (error) {
+      console.error("Error in startEditingSchedule:", error);
+      showError("Ayar düzenlenirken bir hata oluştu. Lütfen tekrar deneyin.");
+    }
   };
 
   const saveSchedule = async () => {
@@ -632,6 +713,11 @@ function MailSettingsView() {
         customEvery: autoMailIntervalPreset === "CUSTOM" ? autoMailCustomEvery : undefined,
         customUnit: autoMailIntervalPreset === "CUSTOM" ? autoMailCustomUnit : undefined,
         periodByReportType,
+        hour,
+        minute,
+        // Haftalık için dayOfWeek, aylık için dayOfMonth
+        dayOfWeek: (uiIntervalPreset === "1W" || autoMailIntervalPreset === "1W") ? dayOfWeek : undefined,
+        dayOfMonth: (uiIntervalPreset === "1M" || autoMailIntervalPreset === "1M") ? dayOfMonth : undefined,
       };
 
       await reportsApi.upsertAutoMailSchedule(payload);
@@ -949,6 +1035,89 @@ function MailSettingsView() {
                   );
                 })}
               </div>
+            </div>
+
+            {/* Zamanlama Ayarları */}
+            <div className="rounded-lg border border-outline-variant bg-surface p-4">
+              <div className="text-sm font-semibold text-on-surface mb-3">
+                Zamanlama
+              </div>
+
+              {/* Saat ve Dakika - Tüm aralıklar için */}
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block text-xs text-on-surface-variant mb-1">
+                    Saat
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="23"
+                    value={hour}
+                    onChange={(e) => setHour(parseInt(e.target.value) || 0)}
+                    disabled={isSaving}
+                    className="w-full px-3 py-2 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all disabled:opacity-60"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-on-surface-variant mb-1">
+                    Dakika
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="59"
+                    value={minute}
+                    onChange={(e) => setMinute(parseInt(e.target.value) || 0)}
+                    disabled={isSaving}
+                    className="w-full px-3 py-2 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all disabled:opacity-60"
+                  />
+                </div>
+              </div>
+
+              {/* Haftalık için: Haftanın Günü */}
+              {(uiIntervalPreset === "1W" || autoMailIntervalPreset === "1W") && (
+                <div>
+                  <label className="block text-xs text-on-surface-variant mb-1">
+                    Haftanın Günü
+                  </label>
+                  <select
+                    value={dayOfWeek}
+                    onChange={(e) => setDayOfWeek(parseInt(e.target.value))}
+                    disabled={isSaving}
+                    className="w-full px-3 py-2 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all disabled:opacity-60"
+                  >
+                    <option value={0}>Pazar</option>
+                    <option value={1}>Pazartesi</option>
+                    <option value={2}>Salı</option>
+                    <option value={3}>Çarşamba</option>
+                    <option value={4}>Perşembe</option>
+                    <option value={5}>Cuma</option>
+                    <option value={6}>Cumartesi</option>
+                  </select>
+                </div>
+              )}
+
+              {/* Aylık için: Ayın Günü */}
+              {(uiIntervalPreset === "1M" || autoMailIntervalPreset === "1M") && (
+                <div>
+                  <label className="block text-xs text-on-surface-variant mb-1">
+                    Ayın Günü
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="31"
+                    value={dayOfMonth}
+                    onChange={(e) => setDayOfMonth(parseInt(e.target.value) || 1)}
+                    disabled={isSaving}
+                    className="w-full px-3 py-2 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all disabled:opacity-60"
+                  />
+                  <div className="text-xs text-on-surface-variant mt-1">
+                    (1-31 arası, ayın son günü için 31 seçin)
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="rounded-lg border border-outline-variant bg-surface p-4">
@@ -1298,7 +1467,10 @@ function MailSettingsView() {
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            onClick={() => startEditingSchedule(row.schedule)}
+                            onClick={() => {
+                              console.log("Düzenle butonuna tıklandı, schedule:", row.schedule);
+                              startEditingSchedule(row.schedule);
+                            }}
                             disabled={isSaving || isDeleting}
                             className="px-3 py-2 rounded-lg border border-outline text-on-surface hover:bg-(--surface-container-high) transition-colors disabled:opacity-60"
                           >

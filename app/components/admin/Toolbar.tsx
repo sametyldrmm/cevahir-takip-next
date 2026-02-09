@@ -74,10 +74,10 @@ export default function Toolbar({
                 </button>
               )}
               <button
-                onClick={onArchive}
+                onClick={onRestore || onArchive}
                 className="px-3 py-1.5 border border-outline rounded-lg text-sm text-on-surface hover:bg-(--surface-container-high) transition-colors"
               >
-                Arşivle
+                {onRestore ? "Geri Al" : "Arşivle"}
               </button>
               {onDelete && (
                 <button

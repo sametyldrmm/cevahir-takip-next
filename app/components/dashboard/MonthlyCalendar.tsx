@@ -9,6 +9,7 @@ interface MonthlyCalendarProps {
   onDateSelect: (date: Date) => void;
   calendarData?: CalendarDay[];
   targets?: Target[];
+  projectNamesById?: Record<string, string>;
   onEditLeaves?: () => void;
   editMode?: boolean;
   selectedDays?: Date[];
@@ -33,6 +34,7 @@ export default function MonthlyCalendar({
   onDateSelect,
   calendarData = [],
   targets = [],
+  projectNamesById = {},
   onEditLeaves,
   editMode = false,
   selectedDays = [],
@@ -201,6 +203,44 @@ export default function MonthlyCalendar({
     }
   };
 
+  const getGoalStatusBadgeClasses = (goalStatus?: Target['goalStatus']) => {
+    switch (goalStatus) {
+      case 'REACHED':
+        return 'bg-success/20 text-success border-success/30';
+      case 'PARTIAL':
+        return 'bg-warning/20 text-warning border-warning/30';
+      case 'FAILED':
+        return 'bg-error/20 text-error border-error/30';
+      case 'NOT_SET':
+      default:
+        return 'bg-surface-container-high text-on-surface-variant border-outline-variant';
+    }
+  };
+
+  const resolvePrimaryProjectName = (target: Target) => {
+    const selectedProjects = (target.selectedProjects ?? []).filter(
+      (p) => p && p.trim().length > 0,
+    );
+    if (selectedProjects.length > 0) return selectedProjects[0];
+    if (target.customProject?.trim()) return target.customProject.trim();
+    if (target.projectId && projectNamesById[target.projectId])
+      return projectNamesById[target.projectId];
+    if (target.projectId) return target.projectId;
+    return 'Proje';
+  };
+
+  const resolveProjectsLabel = (target: Target) => {
+    const selectedProjects = (target.selectedProjects ?? []).filter(
+      (p) => p && p.trim().length > 0,
+    );
+    if (selectedProjects.length > 0) return selectedProjects.join(', ');
+    if (target.customProject?.trim()) return target.customProject.trim();
+    if (target.projectId && projectNamesById[target.projectId])
+      return projectNamesById[target.projectId];
+    if (target.projectId) return target.projectId;
+    return 'Proje';
+  };
+
   const getLeaveColor = (type: string) => {
     switch (type) {
       case 'annual_leave':
@@ -360,6 +400,7 @@ export default function MonthlyCalendar({
               day.date.getDay() === 0 || day.date.getDay() === 6;
             const hasOverflowTargets =
               !editMode && day.targets && day.targets.length > 3;
+            const hasDayEntries = !editMode && day.targets && day.targets.length > 0;
 
             return (
               <button
@@ -369,7 +410,7 @@ export default function MonthlyCalendar({
                   if (editMode && onDayToggle && !hasTarget && !isWeekend) {
                     onDayToggle(day.date);
                   } else if (!editMode) {
-                    if (hasOverflowTargets && day.targets) {
+                    if (hasDayEntries && day.targets) {
                       setDayEntriesDialog({
                         isOpen: true,
                         date: day.date,
@@ -455,11 +496,8 @@ export default function MonthlyCalendar({
                       {day.targets.slice(0, 3).map((target, idx) => {
                         const statusColor = getGoalStatusColor(target.goalStatus);
 
-                        const projectName =
-                          target.selectedProjects?.[0] ||
-                          target.customProject ||
-                          'Proje';
-                        const displayText = target.taskContent || projectName;
+                        const primaryProjectName = resolvePrimaryProjectName(target);
+                        const displayText = target.taskContent || primaryProjectName;
 
                         return (
                           <div
@@ -549,6 +587,9 @@ export default function MonthlyCalendar({
                 <p className='text-sm text-on-surface-variant'>
                   {dayEntriesDialog.entries.length} kayıt
                 </p>
+                <p className='text-xs text-on-surface-variant mt-1'>
+                  Detayları görmek için kayda tıklayın.
+                </p>
               </div>
               <button
                 onClick={() => setDayEntriesDialog(null)}
@@ -560,50 +601,117 @@ export default function MonthlyCalendar({
 
             <div className='space-y-2 max-h-[60vh] overflow-y-auto pr-1'>
               {dayEntriesDialog.entries.map((target) => {
-                const projectName =
-                  target.selectedProjects?.[0] || target.customProject || 'Proje';
+                const primaryProjectName = resolvePrimaryProjectName(target);
+                const projectsLabel = resolveProjectsLabel(target);
                 const title = target.taskContent?.trim()
                   ? target.taskContent
-                  : projectName;
+                  : primaryProjectName;
+                const workRange =
+                  target.workStart || target.workEnd
+                    ? `${target.workStart ?? '--:--'} - ${target.workEnd ?? '--:--'}`
+                    : null;
+                const meetingRange =
+                  target.meetingStart || target.meetingEnd
+                    ? `${target.meetingStart ?? '--:--'} - ${target.meetingEnd ?? '--:--'}`
+                    : null;
+                const userLabel = target.user?.displayName || target.user?.username;
 
                 return (
-                  <div
+                  <details
                     key={target.id}
-                    className='p-3 rounded-lg border border-outline-variant bg-surface-container-low'
+                    className='group rounded-lg border border-outline-variant bg-surface-container-low'
                   >
-                    <div className='flex items-start gap-3'>
-                      <div
-                        className={`mt-1 w-2.5 h-2.5 rounded-full ${getGoalStatusColor(
-                          target.goalStatus,
-                        )}`}
-                        title={getGoalStatusLabel(target.goalStatus)}
-                      />
-                      <div className='min-w-0 flex-1'>
-                        <p className='text-sm font-medium text-on-surface truncate'>
-                          {title}
-                        </p>
-                        <div className='flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-on-surface-variant'>
-                          <span className='truncate'>{projectName}</span>
-                          <span>{getGoalStatusLabel(target.goalStatus)}</span>
-                          {(target.workStart || target.workEnd) && (
-                            <span>
-                              {target.workStart ?? '--:--'} - {target.workEnd ?? '--:--'}
-                            </span>
-                          )}
-                          {(target.meetingStart || target.meetingEnd) && (
-                            <span>
-                              Toplantı: {target.meetingStart ?? '--:--'} - {target.meetingEnd ?? '--:--'}
-                            </span>
-                          )}
-                        </div>
-                        {target.description?.trim() && (
-                          <p className='text-xs text-on-surface-variant mt-2 whitespace-pre-wrap'>
-                            {target.description}
+                    <summary className='p-3 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden'>
+                      <div className='flex items-center gap-3'>
+                        <div
+                          className={`w-2.5 h-2.5 rounded-full ${getGoalStatusColor(
+                            target.goalStatus,
+                          )}`}
+                          title={getGoalStatusLabel(target.goalStatus)}
+                        />
+                        <div className='min-w-0 flex-1'>
+                          <p className='text-sm font-medium text-on-surface truncate flex justify-between items-center'>
+                            {projectsLabel}
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded border ${getGoalStatusBadgeClasses(
+                              target.goalStatus,
+                            )}`}>{getGoalStatusLabel(target.goalStatus)}</span>
                           </p>
+                          {/* <div className='flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-on-surface-variant justify-between'>
+                            {workRange && <span>Çalışma: {workRange}</span>}
+                            {meetingRange && <span>Toplantı: {meetingRange}</span>}
+                          </div> */}
+                        </div>
+                        <span className='text-xs text-on-surface-variant mt-0.5 group-open:rotate-90 transition-transform'>
+                          ›
+                        </span>
+                      </div>
+                    </summary>
+                    <div className='px-3 pb-3'>
+                      <div className='grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-on-surface-variant'>
+                        <div className='rounded-md bg-surface-container-high px-2 py-1'>
+                          <span className='text-on-surface font-medium'>Durum: </span>
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded border ${getGoalStatusBadgeClasses(
+                              target.goalStatus,
+                            )}`}
+                          >
+                            {getGoalStatusLabel(target.goalStatus)}
+                          </span>
+                        </div>
+                        {userLabel && (
+                          <div className='rounded-md bg-surface-container-high px-2 py-1'>
+                            <span className='text-on-surface font-medium'>
+                              Kullanıcı:{' '}
+                            </span>
+                            <span className='break-words'>{userLabel}</span>
+                          </div>
+                        )}
+                        <div className='rounded-md bg-surface-container-high px-2 py-1'>
+                          <span className='text-on-surface font-medium'>Proje: </span>
+                          <span className='break-words'>{projectsLabel}</span>
+                        </div>
+                        {target.block?.trim() && (
+                          <div className='rounded-md bg-surface-container-high px-2 py-1'>
+                            <span className='text-on-surface font-medium'>Blok: </span>
+                            <span className='break-words'>{target.block}</span>
+                          </div>
+                        )}
+                        {target.floors?.trim() && (
+                          <div className='rounded-md bg-surface-container-high px-2 py-1'>
+                            <span className='text-on-surface font-medium'>Katlar: </span>
+                            <span className='break-words'>{target.floors}</span>
+                          </div>
+                        )}
+                        {workRange && (
+                          <div className='rounded-md bg-surface-container-high px-2 py-1'>
+                            <span className='text-on-surface font-medium'>
+                              Çalışma:{' '}
+                            </span>
+                            <span className='break-words'>{workRange}</span>
+                          </div>
+                        )}
+                        {meetingRange && (
+                          <div className='rounded-md bg-surface-container-high px-2 py-1'>
+                            <span className='text-on-surface font-medium'>
+                              Toplantı:{' '}
+                            </span>
+                            <span className='break-words'>{meetingRange}</span>
+                          </div>
                         )}
                       </div>
+
+                      {target.description?.trim() && (
+                        <div className='mt-2 rounded-md bg-surface-container-high px-2 py-2'>
+                          <p className='text-xs text-on-surface font-medium mb-1'>
+                            İş İçeriği
+                          </p>
+                          <p className='text-xs text-on-surface-variant whitespace-pre-wrap'>
+                            {target.taskContent}
+                          </p>
+                        </div>
+                      )}
                     </div>
-                  </div>
+                  </details>
                 );
               })}
             </div>

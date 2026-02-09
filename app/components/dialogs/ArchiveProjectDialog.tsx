@@ -30,7 +30,6 @@ export default function ArchiveProjectDialog({
   };
 
   const handleArchive = () => {
-    // Mock: Gerçek implementasyonda API çağrısı yapılacak
     const archivedIds = projects.map((p) => p.id);
     onProjectsArchived(archivedIds);
     onClose();

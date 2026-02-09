@@ -17,6 +17,10 @@ class ApiClient {
     // Request interceptor - Token ekle
     this.client.interceptors.request.use(
       (config) => {
+        const timeZone = this.getTimeZone();
+        if (timeZone) {
+          config.headers['x-timezone'] = timeZone;
+        }
         const token = this.getAccessToken();
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
@@ -51,9 +55,13 @@ class ApiClient {
             }
 
             // Refresh token ile yeni access token al
+            const timeZone = this.getTimeZone();
             const response = await axios.post(
               `${API_BASE_URL}/auth/refresh`,
               { refreshToken },
+              {
+                headers: timeZone ? { 'x-timezone': timeZone } : undefined,
+              },
             );
 
             const { accessToken, refreshToken: newRefreshToken } =
@@ -75,6 +83,17 @@ class ApiClient {
         return Promise.reject(error);
       },
     );
+  }
+
+  private getTimeZone(): string | null {
+    if (typeof window === 'undefined') return null;
+    try {
+      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (typeof timeZone === 'string' && timeZone.trim()) return timeZone;
+      return null;
+    } catch {
+      return null;
+    }
   }
 
   private getAccessToken(): string | null {

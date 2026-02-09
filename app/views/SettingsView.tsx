@@ -194,7 +194,6 @@ export default function SettingsView() {
                 </p>
               </div>
               <div className='flex items-center gap-2'>
-                <span className='text-sm text-success font-medium'>Aktif</span>
                 <div className='w-12 h-6 bg-success rounded-full flex items-center justify-end px-1'>
                   <div className='w-4 h-4 bg-white rounded-full'></div>
                 </div>

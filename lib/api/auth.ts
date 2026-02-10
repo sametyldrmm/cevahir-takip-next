@@ -26,6 +26,12 @@ export interface AuthResponse {
   user: User;
 }
 
+export interface ChangePasswordDto {
+  username: string;
+  currentPassword: string;
+  newPassword: string;
+}
+
 export const authApi = {
   async login(dto: LoginDto): Promise<AuthResponse> {
     const response = await apiClient.getClient().post<AuthResponse>(
@@ -80,6 +86,10 @@ export const authApi = {
   async getProfile(): Promise<User> {
     const response = await apiClient.getClient().get<User>('/auth/me');
     return response.data;
+  },
+
+  async changePassword(dto: ChangePasswordDto): Promise<void> {
+    await apiClient.getClient().post('/auth/change-password', dto);
   },
 };
 

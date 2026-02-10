@@ -52,6 +52,30 @@ export default function MonthlyCalendar({
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
 
+  const pad2 = (value: number) => String(value).padStart(2, '0');
+  const getLocalDateKey = (date: Date) =>
+    `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+  const normalizeDateKey = (value: string | undefined) => {
+    const trimmed = value?.trim();
+    if (!trimmed) return null;
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return trimmed;
+    }
+
+    const candidate = trimmed.split('T')[0]?.split(' ')[0];
+    if (candidate && /^\d{4}-\d{2}-\d{2}$/.test(candidate)) {
+      const parsed = new Date(trimmed);
+      if (!Number.isNaN(parsed.getTime())) return getLocalDateKey(parsed);
+      return candidate;
+    }
+
+    const parsed = new Date(trimmed);
+    if (!Number.isNaN(parsed.getTime())) return getLocalDateKey(parsed);
+
+    return null;
+  };
+
   const monthNames = [
     'Ocak',
     'Şubat',
@@ -94,16 +118,13 @@ export default function MonthlyCalendar({
     const today = new Date();
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month, day);
-      const dateKey = date.toISOString().split('T')[0];
+      const dateKey = getLocalDateKey(date);
 
       const target = calendarData.find((d) => d.date === dateKey);
       const dayTargets = targets.filter((t) => {
-        const targetDate = new Date(t.date);
-        return (
-          targetDate.getDate() === date.getDate() &&
-          targetDate.getMonth() === date.getMonth() &&
-          targetDate.getFullYear() === date.getFullYear()
-        );
+        const targetDateKey = normalizeDateKey(t.date);
+        if (!targetDateKey) return false;
+        return targetDateKey === dateKey;
       });
 
       days.push({
@@ -389,12 +410,12 @@ export default function MonthlyCalendar({
       <div className='grid grid-cols-7 gap-1'>
         {weeks.map((week, weekIndex) =>
           week.map((day, dayIndex) => {
-            const dateKey = day.date.toISOString().split('T')[0];
+            const dateKey = getLocalDateKey(day.date);
             const hasTarget = day.target && day.target.status !== 'none';
             const hasLeave = leaves[dateKey] !== undefined;
             const leave = leaves[dateKey];
             const isSelectedForLeave = selectedDays.some(
-              (d) => d.toISOString().split('T')[0] === dateKey,
+              (d) => getLocalDateKey(d) === dateKey,
             );
             const isWeekend =
               day.date.getDay() === 0 || day.date.getDay() === 6;
@@ -482,12 +503,12 @@ export default function MonthlyCalendar({
                         {day.date.getDate()}
                       </span>
                     </div>
-                    {hasTarget && day.target && (
+                    {/* {hasTarget && day.target && (
                       <div
                         className={`w-2.5 h-2.5 rounded-full ${getStatusColor(day.target.status)}`}
                         title={getStatusLabel(day.target.status)}
                       />
-                    )}
+                    )} */}
                   </div>
 
                   {/* Target Events - Event Chips Style */}
@@ -542,14 +563,14 @@ export default function MonthlyCalendar({
                   )}
 
                   {/* Project Note */}
-                  {day.target && day.target.note && (
+                  {/* {day.target && day.target.note && (
                     <div
                       className='mt-auto pt-1 text-xs text-on-surface-variant truncate'
                       title={day.target.note}
                     >
                       {day.target.note}
                     </div>
-                  )}
+                  )} */}
 
                   {/* Empty state for current month days */}
                   {day.isCurrentMonth && !hasTarget && !hasLeave && (

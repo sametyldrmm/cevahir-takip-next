@@ -454,6 +454,26 @@ export default function TeamTrackingView() {
                     const targetUser = users.find(
                       (u) => u.username === target.username,
                     );
+                    const effectiveTargetDate = selectedDate || target.date;
+                    const targetEntries = Array.isArray(target.projectTargets) &&
+                      target.projectTargets.length > 0
+                      ? target.projectTargets
+                      : [
+                          {
+                            targetId: target.targetId,
+                            projectId: target.selectedProjects?.[0] ?? '',
+                            projectName,
+                            block: target.block,
+                            floors: target.floors,
+                            taskContent: target.taskContent,
+                            goalStatus: target.goalStatus,
+                            description: target.description,
+                            workStart: target.workStart,
+                            workEnd: target.workEnd,
+                            meetingStart: target.meetingStart,
+                            meetingEnd: target.meetingEnd,
+                          },
+                        ];
                     const statusLabels: Record<string, string> = {
                       REACHED: 'Tamamlandı',
                       PARTIAL: 'Kısmen',
@@ -467,139 +487,135 @@ export default function TeamTrackingView() {
                       NOT_SET:
                         'bg-surface-container-high text-on-surface-variant',
                     };
-
-                    const handleEditClick = () => {
-                      if (!isAdmin) return;
-
-                      let targetIdToEdit = target.targetId;
-
-                      if (
-                        !targetIdToEdit &&
-                        Array.isArray(target.projectTargets) &&
-                        target.projectTargets.length > 0
-                      ) {
-                        targetIdToEdit = target.projectTargets[0]?.targetId;
-                      }
-
-                      if (targetIdToEdit) {
-                        const targetToEdit: any = {
-                          id: targetIdToEdit,
-                          date: target.date,
-                          userId: targetUser?.id || '',
-                          projectId:
-                            Array.isArray(target.projectTargets) &&
-                            target.projectTargets.length > 0
-                              ? target.projectTargets[0]?.projectId
-                              : undefined,
-                          taskContent: target.taskContent,
-                          description: target.description,
-                          block: target.block,
-                          floors: target.floors,
-                          goalStatus: target.goalStatus,
-                          workStart: target.workStart,
-                          workEnd: target.workEnd,
-                          meetingStart: target.meetingStart,
-                          meetingEnd: target.meetingEnd,
-                          createdAt: new Date().toISOString(),
-                          updatedAt: new Date().toISOString(),
-                        };
-                        setEditingTarget(targetToEdit);
-                        setShowEditDialog(true);
-                      }
-                    };
+                    const groupKey =
+                      target.targetId ||
+                      (Array.isArray(target.projectTargets) &&
+                      target.projectTargets.length > 0
+                        ? `group-${target.projectTargets
+                            .map((entry) => entry.targetId)
+                            .filter(Boolean)
+                            .join('-')}`
+                        : `group-${target.username}-${effectiveTargetDate}`);
 
                     return (
-                      <div
-                        key={`${target.username}-${target.date}${target.targetId || ''}`}
-                        className={`bg-surface-container-low p-4 rounded-lg border border-outline-variant ${
-                          isAdmin &&
-                          (target.targetId ||
-                            (Array.isArray(target.projectTargets) &&
-                              target.projectTargets.length > 0 &&
-                              target.projectTargets[0]?.targetId))
-                            ? 'cursor-pointer hover:border-(--primary) transition-colors'
-                            : ''
-                        }`}
-                        onClick={handleEditClick}
-                      >
-                        <div className='flex justify-between items-start'>
-                          <div>
-                            {isAdmin &&
-                              (target.targetId ||
-                                (Array.isArray(target.projectTargets) &&
-                                  target.projectTargets.length > 0 &&
-                                  target.projectTargets[0]?.targetId)) && (
-                                <p className='text-xs text-warning mt-1'>
-                                  Düzenlemek için tıklayın
+                      <div key={groupKey} className='space-y-4'>
+                        {targetEntries.map((entry) => {
+                          const handleEditClick = () => {
+                            if (!isAdmin) return;
+                            if (!entry.targetId) return;
+
+                            const targetToEdit: any = {
+                              id: entry.targetId,
+                              date: effectiveTargetDate,
+                              userId: targetUser?.id || '',
+                              projectId: entry.projectId || undefined,
+                              taskContent: entry.taskContent,
+                              description: entry.description,
+                              block: entry.block,
+                              floors: entry.floors,
+                              goalStatus: entry.goalStatus,
+                              workStart: entry.workStart,
+                              workEnd: entry.workEnd,
+                              meetingStart: entry.meetingStart,
+                              meetingEnd: entry.meetingEnd,
+                              createdAt: new Date().toISOString(),
+                              updatedAt: new Date().toISOString(),
+                            };
+                            setEditingTarget(targetToEdit);
+                            setShowEditDialog(true);
+                          };
+
+                          const canEdit = isAdmin && Boolean(entry.targetId);
+
+                          return (
+                            <div
+                              key={`${target.username}-${effectiveTargetDate}-${entry.targetId || entry.projectId}`}
+                              className={`bg-surface-container-low p-4 rounded-lg border border-outline-variant ${
+                                canEdit
+                                  ? 'cursor-pointer hover:border-(--primary) transition-colors'
+                                  : ''
+                              }`}
+                              onClick={handleEditClick}
+                            >
+                              <div className='flex justify-between items-start'>
+                                <div>
+                                  {canEdit && (
+                                    <p className='text-xs text-warning mt-1'>
+                                      Düzenlemek için tıklayın
+                                    </p>
+                                  )}
+                                  <h4 className='font-bold text-lg text-on-surface mb-2'>
+                                    <Image
+                                      src={userPng}
+                                      alt='user'
+                                      className='w-5 h-5 mr-2 inline-block'
+                                    />
+                                    {targetUser?.displayName || target.username}
+                                  </h4>
+                                  {entry.block && (
+                                    <p className='text-on-surface mb-2'>
+                                      <b>Blok:</b> {entry.block}
+                                    </p>
+                                  )}
+                                  {entry.floors && (
+                                    <p className='text-on-surface mb-2'>
+                                      <b>Kat/Katlar:</b> {entry.floors}
+                                    </p>
+                                  )}
+                                </div>
+                                {entry.goalStatus && (
+                                  <span
+                                    className={`px-3 py-1 rounded text-xs font-medium ${
+                                      statusColors[entry.goalStatus] ||
+                                      statusColors.NOT_SET
+                                    }`}
+                                  >
+                                    {statusLabels[entry.goalStatus] ||
+                                      'Bilinmiyor'}
+                                  </span>
+                                )}
+                              </div>
+                              {entry.taskContent && (
+                                <p className='text-on-surface mb-2'>
+                                  <b>İşin İçeriği:</b> {entry.taskContent}
                                 </p>
                               )}
-                              <h4 className='font-bold text-lg text-on-surface mb-2'>
-                                <Image
-                                  src={userPng}
-                                  alt='user'
-                                  className='w-5 h-5 mr-2 inline-block'
-                                />
-                                {targetUser?.displayName || target.username}
-                              </h4>
-                            {target.block && (
-                              <p className='text-on-surface mb-2'>
-                                <b>Blok:</b> {target.block}
-                              </p>
-                            )}
-                            {target.floors && (
-                              <p className='text-on-surface mb-2'>
-                                <b>Kat/Katlar:</b> {target.floors}
-                              </p>
-                            )}
-                          </div>
-                          {target.goalStatus && (
-                            <span
-                              className={`px-3 py-1 rounded text-xs font-medium ${
-                                statusColors[target.goalStatus] ||
-                                statusColors.NOT_SET
-                              }`}
-                            >
-                              {statusLabels[target.goalStatus] || 'Bilinmiyor'}
-                            </span>
-                          )}
-                        </div>
-                        {target.taskContent && (
-                          <p className='text-on-surface mb-2'>
-                            <b>İşin İçeriği:</b> {target.taskContent}
-                          </p>
-                        )}
-                        {target.description && (
-                          <p className='text-on-surface mb-2'>
-                            <b>Açıklama:</b> {target.description}
-                          </p>
-                        )}
-                        <div className='text-on-surface mb-2'>
-                          <span>
-                            <b>Çalışma Başlangıç/Bitiş Tarihi:</b> {target.date}
-                          </span>
-                          {(target.workStart || target.workEnd) && (
-                            <span>
-                              &nbsp;|&nbsp;
-                              {target.workStart && target.workEnd
-                                ? `${target.workStart} - ${target.workEnd}`
-                                : target.workStart || target.workEnd}
-                            </span>
-                          )}
-                        </div>
-                        <div className='text-on-surface mb-2'>
-                          <span>
-                            <b>Toplantı Başlangıç/Bitiş Tarihi:</b>{' '}
-                            {target.date}
-                          </span>
-                          {(target.meetingStart || target.meetingEnd) && (
-                            <span>
-                              &nbsp;|&nbsp;
-                              {target.meetingStart && target.meetingEnd
-                                ? `${target.meetingStart} - ${target.meetingEnd}`
-                                : target.meetingStart || target.meetingEnd}
-                            </span>
-                          )}
-                        </div>
+                              {entry.description && (
+                                <p className='text-on-surface mb-2'>
+                                  <b>Açıklama:</b> {entry.description}
+                                </p>
+                              )}
+                              <div className='text-on-surface mb-2'>
+                                <span>
+                                  <b>Çalışma Başlangıç/Bitiş Tarihi:</b>{' '}
+                                  {effectiveTargetDate}
+                                </span>
+                                {(entry.workStart || entry.workEnd) && (
+                                  <span>
+                                    &nbsp;|&nbsp;
+                                    {entry.workStart && entry.workEnd
+                                      ? `${entry.workStart} - ${entry.workEnd}`
+                                      : entry.workStart || entry.workEnd}
+                                  </span>
+                                )}
+                              </div>
+                              <div className='text-on-surface mb-2'>
+                                <span>
+                                  <b>Toplantı Başlangıç/Bitiş Tarihi:</b>{' '}
+                                  {effectiveTargetDate}
+                                </span>
+                                {(entry.meetingStart || entry.meetingEnd) && (
+                                  <span>
+                                    &nbsp;|&nbsp;
+                                    {entry.meetingStart && entry.meetingEnd
+                                      ? `${entry.meetingStart} - ${entry.meetingEnd}`
+                                      : entry.meetingStart || entry.meetingEnd}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     );
                   })}

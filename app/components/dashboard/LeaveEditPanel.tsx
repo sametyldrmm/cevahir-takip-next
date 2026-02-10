@@ -86,6 +86,10 @@ export default function LeaveEditPanel({
     setPendingRemovals(newRemovals);
   };
 
+  const pad2 = (value: number) => String(value).padStart(2, '0');
+  const getLocalDateKey = (date: Date) =>
+    `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+
   const handleSave = async () => {
     if (selectedDays.length === 0 && pendingRemovals.size === 0) {
       showError('Değişiklik yapılmadı');
@@ -110,7 +114,7 @@ export default function LeaveEditPanel({
         // Hedef girilmiş günleri filtrele
         const validDays: string[] = [];
         for (const day of selectedDays) {
-          const dateStr = day.toISOString().split('T')[0];
+          const dateStr = getLocalDateKey(day);
           try {
             const targets = await targetsApi.getTargetsByDate(dateStr);
             // Hedef yoksa ve hafta sonu değilse ekle

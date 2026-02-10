@@ -11,6 +11,10 @@ import EditTargetDialog from "@/app/components/dialogs/EditTargetDialog";
 import { useNotification } from "@/app/contexts/NotificationContext";
 import { useRouter } from "next/navigation";
 
+const pad2 = (value: number) => String(value).padStart(2, "0");
+const getLocalDateKey = (date: Date) =>
+  `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+
 export default function DashboardView() {
   const { user } = useAuth();
   const { showSuccess } = useNotification();
@@ -42,8 +46,8 @@ export default function DashboardView() {
         const today = new Date();
         const startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
         const endDate = new Date(today.getFullYear(), today.getMonth() + 2, 0);
-        const startDateStr = startDate.toISOString().split("T")[0];
-        const endDateStr = endDate.toISOString().split("T")[0];
+        const startDateStr = getLocalDateKey(startDate);
+        const endDateStr = getLocalDateKey(endDate);
         
         const [statistics, targets, calendar, allTargetsData, leavesData, projects] = await Promise.all([
           targetsApi.getStatistics(),
@@ -146,7 +150,7 @@ export default function DashboardView() {
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
     // Tarih seçildiğinde o tarihteki hedefleri yükle
-    const dateStr = date.toISOString().split("T")[0];
+    const dateStr = getLocalDateKey(date);
     targetsApi.getTargetsByDate(dateStr).then((targets) => {
       setTodayTargets(targets);
     });
@@ -167,11 +171,11 @@ export default function DashboardView() {
       return;
     }
 
-    const dateStr = date.toISOString().split("T")[0];
+    const dateStr = getLocalDateKey(date);
     setSelectedLeaveDays((prev) => {
-      const exists = prev.some((d) => d.toISOString().split("T")[0] === dateStr);
+      const exists = prev.some((d) => getLocalDateKey(d) === dateStr);
       if (exists) {
-        return prev.filter((d) => d.toISOString().split("T")[0] !== dateStr);
+        return prev.filter((d) => getLocalDateKey(d) !== dateStr);
       } else {
         return [...prev, date];
       }
@@ -189,8 +193,8 @@ export default function DashboardView() {
       const today = new Date();
       const startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
       const endDate = new Date(today.getFullYear(), today.getMonth() + 2, 0);
-      const startDateStr = startDate.toISOString().split("T")[0];
-      const endDateStr = endDate.toISOString().split("T")[0];
+      const startDateStr = getLocalDateKey(startDate);
+      const endDateStr = getLocalDateKey(endDate);
       
       const leavesData = await leavesApi.getByRange(startDateStr, endDateStr);
       const leavesMap: Record<string, { type: string; note?: string }> = {};

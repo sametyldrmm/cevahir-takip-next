@@ -1,20 +1,35 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { isAxiosError } from 'axios';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { authApi, User } from '@/lib/api/auth';
 import { useNotification } from '../contexts/NotificationContext';
 import { usePushNotification } from '../hooks/usePushNotification';
 import { apiClient } from '@/lib/api-client';
+import { usersApi } from '@/lib/api/users';
+import { PasswordChangeDialog } from '@/app/components/dialogs';
 
 export default function SettingsView() {
   const { themeSetting, accentColor, setThemeSetting, setAccentColor } =
     useTheme();
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const { showSuccess, showError } = useNotification();
   const [profile, setProfile] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [profileForm, setProfileForm] = useState<{
+    username: string;
+    email: string;
+    displayName: string;
+  }>({ username: '', email: '', displayName: '' });
+  const [profileErrors, setProfileErrors] = useState<{
+    username?: string;
+    email?: string;
+    displayName?: string;
+  }>({});
   const accentOptions = [
     { name: 'Mavi', value: 'blue' },
     { name: 'Yeşil', value: 'green' },
@@ -30,6 +45,20 @@ export default function SettingsView() {
   } = usePushNotification();
   const [pushToggleLoading, setPushToggleLoading] = useState(false);
 
+  const getApiErrorMessage = (error: unknown) => {
+    if (isAxiosError<{ message?: unknown }>(error)) {
+      const message = error.response?.data?.message;
+      if (typeof message === 'string' && message.trim()) return message;
+      if (Array.isArray(message)) {
+        const first = message.find(
+          (item) => typeof item === 'string' && item.trim(),
+        );
+        if (typeof first === 'string') return first;
+      }
+    }
+    return undefined;
+  };
+
   useEffect(() => {
     if (!user) {
       setIsLoading(false);
@@ -41,6 +70,11 @@ export default function SettingsView() {
         setIsLoading(true);
         const userData = await authApi.getProfile();
         setProfile(userData);
+        setProfileForm({
+          username: userData.username ?? '',
+          email: userData.email ?? '',
+          displayName: userData.displayName ?? '',
+        });
       } catch (error) {
         console.error('Profile load error:', error);
         showError('Profil bilgileri yüklenirken bir hata oluştu');
@@ -51,6 +85,86 @@ export default function SettingsView() {
 
     void loadProfile();
   }, [user, showError]);
+
+  const isProfileDirty =
+    !!profile &&
+    (profileForm.username.trim() !== (profile.username ?? '').trim() ||
+      profileForm.email.trim() !== (profile.email ?? '').trim() ||
+      profileForm.displayName.trim() !== (profile.displayName ?? '').trim());
+
+  const resetProfileForm = () => {
+    if (!profile) return;
+    setProfileForm({
+      username: profile.username ?? '',
+      email: profile.email ?? '',
+      displayName: profile.displayName ?? '',
+    });
+    setProfileErrors({});
+  };
+
+  const validateProfileForm = () => {
+    const nextErrors: {
+      username?: string;
+      email?: string;
+      displayName?: string;
+    } = {};
+
+    const username = profileForm.username.trim();
+    const email = profileForm.email.trim();
+
+    if (!username) nextErrors.username = 'Kullanıcı adı gerekli';
+    if (!email) nextErrors.email = 'E-posta gerekli';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      nextErrors.email = 'Geçerli bir e-posta girin';
+    }
+
+    setProfileErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const handleSaveProfile = async () => {
+    if (!profile) return;
+    if (!validateProfileForm()) return;
+
+    if (!isProfileDirty) {
+      showSuccess('Değişiklik yok');
+      return;
+    }
+
+    const dto = {
+      username: profileForm.username.trim(),
+      email: profileForm.email.trim(),
+      displayName: profileForm.displayName.trim() || undefined,
+    };
+
+    try {
+      setIsSavingProfile(true);
+      try {
+        await usersApi.updateMe(dto);
+      } catch (error: unknown) {
+        if (isAxiosError(error) && error.response?.status === 404) {
+          await usersApi.updateUser(profile.id, dto);
+        } else {
+          throw error;
+        }
+      }
+
+      const refreshed = await authApi.getProfile();
+      setProfile(refreshed);
+      setUser(refreshed);
+      setProfileForm({
+        username: refreshed.username ?? '',
+        email: refreshed.email ?? '',
+        displayName: refreshed.displayName ?? '',
+      });
+      setProfileErrors({});
+      showSuccess('Profil güncellendi');
+    } catch (error: unknown) {
+      showError(getApiErrorMessage(error) ?? 'Profil güncellenemedi');
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
 
   return (
     <div className='p-6'>
@@ -69,25 +183,74 @@ export default function SettingsView() {
                 <label className='block text-sm font-medium text-on-surface-variant mb-1'>
                   Kullanıcı Adı
                 </label>
-                <div className='px-4 py-2 bg-surface rounded-lg border border-outline text-on-surface'>
-                  {profile.username || 'Belirtilmemiş'}
-                </div>
+                <input
+                  value={profileForm.username}
+                  onChange={(e) => {
+                    setProfileForm((prev) => ({
+                      ...prev,
+                      username: e.target.value,
+                    }));
+                    setProfileErrors((prev) => ({ ...prev, username: undefined }));
+                  }}
+                  className={`w-full px-4 py-2 bg-surface rounded-lg border text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all ${
+                    profileErrors.username ? 'border-error' : 'border-outline'
+                  }`}
+                  disabled={isSavingProfile}
+                />
+                {profileErrors.username && (
+                  <p className='mt-1 text-sm text-error'>
+                    {profileErrors.username}
+                  </p>
+                )}
               </div>
               <div>
                 <label className='block text-sm font-medium text-on-surface-variant mb-1'>
                   E-posta
                 </label>
-                <div className='px-4 py-2 bg-surface rounded-lg border border-outline text-on-surface'>
-                  {profile.email || 'Belirtilmemiş'}
-                </div>
+                <input
+                  type='email'
+                  value={profileForm.email}
+                  onChange={(e) => {
+                    setProfileForm((prev) => ({ ...prev, email: e.target.value }));
+                    setProfileErrors((prev) => ({ ...prev, email: undefined }));
+                  }}
+                  className={`w-full px-4 py-2 bg-surface rounded-lg border text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all ${
+                    profileErrors.email ? 'border-error' : 'border-outline'
+                  }`}
+                  disabled={isSavingProfile}
+                />
+                {profileErrors.email && (
+                  <p className='mt-1 text-sm text-error'>
+                    {profileErrors.email}
+                  </p>
+                )}
               </div>
               <div>
                 <label className='block text-sm font-medium text-on-surface-variant mb-1'>
                   Görünen Ad
                 </label>
-                <div className='px-4 py-2 bg-surface rounded-lg border border-outline text-on-surface'>
-                  {profile.displayName || 'Belirtilmemiş'}
-                </div>
+                <input
+                  value={profileForm.displayName}
+                  onChange={(e) => {
+                    setProfileForm((prev) => ({
+                      ...prev,
+                      displayName: e.target.value,
+                    }));
+                    setProfileErrors((prev) => ({
+                      ...prev,
+                      displayName: undefined,
+                    }));
+                  }}
+                  className={`w-full px-4 py-2 bg-surface rounded-lg border text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all ${
+                    profileErrors.displayName ? 'border-error' : 'border-outline'
+                  }`}
+                  disabled={isSavingProfile}
+                />
+                {profileErrors.displayName && (
+                  <p className='mt-1 text-sm text-error'>
+                    {profileErrors.displayName}
+                  </p>
+                )}
               </div>
               <div>
                 <label className='block text-sm font-medium text-on-surface-variant mb-1'>
@@ -104,6 +267,29 @@ export default function SettingsView() {
                     {profile.role === 'ADMIN' ? 'Yönetici' : 'Kullanıcı'}
                   </span>
                 </div>
+              </div>
+              <div className='flex flex-wrap gap-3 pt-2'>
+                <button
+                  onClick={handleSaveProfile}
+                  disabled={isSavingProfile || !isProfileDirty}
+                  className='px-4 py-2 bg-primary text-on-primary rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed'
+                >
+                  {isSavingProfile ? 'Kaydediliyor...' : 'Kaydet'}
+                </button>
+                <button
+                  onClick={resetProfileForm}
+                  disabled={isSavingProfile || !isProfileDirty}
+                  className='px-4 py-2 bg-surface text-on-surface rounded-lg border border-outline hover:bg-surface-container-high transition-colors text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed'
+                >
+                  Sıfırla
+                </button>
+                <button
+                  onClick={() => setIsPasswordDialogOpen(true)}
+                  disabled={isSavingProfile}
+                  className='px-4 py-2 bg-surface text-on-surface rounded-lg border border-outline hover:bg-surface-container-high transition-colors text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed'
+                >
+                  Şifre Değiştir
+                </button>
               </div>
             </div>
           ) : (
@@ -327,6 +513,16 @@ export default function SettingsView() {
           </div>
         </div>
       </div>
+      {profile && (
+        <PasswordChangeDialog
+          isOpen={isPasswordDialogOpen}
+          userId={profile.id}
+          onClose={() => setIsPasswordDialogOpen(false)}
+          onPasswordChanged={() => {
+            showSuccess('Şifre güncellendi');
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -37,6 +37,11 @@ export const usersApi = {
     return response.data;
   },
 
+  async updateMe(dto: UpdateUserDto): Promise<User> {
+    const response = await apiClient.getClient().patch<User>('/users/me', dto);
+    return response.data;
+  },
+
   // Takım takibi için kullanıcıları getir (/me endpoint'i)
   // Eğer projectId verilirse, sadece o projenin kullanıcılarını döndürür
   // Verilmezse, kullanıcının dahil olduğu tüm projelerin kullanıcılarını döndürür

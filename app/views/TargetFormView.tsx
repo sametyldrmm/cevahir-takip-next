@@ -27,7 +27,10 @@ type ProjectTargetDraft = {
   meetingEnd: string;
 };
 
-const getTodayIsoDate = () => new Date().toISOString().split('T')[0];
+const pad2 = (value: number) => String(value).padStart(2, '0');
+const getLocalDateKey = (date: Date) =>
+  `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+const getTodayIsoDate = () => getLocalDateKey(new Date());
 
 const createEmptyDraft = (date: string): ProjectTargetDraft => ({
   date,

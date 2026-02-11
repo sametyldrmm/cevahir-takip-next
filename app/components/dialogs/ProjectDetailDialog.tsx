@@ -15,7 +15,13 @@ interface Project {
   archived?: boolean;
   userCount?: number;
   targetCount?: number;
-  users?: Array<{ id: string; username: string; email: string; displayName?: string }>;
+  users?: Array<{
+    id: string;
+    username: string;
+    email: string;
+    displayName?: string;
+    userTitle?: string;
+  }>;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -186,7 +192,7 @@ export default function ProjectDetailDialog({
                   >
                     <div>
                       <p className="text-sm font-medium text-on-surface">
-                        {user.displayName || user.username}
+                        {`${user.displayName || user.username}${user.userTitle ? ` - ${user.userTitle}` : ""}`}
                       </p>
                       <p className="text-xs text-on-surface-variant">{user.email}</p>
                     </div>
@@ -245,7 +251,7 @@ export default function ProjectDetailDialog({
                             </p>
                             {target.user && (
                               <span className="text-xs px-2 py-0.5 bg-primary/20 text-primary rounded font-medium">
-                                {target.user.displayName || target.user.username}
+                                {`${target.user.displayName || target.user.username}${target.user.userTitle ? ` - ${target.user.userTitle}` : ""}`}
                               </span>
                             )}
                             {isAdmin && (

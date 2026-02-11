@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { targetsApi, TeamTarget } from '@/lib/api/targets';
 import { projectsApi, Project } from '@/lib/api/projects';
+import { usersApi } from '@/lib/api/users';
 import { useNotification } from '@/app/contexts/NotificationContext';
 import { useAuth } from '@/app/contexts/AuthContext';
 import EditTargetDialog from '@/app/components/dialogs/EditTargetDialog';
@@ -24,6 +25,8 @@ export default function TeamTrackingView() {
   const [teamTargets, setTeamTargets] = useState<TeamTarget[]>([]);
   const [allProjects, setAllProjects] = useState<Project[]>([]);
   const [users, setUsers] = useState<any[]>([]);
+  const [isUsersLoading, setIsUsersLoading] = useState(false);
+  const [areUserTitlesResolved, setAreUserTitlesResolved] = useState(false);
   const [editingTarget, setEditingTarget] = useState<any>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const { showError, showSuccess } = useNotification();
@@ -84,10 +87,16 @@ export default function TeamTrackingView() {
   useEffect(() => {
     if (selectedProjects.size === 0) {
       setUsers([]);
+      setIsUsersLoading(false);
+      setAreUserTitlesResolved(false);
+      setSelectedUser('all');
       return;
     }
 
     const loadUsers = async () => {
+      setSelectedUser('all');
+      setIsUsersLoading(true);
+      setAreUserTitlesResolved(false);
       try {
         const projectIds = Array.from(selectedProjects);
         const usersMap = new Map<string, any>();
@@ -103,15 +112,44 @@ export default function TeamTrackingView() {
                     id: user.id,
                     username: user.username,
                     displayName: user.displayName || user.username,
+                    userTitle: user.userTitle,
                   });
                 }
               });
             }
           });
 
+        const userLists = await Promise.all(
+          projectIds.map((projectId) => usersApi.getTeamUsers(projectId)),
+        );
+        const combined = userLists.flat();
+        for (const u of combined) {
+          if (!u.id || !u.username) continue;
+          const existing = usersMap.get(u.id) as
+            | {
+                id: string;
+                username: string;
+                displayName: string;
+                userTitle?: string;
+              }
+            | undefined;
+
+          usersMap.set(u.id, {
+            id: u.id,
+            username: u.username,
+            displayName: u.displayName || u.username,
+            userTitle: u.userTitle || existing?.userTitle,
+          });
+        }
+
         setUsers(Array.from(usersMap.values()));
+        setAreUserTitlesResolved(true);
       } catch (error: any) {
         console.error('Users load error:', error);
+        setUsers([]);
+        setAreUserTitlesResolved(false);
+      } finally {
+        setIsUsersLoading(false);
       }
     };
 
@@ -342,14 +380,21 @@ export default function TeamTrackingView() {
             <select
               value={selectedUser}
               onChange={(e) => setSelectedUser(e.target.value)}
+              disabled={isUsersLoading}
               className='px-4 py-2 border border-outline rounded-lg bg-surface-container text-on-surface focus:outline-none focus:border-primary'
             >
               <option value='all'>Tüm Kullanıcılar</option>
-              {users.map((user) => (
-                <option key={user.id} value={user.username}>
-                  {user.displayName || user.username}
+              {areUserTitlesResolved ? (
+                users.map((user) => (
+                  <option key={user.id} value={user.username}>
+                    {`${user.displayName || user.username}${user.userTitle ? ` - ${user.userTitle}` : ''}`}
+                  </option>
+                ))
+              ) : (
+                <option value='' disabled>
+                  Kullanıcılar yükleniyor...
                 </option>
-              ))}
+              )}
             </select>
 
             <input
@@ -550,7 +595,9 @@ export default function TeamTrackingView() {
                                       alt='user'
                                       className='w-5 h-5 mr-2 inline-block'
                                     />
-                                    {targetUser?.displayName || target.username}
+                                    {areUserTitlesResolved
+                                      ? `${targetUser?.displayName || target.username}${targetUser?.userTitle ? ` - ${targetUser.userTitle}` : ''}`
+                                      : 'Yükleniyor...'}
                                   </h4>
                                   {entry.block && (
                                     <p className='text-on-surface mb-2'>

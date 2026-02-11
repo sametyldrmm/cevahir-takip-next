@@ -6,6 +6,7 @@ export interface User {
   email: string;
   role: 'ADMIN' | 'USER';
   displayName?: string;
+  userTitle?: string;
   isActive: boolean;
   totalTargets?: number;
   lastTargetDate?: string;
@@ -18,6 +19,7 @@ export interface CreateUserDto {
   email: string;
   password: string;
   displayName?: string;
+  userTitle?: string;
   role?: 'ADMIN' | 'USER';
 }
 
@@ -26,6 +28,7 @@ export interface UpdateUserDto {
   email?: string;
   password?: string;
   displayName?: string;
+  userTitle?: string;
   role?: 'ADMIN' | 'USER';
   isActive?: boolean;
 }

@@ -18,6 +18,7 @@ export interface User {
   email: string;
   role: 'ADMIN' | 'USER';
   displayName?: string;
+  userTitle?: string;
 }
 
 export interface AuthResponse {

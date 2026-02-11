@@ -6,6 +6,7 @@ interface User {
   id: string;
   username: string;
   displayName: string;
+  userTitle?: string;
   status: "active" | "archived";
   totalTargets: number;
   lastTargetDate?: string;
@@ -55,6 +56,9 @@ export default function UsersTable({
           </div>
           <div className="w-56 text-xs font-semibold text-on-surface-variant">
             Display Name
+          </div>
+          <div className="w-56 text-xs font-semibold text-on-surface-variant">
+            Pozisyon
           </div>
           <div className="w-32 text-xs font-semibold text-on-surface-variant">
             Status
@@ -113,6 +117,9 @@ export default function UsersTable({
                 </div>
                 <div className="w-56 text-sm text-on-surface-variant">
                   {user.displayName}
+                </div>
+                <div className="w-56 text-sm text-on-surface-variant">
+                  {user.userTitle?.trim() || "-"}
                 </div>
                 <div className="w-32">
                   <span

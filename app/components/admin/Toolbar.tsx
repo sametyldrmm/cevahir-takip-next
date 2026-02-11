@@ -12,6 +12,7 @@ interface ToolbarProps {
   onRestore?: () => void;
   onDelete?: () => void;
   onEditRole?: () => void;
+  onEditUserTitle?: () => void;
 }
 
 export default function Toolbar({
@@ -26,6 +27,7 @@ export default function Toolbar({
   onRestore,
   onDelete,
   onEditRole,
+  onEditUserTitle,
 }: ToolbarProps) {
   if (!editMode || selectionCount === 0) {
     return null;
@@ -66,12 +68,20 @@ export default function Toolbar({
           ) : (
             <>
               {selectionCount === 1 && (
-                <button
-                  onClick={onEditRole}
-                  className="px-3 py-1.5 border border-primary rounded-lg text-sm text-primary hover:bg-(--primary-container) transition-colors"
-                >
-                  Rol Değiştir
-                </button>
+                <>
+                  <button
+                    onClick={onEditRole}
+                    className="px-3 py-1.5 border border-primary rounded-lg text-sm text-primary hover:bg-(--primary-container) transition-colors"
+                  >
+                    Rol Değiştir
+                  </button>
+                  <button
+                    onClick={onEditUserTitle}
+                    className="px-3 py-1.5 border border-primary rounded-lg text-sm text-primary hover:bg-(--primary-container) transition-colors"
+                  >
+                    Pozisyon Değiştir
+                  </button>
+                </>
               )}
               <button
                 onClick={onRestore || onArchive}

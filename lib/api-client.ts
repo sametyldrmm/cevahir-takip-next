@@ -42,6 +42,27 @@ class ApiClient {
           return Promise.reject(error);
         }
 
+        if (error.response?.status === 429) {
+          const rawRetryAfter = error.response.headers?.['retry-after'];
+          const retryAfterSeconds =
+            typeof rawRetryAfter === 'string' ? Number.parseInt(rawRetryAfter, 10) : NaN;
+
+          const message =
+            Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+              ? `Çok fazla istek. Lütfen ${retryAfterSeconds} saniye sonra tekrar deneyin.`
+              : 'Çok fazla istek. Lütfen biraz sonra tekrar deneyin.';
+
+          const responseData = error.response.data as unknown;
+          if (typeof responseData === 'object' && responseData !== null) {
+            const dataAsRecord = responseData as Record<string, unknown>;
+            dataAsRecord.message = message;
+          } else {
+            error.message = message;
+          }
+
+          return Promise.reject(error);
+        }
+
         // 401 hatası ve token refresh denenmemişse
         if (error.response?.status === 401 && !originalRequest._retry) {
           originalRequest._retry = true;

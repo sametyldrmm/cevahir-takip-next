@@ -6,6 +6,7 @@ export interface TargetUser {
   id: string;
   username: string;
   displayName?: string;
+  userTitle?: string;
 }
 
 export interface Target {

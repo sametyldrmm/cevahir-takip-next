@@ -303,7 +303,7 @@ function MailSettingsView() {
     const needle = autoMailUsersFilterText.trim().toLowerCase();
     if (!needle) return users;
     return users.filter((u) => {
-      const haystack = `${u.displayName ?? ""} ${u.username ?? ""} ${u.email ?? ""}`
+      const haystack = `${u.displayName ?? ""} ${u.username ?? ""} ${u.email ?? ""} ${u.userTitle ?? ""}`
         .trim()
         .toLowerCase();
       return haystack.includes(needle);
@@ -1312,7 +1312,7 @@ function MailSettingsView() {
                         />
                         <div className="min-w-0">
                           <div className="text-sm font-medium text-on-surface truncate">
-                            {u.displayName || u.username || "Kullanıcı"}
+                            {`${u.displayName || u.username || "Kullanıcı"}${u.userTitle ? ` - ${u.userTitle}` : ""}`}
                           </div>
                           <div className="text-xs text-on-surface-variant truncate">
                             {u.email}

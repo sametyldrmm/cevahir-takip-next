@@ -15,6 +15,7 @@ export default function SettingsView() {
   const { themeSetting, accentColor, setThemeSetting, setAccentColor } =
     useTheme();
   const { user, setUser } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
   const { showSuccess, showError } = useNotification();
   const [profile, setProfile] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -24,11 +25,13 @@ export default function SettingsView() {
     username: string;
     email: string;
     displayName: string;
-  }>({ username: '', email: '', displayName: '' });
+    userTitle: string;
+  }>({ username: '', email: '', displayName: '', userTitle: '' });
   const [profileErrors, setProfileErrors] = useState<{
     username?: string;
     email?: string;
     displayName?: string;
+    userTitle?: string;
   }>({});
   const accentOptions = [
     { name: 'Mavi', value: 'blue' },
@@ -74,6 +77,7 @@ export default function SettingsView() {
           username: userData.username ?? '',
           email: userData.email ?? '',
           displayName: userData.displayName ?? '',
+          userTitle: userData.userTitle ?? '',
         });
       } catch (error) {
         console.error('Profile load error:', error);
@@ -90,7 +94,8 @@ export default function SettingsView() {
     !!profile &&
     (profileForm.username.trim() !== (profile.username ?? '').trim() ||
       profileForm.email.trim() !== (profile.email ?? '').trim() ||
-      profileForm.displayName.trim() !== (profile.displayName ?? '').trim());
+      profileForm.displayName.trim() !== (profile.displayName ?? '').trim() ||
+      profileForm.userTitle.trim() !== (profile.userTitle ?? '').trim());
 
   const resetProfileForm = () => {
     if (!profile) return;
@@ -98,6 +103,7 @@ export default function SettingsView() {
       username: profile.username ?? '',
       email: profile.email ?? '',
       displayName: profile.displayName ?? '',
+      userTitle: profile.userTitle ?? '',
     });
     setProfileErrors({});
   };
@@ -135,6 +141,7 @@ export default function SettingsView() {
       username: profileForm.username.trim(),
       email: profileForm.email.trim(),
       displayName: profileForm.displayName.trim() || undefined,
+      ...(isAdmin ? { userTitle: profileForm.userTitle.trim() } : {}),
     };
 
     try {
@@ -156,6 +163,7 @@ export default function SettingsView() {
         username: refreshed.username ?? '',
         email: refreshed.email ?? '',
         displayName: refreshed.displayName ?? '',
+        userTitle: refreshed.userTitle ?? '',
       });
       setProfileErrors({});
       showSuccess('Profil güncellendi');
@@ -249,6 +257,34 @@ export default function SettingsView() {
                 {profileErrors.displayName && (
                   <p className='mt-1 text-sm text-error'>
                     {profileErrors.displayName}
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className='block text-sm font-medium text-on-surface-variant mb-1'>
+                  Pozisyon
+                </label>
+                <input
+                  value={profileForm.userTitle}
+                  onChange={(e) => {
+                    if (!isAdmin) return;
+                    setProfileForm((prev) => ({
+                      ...prev,
+                      userTitle: e.target.value,
+                    }));
+                    setProfileErrors((prev) => ({
+                      ...prev,
+                      userTitle: undefined,
+                    }));
+                  }}
+                  className={`w-full px-4 py-2 bg-surface rounded-lg border text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all ${
+                    profileErrors.userTitle ? 'border-error' : 'border-outline'
+                  }`}
+                  disabled={isSavingProfile || !isAdmin}
+                />
+                {profileErrors.userTitle && (
+                  <p className='mt-1 text-sm text-error'>
+                    {profileErrors.userTitle}
                   </p>
                 )}
               </div>

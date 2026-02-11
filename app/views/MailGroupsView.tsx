@@ -561,7 +561,7 @@ export default function MailGroupsView() {
                     .filter((u) => !newGroupEmails.some((e) => normalizeEmail(e) === normalizeEmail(u.email)))
                     .map((u) => (
                       <option key={u.id} value={u.id}>
-                        {(u.displayName || u.username) + ` (${u.username})`}
+                        {`${u.displayName || u.username}${u.userTitle ? ` - ${u.userTitle}` : ''} (${u.username})`}
                       </option>
                     ))}
                 </select>
@@ -870,7 +870,7 @@ export default function MailGroupsView() {
                                   <option value=''>Kullanıcı seçin</option>
                                   {selectableUsers.map((u) => (
                                     <option key={u.id} value={u.id}>
-                                      {(u.displayName || u.username) + ` (${u.username})`}
+                                      {`${u.displayName || u.username}${u.userTitle ? ` - ${u.userTitle}` : ''} (${u.username})`}
                                     </option>
                                   ))}
                                 </select>

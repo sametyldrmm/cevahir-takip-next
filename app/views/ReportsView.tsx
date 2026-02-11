@@ -250,7 +250,7 @@ export default function ReportsView() {
     const needle = usersFilterText.trim().toLowerCase();
     if (!needle) return usersForMail;
     return usersForMail.filter((u) => {
-      const haystack = `${u.displayName ?? ''} ${u.username ?? ''} ${u.email ?? ''}`
+      const haystack = `${u.displayName ?? ''} ${u.username ?? ''} ${u.email ?? ''} ${u.userTitle ?? ''}`
         .trim()
         .toLowerCase();
       return haystack.includes(needle);
@@ -691,7 +691,7 @@ export default function ReportsView() {
                             />
                             <div className='min-w-0'>
                               <div className='text-sm font-medium text-on-surface truncate'>
-                                {u.displayName || u.username || 'Kullanıcı'}
+                                {`${u.displayName || u.username || 'Kullanıcı'}${u.userTitle ? ` - ${u.userTitle}` : ''}`}
                               </div>
                               <div className='text-xs text-on-surface-variant truncate'>
                                 {u.email}

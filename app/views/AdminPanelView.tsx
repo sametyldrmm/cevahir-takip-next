@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { isAxiosError } from "axios";
 import { projectsApi, Project as ApiProject } from "@/lib/api/projects";
-import { usersApi, User as ApiUser, CreateUserDto } from "@/lib/api/users";
+import { usersApi, User as ApiUser, CreateUserDto, UpdateUserDto } from "@/lib/api/users";
 import { useNotification } from "@/app/contexts/NotificationContext";
 import {
   CreateUserDialog,
@@ -41,7 +41,7 @@ interface User {
   username: string;
   displayName: string;
   email: string;
-  position?: string;
+  userTitle?: string;
   isAdmin?: boolean;
   status?: "active" | "archived";
   totalTargets?: number;
@@ -109,6 +109,7 @@ export default function AdminPanelView() {
           username: u.username,
           displayName: u.displayName || u.username,
           email: u.email,
+          userTitle: u.userTitle,
           isAdmin: u.role === "ADMIN",
           status: u.isActive ? "active" : "archived",
           totalTargets: u.totalTargets || 0,
@@ -134,6 +135,7 @@ export default function AdminPanelView() {
   const [showArchiveProject, setShowArchiveProject] = useState(false);
   const [showArchiveUser, setShowArchiveUser] = useState(false);
   const [showEditUserRole, setShowEditUserRole] = useState(false);
+  const [editUserDialogMode, setEditUserDialogMode] = useState<"role" | "title">("role");
   const [showDeleteUserData, setShowDeleteUserData] = useState(false);
   const [showProjectDetail, setShowProjectDetail] = useState(false);
   const [selectedProjectDetail, setSelectedProjectDetail] = useState<Project | null>(null);
@@ -312,6 +314,7 @@ export default function AdminPanelView() {
         username: newUser.username,
         displayName: newUser.displayName || newUser.username,
         email: newUser.email,
+        userTitle: newUser.userTitle,
         isAdmin: newUser.role === "ADMIN",
         status: newUser.isActive ? "active" : "archived",
         totalTargets: newUser.totalTargets || 0,
@@ -326,11 +329,17 @@ export default function AdminPanelView() {
     }
   };
 
-  const handleEditUserRole = async (userData: { userId: string; isAdmin: boolean }) => {
+  const handleEditUserSubmit = async (userData: { userId: string; isAdmin?: boolean; userTitle?: string }) => {
     try {
-      const updatedUser = await usersApi.updateUser(userData.userId, {
-        role: userData.isAdmin ? "ADMIN" : "USER",
-      });
+      const updateDto: UpdateUserDto = {};
+      if (userData.isAdmin !== undefined) {
+        updateDto.role = userData.isAdmin ? "ADMIN" : "USER";
+      }
+      if (userData.userTitle !== undefined) {
+        updateDto.userTitle = userData.userTitle;
+      }
+
+      const updatedUser = await usersApi.updateUser(userData.userId, updateDto);
 
       setUsers(
         users.map((u) =>
@@ -338,6 +347,7 @@ export default function AdminPanelView() {
             ? {
                 ...u,
                 isAdmin: updatedUser.role === "ADMIN",
+                userTitle: updatedUser.userTitle,
               }
             : u
         )
@@ -345,9 +355,13 @@ export default function AdminPanelView() {
       setShowEditUserRole(false);
       setEditingUser(null);
       setSelectedUsers(new Set());
-      showSuccess("Kullanıcı rolü başarıyla güncellendi");
+      if (editUserDialogMode === "role") {
+        showSuccess("Kullanıcı rolü başarıyla güncellendi");
+      } else {
+        showSuccess("Kullanıcı pozisyonu başarıyla güncellendi");
+      }
     } catch (error: unknown) {
-      showError(getApiErrorMessage(error) ?? "Kullanıcı rolü güncellenirken bir hata oluştu");
+      showError(getApiErrorMessage(error) ?? "Kullanıcı güncellenirken bir hata oluştu");
     }
   };
 
@@ -448,6 +462,7 @@ export default function AdminPanelView() {
       id: u.id,
       username: u.username,
       displayName: u.displayName,
+      userTitle: u.userTitle,
       status: (u.status || "active") as "active" | "archived",
       totalTargets: u.totalTargets || 0,
       lastTargetDate: u.lastTargetDate,
@@ -471,6 +486,19 @@ export default function AdminPanelView() {
       const user = users.find((u) => u.id === userId);
       if (user) {
         setEditingUser(user);
+        setEditUserDialogMode("role");
+        setShowEditUserRole(true);
+      }
+    }
+  };
+
+  const handleEditUserTitleClick = () => {
+    if (selectedUsers.size === 1) {
+      const userId = Array.from(selectedUsers)[0];
+      const user = users.find((u) => u.id === userId);
+      if (user) {
+        setEditingUser(user);
+        setEditUserDialogMode("title");
         setShowEditUserRole(true);
       }
     }
@@ -556,6 +584,7 @@ export default function AdminPanelView() {
             : undefined
         }
         onEditRole={handleEditRoleClick}
+        onEditUserTitle={handleEditUserTitleClick}
       />
 
       <div className="flex-1 overflow-auto">
@@ -590,6 +619,7 @@ export default function AdminPanelView() {
                 const originalUser = users.find((u) => u.id === user.id);
                 if (originalUser) {
                   setEditingUser(originalUser);
+                  setEditUserDialogMode("role");
                   setShowEditUserRole(true);
                 }
               }
@@ -620,11 +650,13 @@ export default function AdminPanelView() {
           userId={editingUser.id}
           username={editingUser.username}
           currentRole={editingUser.isAdmin ? "admin" : "user"}
+          currentUserTitle={editingUser.userTitle}
+          mode={editUserDialogMode}
           onClose={() => {
             setShowEditUserRole(false);
             setEditingUser(null);
           }}
-          onRoleUpdated={handleEditUserRole}
+          onSubmit={handleEditUserSubmit}
         />
       )}
 

@@ -5,6 +5,7 @@ export interface ProjectUser {
   username: string;
   email: string;
   displayName?: string;
+  userTitle?: string;
 }
 
 export interface Project {

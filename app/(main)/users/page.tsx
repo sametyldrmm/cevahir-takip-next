@@ -17,6 +17,7 @@ interface User {
   id: string;
   username: string;
   displayName: string;
+  userTitle?: string;
   email: string;
   isAdmin?: boolean;
   status: "active" | "archived";
@@ -58,6 +59,7 @@ export default function UsersPage() {
         id: u.id,
         username: u.username,
         displayName: u.displayName || u.username,
+        userTitle: u.userTitle,
         email: u.email,
         isAdmin: u.role === "ADMIN",
         status: u.isActive ? "active" : "archived",
@@ -96,6 +98,7 @@ export default function UsersPage() {
         id: newUser.id,
         username: newUser.username,
         displayName: newUser.displayName || newUser.username,
+        userTitle: newUser.userTitle,
         email: newUser.email,
         isAdmin: newUser.role === "ADMIN",
         status: newUser.isActive ? "active" : "archived",
@@ -110,12 +113,18 @@ export default function UsersPage() {
     }
   };
 
-  // Kullanıcı rolü güncelle
-  const handleEditUserRole = async (userData: { userId: string; isAdmin: boolean }) => {
+  // Kullanıcı güncelle
+  const handleEditUserRole = async (userData: { userId: string; isAdmin?: boolean; userTitle?: string }) => {
     try {
-      const updatedUser = await usersApi.updateUser(userData.userId, {
-        role: userData.isAdmin ? "ADMIN" : "USER",
-      });
+      const updateDto: UpdateUserDto = {};
+      if (userData.isAdmin !== undefined) {
+        updateDto.role = userData.isAdmin ? "ADMIN" : "USER";
+      }
+      if (userData.userTitle !== undefined) {
+        updateDto.userTitle = userData.userTitle;
+      }
+
+      const updatedUser = await usersApi.updateUser(userData.userId, updateDto);
 
       setUsers(
         users.map((u) =>
@@ -123,6 +132,7 @@ export default function UsersPage() {
             ? {
                 ...u,
                 isAdmin: updatedUser.role === "ADMIN",
+                userTitle: updatedUser.userTitle,
               }
             : u
         )
@@ -130,9 +140,9 @@ export default function UsersPage() {
       setShowEditUserRole(false);
       setEditingUser(null);
       setSelectedUsers(new Set());
-      showSuccess("Kullanıcı rolü başarıyla güncellendi");
+      showSuccess("Kullanıcı başarıyla güncellendi");
     } catch (error: unknown) {
-      showError(getApiErrorMessage(error) ?? "Kullanıcı rolü güncellenirken bir hata oluştu");
+      showError(getApiErrorMessage(error) ?? "Kullanıcı güncellenirken bir hata oluştu");
     }
   };
 
@@ -394,11 +404,12 @@ export default function UsersPage() {
           userId={editingUser.id}
           username={editingUser.username}
           currentRole={editingUser.isAdmin ? "admin" : "user"}
+          currentUserTitle={editingUser.userTitle}
           onClose={() => {
             setShowEditUserRole(false);
             setEditingUser(null);
           }}
-          onRoleUpdated={handleEditUserRole}
+          onSubmit={handleEditUserRole}
         />
       )}
 

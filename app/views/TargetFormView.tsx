@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { projectsApi, Project } from '@/lib/api/projects';
 import { targetsApi, CreateTargetDto, GoalStatus } from '@/lib/api/targets';
 import { useNotification } from '@/app/contexts/NotificationContext';
+import { useAuth } from '@/app/contexts/AuthContext';
 import { useDialog } from '@/app/components/dialogs';
 import { Dialog } from '@/app/components/dialogs';
 
@@ -84,6 +85,8 @@ const parseMeetingLocalDateTime = (dateIso: string, timeHHMM: string) => {
 };
 
 export default function TargetFormView() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [draftsByProjectId, setDraftsByProjectId] = useState<
     Record<string, ProjectTargetDraft>
@@ -238,7 +241,9 @@ export default function TargetFormView() {
     const loadProjects = async () => {
       try {
         setIsLoading(true);
-        const data = await projectsApi.getMyProjects();
+        const data = isAdmin
+          ? await projectsApi.getAllProjects()
+          : await projectsApi.getMyProjects();
         setProjects(data);
       } catch (error: any) {
         showError('Projeler yüklenirken bir hata oluştu');
@@ -249,7 +254,7 @@ export default function TargetFormView() {
     };
 
     loadProjects();
-  }, [showError]);
+  }, [isAdmin, showError]);
 
   const createTargetPayload = (
     projectId: string,

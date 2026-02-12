@@ -17,6 +17,7 @@ const getLocalDateKey = (date: Date) =>
 
 export default function DashboardView() {
   const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
   const { showSuccess } = useNotification();
   const router = useRouter();
   const [stats, setStats] = useState<TargetStatistics | null>(null);
@@ -55,7 +56,7 @@ export default function DashboardView() {
           targetsApi.getCalendarData(60),
           targetsApi.getMyTargets(),
           leavesApi.getByRange(startDateStr, endDateStr).catch(() => []),
-          projectsApi.getMyProjects().catch(() => []),
+          (isAdmin ? projectsApi.getAllProjects() : projectsApi.getMyProjects()).catch(() => []),
         ]);
         setStats(statistics);
         setTodayTargets(targets);

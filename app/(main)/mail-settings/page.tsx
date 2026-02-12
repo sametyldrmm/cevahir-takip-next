@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { isAxiosError } from "axios";
 import MainLayout from "@/app/components/MainLayout";
 import { useNotification } from "@/app/contexts/NotificationContext";
+import { useAuth } from "@/app/contexts/AuthContext";
 import { apiClient } from "@/lib/api-client";
 import { projectsApi, Project as ApiProject } from "@/lib/api/projects";
 import { usersApi, User as ApiUser } from "@/lib/api/users";
@@ -130,6 +131,8 @@ export default function MailSettingsPage() {
 }
 
 function MailSettingsView() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
   const { showError, showSuccess } = useNotification();
 
   const [mailGroups, setMailGroups] = useState<MailGroup[]>([]);
@@ -255,7 +258,9 @@ function MailSettingsView() {
     const loadProjects = async (): Promise<void> => {
       try {
         setIsProjectsLoading(true);
-        const items = await projectsApi.getMyProjects();
+        const items = isAdmin
+          ? await projectsApi.getAllProjects()
+          : await projectsApi.getMyProjects();
         setProjects(items.filter((p) => p.isActive));
       } catch (error: unknown) {
         if (isAxiosError(error) && error.response?.status === 403) {
@@ -272,7 +277,7 @@ function MailSettingsView() {
     };
 
     void Promise.all([loadGroups(), loadUsers(), loadProjects()]);
-  }, [showError]);
+  }, [isAdmin, showError]);
 
   const loadSchedules = async () => {
     try {

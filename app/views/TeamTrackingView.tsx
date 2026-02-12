@@ -35,7 +35,9 @@ export default function TeamTrackingView() {
   useEffect(() => {
     const loadProjects = async () => {
       try {
-        const teamData = await projectsApi.getMyTeam();
+        const teamData = isAdmin
+          ? await projectsApi.getAllProjects()
+          : await projectsApi.getMyTeam();
         setAllProjects(teamData);
       } catch (error: any) {
         console.error('Projects load error:', error);
@@ -43,7 +45,7 @@ export default function TeamTrackingView() {
       }
     };
     loadProjects();
-  }, [showError]);
+  }, [isAdmin, showError]);
 
   // Unique kategorileri hesapla (backend'den gelen projelerden)
   const categories = useMemo(() => {

@@ -26,6 +26,7 @@ interface MailGroup {
 export default function ReportsView() {
   const router = useRouter();
   const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
   const { showSuccess, showError } = useNotification();
   const [reports, setReports] = useState<Report[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -160,7 +161,9 @@ export default function ReportsView() {
   useEffect(() => {
     const loadProjects = async () => {
       try {
-        const projs = await projectsApi.getMyProjects();
+        const projs = isAdmin
+          ? await projectsApi.getAllProjects()
+          : await projectsApi.getMyProjects();
         setProjects(projs);
       } catch (error: unknown) {
         console.error('Failed to load projects:', error);
@@ -175,7 +178,7 @@ export default function ReportsView() {
       }
     };
     loadProjects();
-  }, [showError]);
+  }, [isAdmin, showError]);
 
   // Raporları yükle
   useEffect(() => {

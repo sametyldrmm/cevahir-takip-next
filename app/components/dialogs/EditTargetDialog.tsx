@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { targetsApi, Target, UpdateTargetDto, GoalStatus } from "@/lib/api/targets";
 import { projectsApi } from "@/lib/api/projects";
 import { useNotification } from "@/app/contexts/NotificationContext";
+import { useAuth } from "@/app/contexts/AuthContext";
 
 interface EditTargetDialogProps {
   isOpen: boolean;
@@ -18,6 +19,8 @@ export default function EditTargetDialog({
   onClose,
   onTargetUpdated,
 }: EditTargetDialogProps) {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
   const [formData, setFormData] = useState<UpdateTargetDto>({});
   const [projects, setProjects] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -44,7 +47,9 @@ export default function EditTargetDialog({
     if (isOpen) {
       const loadProjects = async () => {
         try {
-          const projs = await projectsApi.getMyProjects();
+          const projs = isAdmin
+            ? await projectsApi.getAllProjects()
+            : await projectsApi.getMyProjects();
           setProjects(projs);
         } catch (error) {
           console.error("Failed to load projects:", error);
@@ -52,7 +57,7 @@ export default function EditTargetDialog({
       };
       loadProjects();
     }
-  }, [isOpen]);
+  }, [isAdmin, isOpen]);
 
   if (!isOpen || !target) return null;
 

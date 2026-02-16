@@ -57,6 +57,7 @@ export default function AdminPanelView() {
   const [selectedProjects, setSelectedProjects] = useState<Set<string>>(new Set());
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set()); // userId'leri tutar
   const [isLoading, setIsLoading] = useState(true);
+  const [usersSearch, setUsersSearch] = useState("");
   const { showSuccess, showError } = useNotification();
   const getApiErrorMessage = (error: unknown) => {
     if (isAxiosError<{ message?: string }>(error)) {
@@ -488,9 +489,20 @@ export default function AdminPanelView() {
   };
 
   const getFilteredUsers = () => {
-    const filtered = activeTab === "users_archived"
+    let filtered = activeTab === "users_archived"
       ? users.filter((u) => u.status === "archived")
       : users.filter((u) => u.status !== "archived");
+    
+    // Search filter
+    if (usersSearch.trim()) {
+      const searchLower = usersSearch.toLowerCase().trim();
+      filtered = filtered.filter((u) => {
+        const usernameMatch = u.username.toLowerCase().includes(searchLower);
+        const displayNameMatch = u.displayName.toLowerCase().includes(searchLower);
+        const userTitleMatch = u.userTitle?.toLowerCase().includes(searchLower) || false;
+        return usernameMatch || displayNameMatch || userTitleMatch;
+      });
+    }
     
     // Convert to UsersTable format
     return filtered.map((u) => ({
@@ -568,6 +580,9 @@ export default function AdminPanelView() {
           setActiveTab(tab);
           setSelectedProjects(new Set());
           setSelectedUsers(new Set());
+          if (tab !== "users" && tab !== "users_archived") {
+            setUsersSearch("");
+          }
         }}
         projectsCount={projects.filter((p) => !p.archived).length}
         archivedProjectsCount={projects.filter((p) => p.archived).length}
@@ -581,6 +596,8 @@ export default function AdminPanelView() {
         }}
         onCreateProject={() => setShowCreateProject(true)}
         onCreateUser={() => setShowCreateUser(true)}
+        usersSearch={usersSearch}
+        onUsersSearchChange={setUsersSearch}
       />
 
       <Toolbar

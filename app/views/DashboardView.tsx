@@ -150,11 +150,7 @@ export default function DashboardView() {
 
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
-    // Tarih seçildiğinde o tarihteki hedefleri yükle
-    const dateStr = getLocalDateKey(date);
-    targetsApi.getTargetsByDate(dateStr).then((targets) => {
-      setTodayTargets(targets);
-    });
+    // Bugünkü hedefler sabit kalmalı, seçilen tarihe göre değişmemeli
   };
 
   const handleEditLeaves = () => {
@@ -213,7 +209,11 @@ export default function DashboardView() {
 
   return (
     <div className="p-6 space-y-6">
-      <HeaderCard displayName={displayName} />
+          <HeaderCard 
+            displayName={displayName}
+            hasFilter={!!selectedFilter}
+            onClearFilter={handleClearFilter}
+          />
 
       {isLoading ? (
         <div className="text-center py-8">
@@ -335,6 +335,10 @@ export default function DashboardView() {
               {/* Hedef Takvimi Bölümü */}
               <div className="lg:col-span-2 space-y-6">
                 <MonthlyCalendar
+                  onEditTarget={(target) => {
+                    setEditingTarget(target);
+                    setShowEditTarget(true);
+                  }}
                   currentDate={currentDate}
                   selectedDate={selectedDate}
                   onDateSelect={handleDateSelect}
@@ -531,6 +535,25 @@ export default function DashboardView() {
             setFilteredTargets((prev) =>
               prev.map((t) => (t.id === updatedTarget.id ? updatedTarget : t))
             );
+          }
+        }}
+        onTargetDeleted={async (targetId) => {
+          // Bugünkü hedeflerden kaldır
+          setTodayTargets((prev) => prev.filter((t) => t.id !== targetId));
+          // Tüm hedeflerden kaldır
+          setAllTargets((prev) => prev.filter((t) => t.id !== targetId));
+          // Filtrelenmiş hedeflerden kaldır
+          if (selectedFilter) {
+            setFilteredTargets((prev) => prev.filter((t) => t.id !== targetId));
+          }
+          // Takvim verilerini yeniden yükle
+          try {
+            const calendar = await targetsApi.getCalendarData(60);
+            setCalendarData(calendar);
+            const statistics = await targetsApi.getStatistics();
+            setStats(statistics);
+          } catch (error) {
+            console.error("Failed to reload calendar data:", error);
           }
         }}
       />

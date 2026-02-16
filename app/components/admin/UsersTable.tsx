@@ -84,7 +84,13 @@ export default function UsersTable({
             return (
               <div
                 key={user.id}
-                onClick={() => onUserClick?.(user)}
+                onClick={() => {
+                  if (editMode) {
+                    onUserSelect(user.id, !isSelected);
+                    return;
+                  }
+                  onUserClick?.(user);
+                }}
                 className={`flex items-center gap-0 px-5 py-3.5 border-b border-outline-variant transition-all ${
                   isSelected
                     ? "bg-selected-bg border-l-4 border-l-primary"

@@ -28,7 +28,6 @@ export interface AuthResponse {
 }
 
 export interface ChangePasswordDto {
-  username: string;
   currentPassword: string;
   newPassword: string;
 }
@@ -90,7 +89,7 @@ export const authApi = {
   },
 
   async changePassword(dto: ChangePasswordDto): Promise<void> {
-    await apiClient.getClient().post('/auth/change-password', dto);
+    await apiClient.getClient().post('/auth/me/password', dto);
   },
 };
 

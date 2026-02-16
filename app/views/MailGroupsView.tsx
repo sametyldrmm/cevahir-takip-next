@@ -815,7 +815,7 @@ export default function MailGroupsView() {
                               e.stopPropagation();
                               toggleExpanded(group.id);
                             }}
-                            className='px-3 py-1.5 border border-outline rounded-lg text-sm text-on-surface hover:bg-(--surface-container-high) transition-colors'
+                            className='px-3 py-1.5 border border-outline rounded-lg text-sm text-on-surface hover:bg-(--surface) transition-colors'
                           >
                             {isExpanded ? 'Kapat' : 'Detay'}
                           </button>

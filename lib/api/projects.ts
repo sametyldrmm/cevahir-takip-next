@@ -18,6 +18,7 @@ export interface Project {
   userCount: number;
   targetCount: number;
   users?: ProjectUser[];
+  userIds?: string[];
   createdAt: string;
   updatedAt: string;
 }

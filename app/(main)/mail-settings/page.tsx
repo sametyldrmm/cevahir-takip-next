@@ -928,6 +928,10 @@ function MailSettingsView() {
         reportTypes: [editDraft.reportType],
         mailGroupIds: mailGroupIds.length ? mailGroupIds : undefined,
         emails: emails.length ? emails : undefined,
+        projectIds:
+          editDraft.reportType === "TARGETS"
+            ? [...editDraft.selectedProjectIds]
+            : undefined,
         intervalPreset: editDraft.autoMailIntervalPreset,
         customEvery:
           editDraft.autoMailIntervalPreset === "CUSTOM"

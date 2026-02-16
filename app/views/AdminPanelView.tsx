@@ -202,44 +202,77 @@ export default function AdminPanelView() {
         isActive: !projectData.archived,
       });
 
-      // Projeye seçili kullanıcıları ekle
-      if (projectData.teamMembers && projectData.teamMembers.length > 0) {
-        // Mevcut proje kullanıcılarını al
-        const currentProject = projects.find((p) => p.id === projectData.id);
-        const currentUserIds = new Set(
-          users
-            .filter((u) => currentProject?.teamMembers?.includes(u.username))
-            .map((u) => u.id)
-        );
+      const currentProject = projects.find((p) => p.id === projectData.id);
+      const currentMembers = new Set(currentProject?.teamMembers ?? []);
+      const desiredMembers = new Set(projectData.teamMembers ?? []);
 
-        // Yeni seçili kullanıcıları ekle
-        for (const username of projectData.teamMembers) {
-          const user = users.find((u) => u.username === username);
-          if (user && !currentUserIds.has(user.id)) {
-            try {
-              await projectsApi.addUserToProject(projectData.id, user.id);
-            } catch (error: unknown) {
-              console.error(`Failed to add user ${username} to project:`, error);
-            }
-          }
+      const usernamesToRemove = Array.from(currentMembers).filter((u) => !desiredMembers.has(u));
+      const usernamesToAdd = Array.from(desiredMembers).filter((u) => !currentMembers.has(u));
+
+      let latestProject: ApiProject = updatedProject;
+
+      for (const username of usernamesToRemove) {
+        const user = users.find((u) => u.username === username);
+        if (!user) continue;
+        try {
+          latestProject = await projectsApi.removeUserFromProject(projectData.id, user.id);
+        } catch (error: unknown) {
+          console.error(`Failed to remove user ${username} from project:`, error);
         }
       }
 
-      setProjects(
-        projects.map((p) =>
+      for (const username of usernamesToAdd) {
+        const user = users.find((u) => u.username === username);
+        if (!user) continue;
+        try {
+          latestProject = await projectsApi.addUserToProject(projectData.id, user.id);
+        } catch (error: unknown) {
+          console.error(`Failed to add user ${username} to project:`, error);
+        }
+      }
+
+      const teamMembersFromApi = latestProject.users?.map((u) => u.username) ?? Array.from(desiredMembers);
+
+      setProjects((current) =>
+        current.map((p) =>
           p.id === projectData.id
             ? {
                 ...p,
-                name: updatedProject.name,
-                code: updatedProject.code ?? undefined,
-                description: updatedProject.description ?? undefined,
-                isActive: updatedProject.isActive,
-                archived: !updatedProject.isActive,
-                teamMembers: projectData.teamMembers,
+                name: latestProject.name,
+                code: latestProject.code ?? undefined,
+                description: latestProject.description ?? undefined,
+                category: latestProject.category || projectData.category || "special",
+                isActive: latestProject.isActive,
+                archived: !latestProject.isActive,
+                teamMembers: teamMembersFromApi,
+                userCount: latestProject.userCount,
+                targetCount: latestProject.targetCount,
+                users: latestProject.users,
+                createdAt: latestProject.createdAt,
+                updatedAt: latestProject.updatedAt,
               }
             : p
         )
       );
+
+      setSelectedProjectDetail((current) => {
+        if (!current || current.id !== projectData.id) return current;
+        return {
+          ...current,
+          name: latestProject.name,
+          code: latestProject.code ?? undefined,
+          description: latestProject.description ?? undefined,
+          category: latestProject.category || projectData.category || "special",
+          isActive: latestProject.isActive,
+          archived: !latestProject.isActive,
+          teamMembers: teamMembersFromApi,
+          userCount: latestProject.userCount,
+          targetCount: latestProject.targetCount,
+          users: latestProject.users,
+          createdAt: latestProject.createdAt,
+          updatedAt: latestProject.updatedAt,
+        };
+      });
       setShowEditProject(false);
       setEditingProject(null);
       setSelectedProjects(new Set());

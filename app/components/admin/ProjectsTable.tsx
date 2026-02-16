@@ -97,7 +97,13 @@ export default function ProjectsTable({
             return (
               <div
                 key={project.id}
-                onClick={() => onProjectClick?.(project)}
+                onClick={() => {
+                  if (editMode) {
+                    onProjectSelect(project.id, !isSelected);
+                    return;
+                  }
+                  onProjectClick?.(project);
+                }}
                 className={`flex items-center gap-0 px-5 py-3.5 border-b border-outline-variant transition-all ${
                   isSelected
                     ? "bg-selected-bg border-l-4 border-l-primary"

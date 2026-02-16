@@ -322,7 +322,7 @@ export default function EditTargetDialog({
                   disabled={isDeleting}
                   className="flex-1 px-4 py-2 bg-error text-on-error rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
                 >
-                  {isDeleting ? "Siliniyor..." : "Evet, Sil"}
+                  {isDeleting ? "Siliniyor..." : "Sil"}
                 </button>
               </div>
             </div>

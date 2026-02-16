@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-
 interface Project {
   id: string;
   name: string;
@@ -18,24 +16,21 @@ interface Project {
 
 interface ProjectsTableProps {
   projects: Project[];
-  editMode: boolean;
-  selectedProjects: Set<string>;
-  onProjectSelect: (projectId: string, selected: boolean) => void;
-  onSelectAll: (selected: boolean) => void;
+  mode: "active" | "archived";
   onProjectClick?: (project: Project) => void;
+  onEditProject: (projectId: string) => void;
+  onArchiveProject?: (projectId: string) => void;
+  onRestoreProject?: (projectId: string) => void;
 }
 
 export default function ProjectsTable({
   projects,
-  editMode,
-  selectedProjects,
-  onProjectSelect,
-  onSelectAll,
+  mode,
   onProjectClick,
+  onEditProject,
+  onArchiveProject,
+  onRestoreProject,
 }: ProjectsTableProps) {
-  const allSelected = projects.length > 0 && projects.every((p) => selectedProjects.has(p.id));
-  const someSelected = projects.some((p) => selectedProjects.has(p.id));
-
   const categoryLabels: Record<string, string> = {
     turkiye: "🇹🇷 Türkiye",
     international: "🌍 Uluslararası",
@@ -48,19 +43,6 @@ export default function ProjectsTable({
       {/* Header */}
       <div className="bg-surface-container-low px-5 py-3.5 border-b border-outline-variant">
         <div className="flex items-center gap-0">
-          {editMode && (
-            <div className="w-12 flex items-center justify-center">
-              <input
-                type="checkbox"
-                checked={allSelected}
-                ref={(input) => {
-                  if (input) input.indeterminate = someSelected && !allSelected;
-                }}
-                onChange={(e) => onSelectAll(e.target.checked)}
-                className="w-4 h-4 text-primary bg-surface border-outline rounded focus:ring-2 focus:ring-primary"
-              />
-            </div>
-          )}
           <div className="w-[300px] text-xs font-semibold text-on-surface-variant">
             Project name
           </div>
@@ -82,6 +64,9 @@ export default function ProjectsTable({
           <div className="w-40 text-xs font-semibold text-on-surface-variant">
             Updated
           </div>
+          <div className="flex-1 text-xs font-semibold text-on-surface-variant text-right">
+            İşlemler
+          </div>
         </div>
       </div>
 
@@ -93,37 +78,16 @@ export default function ProjectsTable({
           </div>
         ) : (
           projects.map((project, index) => {
-            const isSelected = selectedProjects.has(project.id);
             return (
               <div
                 key={project.id}
                 onClick={() => {
-                  if (editMode) {
-                    onProjectSelect(project.id, !isSelected);
-                    return;
-                  }
                   onProjectClick?.(project);
                 }}
                 className={`flex items-center gap-0 px-5 py-3.5 border-b border-outline-variant transition-all ${
-                  isSelected
-                    ? "bg-selected-bg border-l-4 border-l-primary"
-                    : "hover:bg-(--surface-container-high)"
+                  "hover:bg-(--surface-container-high)"
                 } ${index === projects.length - 1 ? "border-b-0" : ""}`}
               >
-                {editMode && (
-                  <div className="w-12 flex items-center justify-center">
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={(e) => {
-                        e.stopPropagation();
-                        onProjectSelect(project.id, e.target.checked);
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                      className="w-4 h-4 text-primary bg-surface border-outline rounded focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                )}
                 <div className="w-[300px] text-sm text-on-surface font-medium truncate">
                   {project.name}
                 </div>
@@ -159,6 +123,41 @@ export default function ProjectsTable({
                         month: "2-digit",
                       })
                     : "-"}
+                </div>
+                <div className="flex-1 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEditProject(project.id);
+                    }}
+                    className="px-3 py-1.5 border border-blue rounded-lg text-sm text-primary hover:bg-(--surface-container-high) transition-colors"
+                  >
+                    Düzenle
+                  </button>
+                  {mode === "archived" ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRestoreProject?.(project.id);
+                      }}
+                      className="px-3 py-1.5 border border-red-500  text-red-500 rounded-lg text-sm hover:bg-red-100 transition-colors"
+                    >
+                      Geri Al
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onArchiveProject?.(project.id);
+                      }}
+                      className="px-3 py-1.5 border border-red-500  text-red-500 rounded-lg text-sm hover:bg-red-100 transition-colors"
+                    >
+                      Arşivle
+                    </button>
+                  )}
                 </div>
               </div>
             );

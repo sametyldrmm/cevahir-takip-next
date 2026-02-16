@@ -39,6 +39,7 @@ export default function ReportsView() {
   const [showTargetsDialog, setShowTargetsDialog] = useState(false);
   const [selectedPeriodType, setSelectedPeriodType] = useState<'daily' | 'weekly'>('weekly');
   const [selectedTeamProjects, setSelectedTeamProjects] = useState<string[]>([]);
+  const [teamProjectSearchText, setTeamProjectSearchText] = useState('');
   const [targetsDate, setTargetsDate] = useState('');
   const [selectedWeek, setSelectedWeek] = useState<string>('current');
 
@@ -352,6 +353,26 @@ export default function ReportsView() {
     setSelectedUserIdsForMail(new Set());
   };
 
+  const filteredProjectsForTargets = useMemo(() => {
+    const query = teamProjectSearchText.trim().toLocaleLowerCase('tr-TR');
+    if (!query) return projects;
+    return projects.filter((project) => {
+      const name = (project.name ?? '').toLocaleLowerCase('tr-TR');
+      const category = (project.category ?? '').toLocaleLowerCase('tr-TR');
+      return name.includes(query) || category.includes(query);
+    });
+  }, [projects, teamProjectSearchText]);
+
+  const closeTargetsDialog = () => {
+    setShowTargetsDialog(false);
+    setSelectedPeriodType('weekly');
+    setSelectedTeamProjects([]);
+    setTeamProjectSearchText('');
+    setTargetsDate('');
+    setSelectedWeek('current');
+    setFilename('');
+  };
+
   const openSendMailDialog = (report: Report) => {
     setSendMailReport(report);
     setShowSendMailDialog(true);
@@ -564,9 +585,15 @@ export default function ReportsView() {
 
       {/* Mail Gönder Dialog */}
       {showSendMailDialog && sendMailReport && (
-        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto p-4'>
-          <div className='bg-surface-container rounded-xl p-6 shadow-2xl max-w-3xl w-full border border-outline-variant'>
-            <div className='flex items-center justify-between mb-6'>
+        <div
+          className='fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto p-4'
+          onClick={closeSendMailDialog}
+        >
+          <div
+            className='bg-surface-container rounded-xl p-5 shadow-2xl max-w-2xl w-full border border-outline-variant max-h-[85vh] overflow-y-auto'
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className='flex items-center justify-between mb-5'>
               <div>
                 <h3 className='text-xl font-bold text-on-surface'>
                   Rapor Maili Gönder
@@ -587,7 +614,7 @@ export default function ReportsView() {
 
             <div className='space-y-5'>
               <div className='grid grid-cols-1 lg:grid-cols-2 gap-4'>
-                <div className='rounded-lg border border-outline-variant bg-surface p-4'>
+                <div className='rounded-lg border border-outline-variant bg-surface p-3'>
                   <div className='flex items-center justify-between gap-4'>
                     <label className='block text-sm font-semibold text-on-surface'>
                       Mail Grupları
@@ -602,7 +629,7 @@ export default function ReportsView() {
                       value={groupsFilterText}
                       onChange={(e) => setGroupsFilterText(e.target.value)}
                       disabled={isSendingMail || isMailGroupsLoading}
-                      className='w-full px-4 py-3 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary transition-all disabled:opacity-60'
+                      className='w-full px-3 py-2.5 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary transition-all disabled:opacity-60 text-sm'
                       placeholder='Grup ara'
                     />
                   </div>
@@ -648,7 +675,7 @@ export default function ReportsView() {
                   </div>
                 </div>
 
-                <div className='rounded-lg border border-outline-variant bg-surface p-4'>
+                <div className='rounded-lg border border-outline-variant bg-surface p-3'>
                   <div className='flex items-center justify-between gap-4'>
                     <label className='block text-sm font-semibold text-on-surface'>
                       Kullanıcılar
@@ -663,7 +690,7 @@ export default function ReportsView() {
                       value={usersFilterText}
                       onChange={(e) => setUsersFilterText(e.target.value)}
                       disabled={isSendingMail || isUsersForMailLoading}
-                      className='w-full px-4 py-3 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary transition-all disabled:opacity-60'
+                      className='w-full px-3 py-2.5 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary transition-all disabled:opacity-60 text-sm'
                       placeholder='İsim / kullanıcı adı / e-posta ara'
                     />
                   </div>
@@ -761,32 +788,32 @@ export default function ReportsView() {
 
       {/* Hedefler Dialog */}
       {showTargetsDialog && (
-        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto p-4'>
-          <div className='bg-surface-container rounded-2xl shadow-2xl max-w-2xl w-full border border-outline-variant overflow-hidden'>
+        <div
+          className='fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto p-4'
+          onClick={closeTargetsDialog}
+        >
+          <div
+            className='bg-surface-container rounded-2xl shadow-2xl max-w-xl w-full border border-outline-variant overflow-hidden max-h-[85vh] flex flex-col'
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Header */}
-            <div className='bg-gradient-to-r from-primary-container to-primary-container/80 p-6 border-b border-outline-variant'>
+            <div className='bg-gradient-to-r from-primary-container to-primary-container/80 p-4 border-b border-outline-variant'>
               <div className='flex items-center justify-between'>
                 <div className='flex items-center gap-4'>
-                  <div className='w-14 h-14 rounded-xl bg-primary flex items-center justify-center shadow-lg'>
-                    <span className='text-3xl'>🎯</span>
+                  <div className='w-12 h-12 rounded-xl bg-primary flex items-center justify-center shadow-lg'>
+                    <span className='text-2xl'>🎯</span>
                   </div>
                   <div>
-                    <h3 className='text-2xl font-bold text-on-surface'>
+                    <h3 className='text-xl font-bold text-on-surface'>
                       Hedef Raporu Oluştur
                     </h3>
-                    <p className='text-sm text-on-surface-variant mt-1'>
+                    <p className='text-xs text-on-surface-variant mt-1'>
                       Hedef verilerinizi rapor olarak oluşturun
                     </p>
                   </div>
                 </div>
                 <button
-                onClick={() => {
-                  setShowTargetsDialog(false);
-                  setSelectedPeriodType('weekly');
-                  setSelectedTeamProjects([]);
-                  setTargetsDate('');
-                  setSelectedWeek('current');
-                }}
+                onClick={closeTargetsDialog}
                   disabled={isCreating}
                   className='w-10 h-10 flex items-center justify-center hover:bg-black/10 rounded-lg transition-colors text-on-surface-variant hover:text-on-surface disabled:opacity-50'
                 >
@@ -795,7 +822,7 @@ export default function ReportsView() {
               </div>
             </div>
 
-            <div className='p-6 space-y-6'>
+            <div className='p-4 space-y-4 overflow-y-auto flex-1'>
               {/* Periyot Tipi */}
               <div>
                 <label className='block text-sm font-bold text-on-surface mb-4'>
@@ -805,14 +832,14 @@ export default function ReportsView() {
                   <button
                     onClick={() => setSelectedPeriodType('daily')}
                     disabled={isCreating}
-                    className={`group relative px-6 py-5 rounded-xl border-2 transition-all duration-200 font-semibold overflow-hidden ${
+                    className={`group relative px-4 py-4 rounded-xl border-2 transition-all duration-200 font-semibold overflow-hidden ${
                       selectedPeriodType === 'daily'
                         ? 'border-primary bg-primary-container text-primary shadow-lg scale-105'
                         : 'border-outline-variant bg-surface text-on-surface hover:border-primary hover:shadow-md hover:scale-[1.02]'
                     } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     <div className='flex flex-col items-center gap-2'>
-                      <span className='text-3xl'>📅</span>
+                      <span className='text-2xl'>📅</span>
                       <span>Günlük</span>
                     </div>
                     {selectedPeriodType === 'daily' && (
@@ -822,14 +849,14 @@ export default function ReportsView() {
                   <button
                     onClick={() => setSelectedPeriodType('weekly')}
                     disabled={isCreating}
-                    className={`group relative px-6 py-5 rounded-xl border-2 transition-all duration-200 font-semibold overflow-hidden ${
+                    className={`group relative px-4 py-4 rounded-xl border-2 transition-all duration-200 font-semibold overflow-hidden ${
                       selectedPeriodType === 'weekly'
                         ? 'border-primary bg-primary-container text-primary shadow-lg scale-105'
                         : 'border-outline-variant bg-surface text-on-surface hover:border-primary hover:shadow-md hover:scale-[1.02]'
                     } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     <div className='flex flex-col items-center gap-2'>
-                      <span className='text-3xl'>📆</span>
+                      <span className='text-2xl'>📆</span>
                       <span>Haftalık</span>
                     </div>
                     {selectedPeriodType === 'weekly' && (
@@ -841,7 +868,7 @@ export default function ReportsView() {
 
               {/* Tarih/Hafta Seçimi */}
               {selectedPeriodType === 'daily' ? (
-                <div className='bg-surface rounded-xl p-5 border border-outline-variant'>
+                <div className='bg-surface rounded-xl p-4 border border-outline-variant'>
                   <label className='block text-sm font-bold text-on-surface mb-3'>
                     📅 Tarih <span className='text-error'>*</span>
                   </label>
@@ -850,11 +877,11 @@ export default function ReportsView() {
                     value={targetsDate}
                     onChange={(e) => setTargetsDate(e.target.value)}
                     disabled={isCreating}
-                    className='w-full px-4 py-3.5 bg-surface-container border-2 border-outline rounded-xl text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all disabled:opacity-50 font-medium'
+                    className='w-full px-3 py-2.5 bg-surface-container border-2 border-outline rounded-xl text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all disabled:opacity-50 font-medium text-sm'
                   />
                 </div>
               ) : (
-                <div className='bg-surface rounded-xl p-5 border border-outline-variant'>
+                <div className='bg-surface rounded-xl p-4 border border-outline-variant'>
                   <label className='block text-sm font-bold text-on-surface mb-3'>
                     📆 Hafta Seçimi <span className='text-error'>*</span>
                   </label>
@@ -866,7 +893,7 @@ export default function ReportsView() {
                       setTargetsDate(weekDates.start); // Başlangıç tarihini sakla
                     }}
                     disabled={isCreating}
-                    className='w-full px-4 py-3.5 bg-surface-container border-2 border-outline rounded-xl text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all disabled:opacity-50 font-medium'
+                    className='w-full px-3 py-2.5 bg-surface-container border-2 border-outline rounded-xl text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all disabled:opacity-50 font-medium text-sm'
                   >
                     {getWeekOptions().map((option) => (
                       <option key={option.value} value={option.value}>
@@ -882,7 +909,7 @@ export default function ReportsView() {
               )}
 
               {/* Takım Seçimi */}
-              <div className='bg-surface rounded-xl p-5 border border-outline-variant'>
+              <div className='bg-surface rounded-xl p-4 border border-outline-variant'>
                 <div className='flex items-center justify-between mb-3'>
                   <label className='block text-sm font-bold text-on-surface'>
                     👥 Takım/Proje Seçimi
@@ -896,14 +923,37 @@ export default function ReportsView() {
                 <p className='text-xs text-on-surface-variant mb-4'>
                   Seçmezseniz tüm takımlar için rapor oluşturulur
                 </p>
-                {projects.length > 0 ? (
+                <div className='relative'>
+                  <span className='absolute left-3 top-2.5 text-on-surface-variant'>
+                    🔎
+                  </span>
+                  <input
+                    value={teamProjectSearchText}
+                    onChange={(e) => setTeamProjectSearchText(e.target.value)}
+                    disabled={isCreating}
+                    placeholder='Proje ara...'
+                    className='w-full px-3 py-2.5 pl-9 pr-9 bg-surface-container border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all disabled:opacity-50 text-sm'
+                  />
+                  {teamProjectSearchText.trim() && (
+                    <button
+                      type='button'
+                      onClick={() => setTeamProjectSearchText('')}
+                      disabled={isCreating}
+                      className='absolute right-2 top-2 p-1.5 text-on-surface-variant hover:text-(--on-surface) hover:bg-(--surface-container-high) rounded-md transition-colors disabled:opacity-50'
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                {filteredProjectsForTargets.length > 0 ? (
                   <div className='max-h-64 overflow-y-auto space-y-2'>
-                    {projects.map((project) => {
+                    {filteredProjectsForTargets.map((project) => {
                       const isSelected = selectedTeamProjects.includes(project.id);
                       return (
                         <label
                           key={project.id}
-                          className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                          className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${
                             isSelected
                               ? 'border-primary bg-primary-container/30 shadow-md'
                               : 'border-outline-variant bg-surface-container hover:border-primary/50 hover:shadow-sm'
@@ -953,14 +1003,14 @@ export default function ReportsView() {
                 ) : (
                   <div className='border-2 border-outline-variant rounded-xl p-4 bg-surface-container-high'>
                     <p className='text-sm text-on-surface-variant text-center'>
-                      Proje bulunamadı veya yüklenemedi. Rapor tüm projeler için oluşturulacak.
+                      Proje bulunamadı.
                     </p>
                   </div>
                 )}
               </div>
 
               {/* Dosya Adı */}
-              <div className='bg-surface rounded-xl p-5 border border-outline-variant'>
+              <div className='bg-surface rounded-xl p-4 border border-outline-variant'>
                 <label className='block text-sm font-bold text-on-surface mb-3'>
                   📄 Dosya Adı <span className='text-xs font-normal text-on-surface-variant'>(Opsiyonel)</span>
                 </label>
@@ -970,7 +1020,7 @@ export default function ReportsView() {
                   onChange={(e) => setFilename(e.target.value)}
                   placeholder='Örn: Hedef_Raporu_Ocak_2026'
                   disabled={isCreating}
-                  className='w-full px-4 py-3.5 bg-surface-container border-2 border-outline rounded-xl text-on-surface placeholder-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all disabled:opacity-50 font-medium'
+                  className='w-full px-3 py-2.5 bg-surface-container border-2 border-outline rounded-xl text-on-surface placeholder-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all disabled:opacity-50 font-medium text-sm'
                 />
                 <p className='mt-2 text-xs text-on-surface-variant flex items-center gap-2'>
                   <span>💡</span>
@@ -980,18 +1030,11 @@ export default function ReportsView() {
             </div>
 
             {/* Footer Buttons */}
-            <div className='bg-surface-container-high px-6 py-4 border-t border-outline-variant flex gap-3'>
+            <div className='bg-surface-container-high px-4 py-3 border-t border-outline-variant flex gap-3'>
               <button
-                onClick={() => {
-                  setShowTargetsDialog(false);
-                  setSelectedPeriodType('weekly');
-                  setSelectedTeamProjects([]);
-                  setTargetsDate('');
-                  setSelectedWeek('current');
-                  setFilename('');
-                }}
+                onClick={closeTargetsDialog}
                 disabled={isCreating}
-                className='flex-1 px-6 py-3.5 bg-surface text-on-surface rounded-xl font-semibold hover:bg-surface-container-high transition-all disabled:opacity-50 border-2 border-outline-variant'
+                className='flex-1 px-4 py-3 bg-surface text-on-surface rounded-xl font-semibold hover:bg-surface-container-high transition-all disabled:opacity-50 border-2 border-outline-variant text-sm'
               >
                 İptal
               </button>
@@ -1031,15 +1074,8 @@ export default function ReportsView() {
                     });
 
                     setReports((prev) => [newReport, ...prev]);
-                    setShowTargetsDialog(false);
+                    closeTargetsDialog();
                     showSuccess('Hedef raporu oluşturma isteği başarıyla gönderildi');
-
-                    // Formu sıfırla
-                    setSelectedPeriodType('weekly');
-                    setSelectedTeamProjects([]);
-                    setTargetsDate('');
-                    setSelectedWeek('current');
-                    setFilename('');
                   } catch (error: unknown) {
                     showError(
                       getApiErrorMessage(error) ?? 'Rapor oluşturulurken bir hata oluştu',
@@ -1049,7 +1085,7 @@ export default function ReportsView() {
                   }
                 }}
                 disabled={isCreating}
-                className='flex-1 px-6 py-3.5 bg-primary text-on-primary rounded-xl font-semibold hover:opacity-90 transition-all disabled:opacity-50 shadow-lg hover:shadow-xl'
+                className='flex-1 px-4 py-3 bg-primary text-on-primary rounded-xl font-semibold hover:opacity-90 transition-all disabled:opacity-50 shadow-lg hover:shadow-xl text-sm'
               >
                 {isCreating ? (
                   <span className='flex items-center justify-center gap-2'>

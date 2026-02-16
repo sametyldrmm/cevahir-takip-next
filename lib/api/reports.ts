@@ -61,6 +61,19 @@ export interface UpsertAutoMailScheduleDto {
   dayOfMonth?: number;
 }
 
+export interface UpdateAutoMailScheduleDto {
+  reportTypes?: AutoMailReportType[];
+  mailGroupIds?: string[];
+  emails?: string[];
+  intervalPreset?: AutoMailIntervalPreset;
+  customEvery?: number;
+  customUnit?: AutoMailIntervalUnit;
+  hour?: number;
+  minute?: number;
+  dayOfWeek?: number;
+  dayOfMonth?: number;
+}
+
 export interface AutoMailSchedule {
   id?: string;
   reportTypes: AutoMailReportType[];
@@ -152,6 +165,16 @@ export const reportsApi = {
         '/reports/auto-mail-schedule',
         dto,
       );
+    return response.data;
+  },
+
+  async updateAutoMailSchedule(
+    scheduleId: string,
+    dto: UpdateAutoMailScheduleDto,
+  ): Promise<AutoMailSchedule> {
+    const response = await apiClient
+      .getClient()
+      .patch<AutoMailSchedule>(`/reports/auto-mail-schedule/${scheduleId}`, dto);
     return response.data;
   },
 

@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-
 interface User {
   id: string;
   username: string;
@@ -15,42 +13,30 @@ interface User {
 
 interface UsersTableProps {
   users: User[];
-  editMode: boolean;
-  selectedUsers: Set<string>; // userId'leri tutar
-  onUserSelect: (userId: string, selected: boolean) => void;
-  onSelectAll: (selected: boolean) => void;
   onUserClick?: (user: User) => void;
+  mode: "active" | "archived";
+  onChangeRole: (userId: string) => void;
+  onChangeTitle: (userId: string) => void;
+  onChangePassword: (userId: string) => void;
+  onArchiveUser?: (userId: string) => void;
+  onRestoreUser?: (userId: string) => void;
 }
 
 export default function UsersTable({
   users,
-  editMode,
-  selectedUsers,
-  onUserSelect,
-  onSelectAll,
   onUserClick,
+  mode,
+  onChangeRole,
+  onChangeTitle,
+  onChangePassword,
+  onArchiveUser,
+  onRestoreUser,
 }: UsersTableProps) {
-  const allSelected = users.length > 0 && users.every((u) => selectedUsers.has(u.id));
-  const someSelected = users.some((u) => selectedUsers.has(u.id));
-
   return (
     <div className="border border-outline-variant rounded-xl m-5 shadow-sm overflow-hidden">
       {/* Header */}
       <div className="bg-surface-container-low px-5 py-3.5 border-b border-outline-variant">
         <div className="flex items-center gap-0">
-          {editMode && (
-            <div className="w-12 flex items-center justify-center">
-              <input
-                type="checkbox"
-                checked={allSelected}
-                ref={(input) => {
-                  if (input) input.indeterminate = someSelected && !allSelected;
-                }}
-                onChange={(e) => onSelectAll(e.target.checked)}
-                className="w-4 h-4 text-primary bg-surface border-outline rounded focus:ring-2 focus:ring-primary"
-              />
-            </div>
-          )}
           <div className="w-56 text-xs font-semibold text-on-surface-variant">
             Username
           </div>
@@ -69,6 +55,9 @@ export default function UsersTable({
           <div className="w-40 text-xs font-semibold text-on-surface-variant">
             Last Target Date
           </div>
+          <div className="flex-1 text-xs font-semibold text-on-surface-variant text-right">
+            İşlemler
+          </div>
         </div>
       </div>
 
@@ -80,37 +69,14 @@ export default function UsersTable({
           </div>
         ) : (
           users.map((user, index) => {
-            const isSelected = selectedUsers.has(user.id);
             return (
               <div
                 key={user.id}
-                onClick={() => {
-                  if (editMode) {
-                    onUserSelect(user.id, !isSelected);
-                    return;
-                  }
-                  onUserClick?.(user);
-                }}
-                className={`flex items-center gap-0 px-5 py-3.5 border-b border-outline-variant transition-all ${
-                  isSelected
-                    ? "bg-selected-bg border-l-4 border-l-primary"
-                    : "hover:bg-(--surface-container-high)"
-                } ${index === users.length - 1 ? "border-b-0" : ""}`}
+                onClick={() => onUserClick?.(user)}
+                className={`flex items-center gap-0 px-5 py-3.5 border-b border-outline-variant transition-all hover:bg-(--surface-container-high) ${
+                  index === users.length - 1 ? "border-b-0" : ""
+                }`}
               >
-                {editMode && (
-                  <div className="w-12 flex items-center justify-center">
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={(e) => {
-                        e.stopPropagation();
-                        onUserSelect(user.id, e.target.checked);
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                      className="w-4 h-4 text-primary bg-surface border-outline rounded focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                )}
                 <div className="w-56 text-sm text-on-surface font-medium">
                   <div className="flex items-center gap-2">
                     {user.username}
@@ -145,6 +111,61 @@ export default function UsersTable({
                   {user.lastTargetDate
                     ? new Date(user.lastTargetDate).toLocaleDateString("tr-TR")
                     : "-"}
+                </div>
+                <div className="flex-1 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onChangeRole(user.id);
+                    }}
+                    className="px-3 py-1.5 border border-primary rounded-lg text-sm text-primary hover:bg-(--primary-container) transition-colors"
+                  >
+                    Rol Değiştir
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onChangeTitle(user.id);
+                    }}
+                    className="px-3 py-1.5 border border-primary rounded-lg text-sm text-primary hover:bg-(--primary-container) transition-colors"
+                  >
+                    Pozisyon Değiştir
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onChangePassword(user.id);
+                    }}
+                    className="px-3 py-1.5 border border-primary rounded-lg text-sm text-primary hover:bg-(--primary-container) transition-colors"
+                  >
+                    Şifre Değiştir
+                  </button>
+                  {mode === "archived" ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRestoreUser?.(user.id);
+                      }}
+                      className="px-3 py-1.5 border border-red-500  text-red-500 rounded-lg text-sm hover:bg-red-100 transition-colors"
+                    >
+                      Geri Al
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onArchiveUser?.(user.id);
+                      }}
+                      className="px-3 py-1.5 border border-red-500  text-red-500 rounded-lg text-sm hover:bg-red-100 transition-colors"
+                    >
+                      Arşivle
+                    </button>
+                  )}
                 </div>
               </div>
             );

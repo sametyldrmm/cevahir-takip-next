@@ -3,21 +3,19 @@
 import { useState, useEffect } from "react";
 import { isAxiosError } from "axios";
 import { projectsApi, Project as ApiProject } from "@/lib/api/projects";
-import { usersApi, User as ApiUser, CreateUserDto, UpdateUserDto } from "@/lib/api/users";
+import { usersApi, CreateUserDto, UpdateUserDto } from "@/lib/api/users";
 import { useNotification } from "@/app/contexts/NotificationContext";
 import {
   CreateUserDialog,
   EditUserRoleDialog,
   CreateProjectDialog,
   EditProjectDialog,
-  DeleteProjectDialog,
   ArchiveProjectDialog,
   ArchiveUserDialog,
-  DeleteUserDataDialog,
   AdminPasswordChangeDialog,
 } from "@/app/components/dialogs";
 import ProjectDetailDialog from "@/app/components/dialogs/ProjectDetailDialog";
-import { Header, ProjectsTable, UsersTable, Toolbar } from "@/app/components/admin";
+import { Header, ProjectsTable, UsersTable } from "@/app/components/admin";
 
 interface Project {
   id: string;
@@ -51,11 +49,9 @@ interface User {
 
 export default function AdminPanelView() {
   const [activeTab, setActiveTab] = useState<"all" | "archived" | "users" | "users_archived">("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [projects, setProjects] = useState<Project[]>([]);
   const [users, setUsers] = useState<User[]>([]);
-  const [editMode, setEditMode] = useState(false);
-  const [selectedProjects, setSelectedProjects] = useState<Set<string>>(new Set());
-  const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set()); // userId'leri tutar
   const [isLoading, setIsLoading] = useState(true);
   const { showSuccess, showError } = useNotification();
   const getApiErrorMessage = (error: unknown) => {
@@ -132,17 +128,17 @@ export default function AdminPanelView() {
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [showCreateProject, setShowCreateProject] = useState(false);
   const [showEditProject, setShowEditProject] = useState(false);
-  const [showDeleteProject, setShowDeleteProject] = useState(false);
   const [showArchiveProject, setShowArchiveProject] = useState(false);
   const [showArchiveUser, setShowArchiveUser] = useState(false);
   const [showEditUserRole, setShowEditUserRole] = useState(false);
   const [editUserDialogMode, setEditUserDialogMode] = useState<"role" | "title">("role");
-  const [showDeleteUserData, setShowDeleteUserData] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showProjectDetail, setShowProjectDetail] = useState(false);
   const [selectedProjectDetail, setSelectedProjectDetail] = useState<Project | null>(null);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [archiveProjectTargetId, setArchiveProjectTargetId] = useState<string | null>(null);
+  const [archiveUserTargetId, setArchiveUserTargetId] = useState<string | null>(null);
 
   const categoryLabels: Record<string, string> = {
     turkiye: "🇹🇷 Türkiye Projeleri",
@@ -275,17 +271,10 @@ export default function AdminPanelView() {
       });
       setShowEditProject(false);
       setEditingProject(null);
-      setSelectedProjects(new Set());
       showSuccess("Proje başarıyla güncellendi");
     } catch (error: unknown) {
       showError(getApiErrorMessage(error) ?? "Proje güncellenirken bir hata oluştu");
     }
-  };
-
-  const handleDeleteProjects = (projectIds: string[]) => {
-    setProjects(projects.filter((p) => !projectIds.includes(p.id)));
-    setShowDeleteProject(false);
-    setSelectedProjects(new Set());
   };
 
   const handleArchiveProjects = async (projectIds: string[]) => {
@@ -303,7 +292,7 @@ export default function AdminPanelView() {
       showError(getApiErrorMessage(error) ?? "Proje arşivlenirken bir hata oluştu");
     } finally {
       setShowArchiveProject(false);
-      setSelectedProjects(new Set());
+      setArchiveProjectTargetId(null);
     }
   };
 
@@ -320,8 +309,6 @@ export default function AdminPanelView() {
       showSuccess("Proje(ler) başarıyla geri alındı");
     } catch (error: unknown) {
       showError(getApiErrorMessage(error) ?? "Proje geri alınırken bir hata oluştu");
-    } finally {
-      setSelectedProjects(new Set());
     }
   };
 
@@ -389,7 +376,6 @@ export default function AdminPanelView() {
       );
       setShowEditUserRole(false);
       setEditingUser(null);
-      setSelectedUsers(new Set());
       if (editUserDialogMode === "role") {
         showSuccess("Kullanıcı rolü başarıyla güncellendi");
       } else {
@@ -400,100 +386,59 @@ export default function AdminPanelView() {
     }
   };
 
-  const handleDeleteUserData = async (userIds: string[]) => {
-    try {
-      await Promise.all(userIds.map((id) => usersApi.deleteUser(id)));
-      setUsers(users.filter((u) => !userIds.includes(u.id)));
-      setShowDeleteUserData(false);
-      setSelectedUsers(new Set());
-      showSuccess("Kullanıcı(lar) başarıyla silindi");
-    } catch (error: unknown) {
-      showError(getApiErrorMessage(error) ?? "Kullanıcı silinirken bir hata oluştu");
-    }
-  };
-
   const handleArchiveUsers = async (userIds: string[]) => {
     try {
       await Promise.all(userIds.map((id) => usersApi.updateUser(id, { isActive: false })));
       setUsers((currentUsers) =>
         currentUsers.map((u) => (userIds.includes(u.id) ? { ...u, status: "archived" as const } : u))
       );
-      setSelectedUsers(new Set());
       showSuccess("Kullanıcı(lar) başarıyla arşivlendi");
     } catch (error: unknown) {
       showError(getApiErrorMessage(error) ?? "Kullanıcı arşivlenirken bir hata oluştu");
     } finally {
       setShowArchiveUser(false);
+      setArchiveUserTargetId(null);
     }
   };
 
-  const handleRestoreUsers = async () => {
-    const userIds = Array.from(selectedUsers);
+  const handleRestoreUsersByIds = async (userIds: string[]) => {
     try {
       await Promise.all(
         userIds.map((id) => usersApi.updateUser(id, { isActive: true }))
       );
-      setUsers(users.map((u) => (userIds.includes(u.id) ? { ...u, status: "active" as const } : u)));
-      setSelectedUsers(new Set());
+      setUsers((current) =>
+        current.map((u) => (userIds.includes(u.id) ? { ...u, status: "active" as const } : u))
+      );
       showSuccess("Kullanıcı(lar) başarıyla geri yüklendi");
     } catch (error: unknown) {
       showError(getApiErrorMessage(error) ?? "Kullanıcı geri yüklenirken bir hata oluştu");
     }
   };
 
-  // Selection handlers
-  const handleProjectSelect = (projectId: string, selected: boolean) => {
-    const newSet = new Set(selectedProjects);
-    if (selected) {
-      newSet.add(projectId);
-    } else {
-      newSet.delete(projectId);
-    }
-    setSelectedProjects(newSet);
+  const handlePasswordChanged = () => {
+    setShowChangePassword(false);
+    setEditingUser(null);
+    showSuccess("Kullanıcı şifresi başarıyla değiştirildi");
   };
 
-  const handleSelectAllProjects = (selected: boolean) => {
-    const filteredProjects = getFilteredProjects();
-    if (selected) {
-      setSelectedProjects(new Set(filteredProjects.map((p) => p.id)));
-    } else {
-      setSelectedProjects(new Set());
-    }
-  };
+  const normalizedSearch = searchQuery.trim().toLowerCase();
 
-  const handleUserSelect = (userId: string, selected: boolean) => {
-    const newSet = new Set(selectedUsers);
-    if (selected) {
-      newSet.add(userId);
-    } else {
-      newSet.delete(userId);
-    }
-    setSelectedUsers(newSet);
-  };
+  const filteredProjects = projects
+    .filter((p) => (activeTab === "archived" ? p.archived : !p.archived))
+    .filter((p) => {
+      if (!normalizedSearch) return true;
+      const haystack = `${p.name} ${p.category} ${p.description ?? ""} ${p.code ?? ""}`.toLowerCase();
+      return haystack.includes(normalizedSearch);
+    });
 
-  const handleSelectAllUsers = (selected: boolean) => {
-    const filteredUsers = getFilteredUsers();
-    if (selected) {
-      setSelectedUsers(new Set(filteredUsers.map((u) => u.id)));
-    } else {
-      setSelectedUsers(new Set());
-    }
-  };
-
-  const getFilteredProjects = () => {
-    if (activeTab === "archived") {
-      return projects.filter((p) => p.archived);
-    }
-    return projects.filter((p) => !p.archived);
-  };
-
-  const getFilteredUsers = () => {
-    const filtered = activeTab === "users_archived"
-      ? users.filter((u) => u.status === "archived")
-      : users.filter((u) => u.status !== "archived");
-    
-    // Convert to UsersTable format
-    return filtered.map((u) => ({
+  const filteredUsers = users
+    .filter((u) => (activeTab === "users_archived" ? u.status === "archived" : u.status !== "archived"))
+    .filter((u) => {
+      if (!normalizedSearch) return true;
+      const haystack = `${u.username} ${u.displayName} ${u.email} ${u.userTitle ?? ""}`.toLowerCase();
+      return haystack.includes(normalizedSearch);
+    })
+    .map((u) => ({
       id: u.id,
       username: u.username,
       displayName: u.displayName,
@@ -503,181 +448,135 @@ export default function AdminPanelView() {
       lastTargetDate: u.lastTargetDate,
       isAdmin: u.isAdmin,
     }));
+
+  const handleEditProjectById = (projectId: string) => {
+    const project = projects.find((p) => p.id === projectId);
+    if (!project) return;
+    setEditingProject(project);
+    setShowEditProject(true);
   };
 
-  const handleEditClick = () => {
-    if (selectedProjects.size === 1) {
-      const project = projects.find((p) => selectedProjects.has(p.id));
-      if (project) {
-        setEditingProject(project);
-        setShowEditProject(true);
-      }
-    }
+  const handleArchiveProjectById = (projectId: string) => {
+    setArchiveProjectTargetId(projectId);
+    setShowArchiveProject(true);
   };
 
-  const handleEditRoleClick = () => {
-    if (selectedUsers.size === 1) {
-      const userId = Array.from(selectedUsers)[0];
-      const user = users.find((u) => u.id === userId);
-      if (user) {
-        setEditingUser(user);
-        setEditUserDialogMode("role");
-        setShowEditUserRole(true);
-      }
-    }
+  const handleRestoreProjectById = async (projectId: string) => {
+    await handleRestoreProjects([projectId]);
   };
 
-  const handleEditUserTitleClick = () => {
-    if (selectedUsers.size === 1) {
-      const userId = Array.from(selectedUsers)[0];
-      const user = users.find((u) => u.id === userId);
-      if (user) {
-        setEditingUser(user);
-        setEditUserDialogMode("title");
-        setShowEditUserRole(true);
-      }
-    }
+  const handleChangeUserRoleById = (userId: string) => {
+    const user = users.find((u) => u.id === userId);
+    if (!user) return;
+    setEditingUser(user);
+    setEditUserDialogMode("role");
+    setShowEditUserRole(true);
   };
 
-  const handleChangePasswordClick = () => {
-    if (selectedUsers.size === 1) {
-      const userId = Array.from(selectedUsers)[0];
-      const user = users.find((u) => u.id === userId);
-      if (user) {
-        setEditingUser(user);
-        setShowChangePassword(true);
-      }
-    }
+  const handleChangeUserTitleById = (userId: string) => {
+    const user = users.find((u) => u.id === userId);
+    if (!user) return;
+    setEditingUser(user);
+    setEditUserDialogMode("title");
+    setShowEditUserRole(true);
   };
 
-  const handlePasswordChanged = () => {
-    setShowChangePassword(false);
-    setEditingUser(null);
-    setSelectedUsers(new Set());
-    showSuccess("Kullanıcı şifresi başarıyla değiştirildi");
+  const handleChangeUserPasswordById = (userId: string) => {
+    const user = users.find((u) => u.id === userId);
+    if (!user) return;
+    setEditingUser(user);
+    setShowChangePassword(true);
   };
 
-  const filteredProjects = getFilteredProjects();
-  const filteredUsers = getFilteredUsers();
+  const handleArchiveUserById = (userId: string) => {
+    setArchiveUserTargetId(userId);
+    setShowArchiveUser(true);
+  };
+
+  const handleRestoreUserById = async (userId: string) => {
+    await handleRestoreUsersByIds([userId]);
+  };
+
+  const archiveProjectList = archiveProjectTargetId
+    ? projects
+        .filter((p) => p.id === archiveProjectTargetId)
+        .map((p) => ({ id: p.id, name: p.name, category: p.category }))
+    : [];
+
+  const archiveUserList = archiveUserTargetId
+    ? users
+        .filter((u) => u.id === archiveUserTargetId)
+        .map((u) => ({
+          id: u.id,
+          username: u.username,
+          displayName: u.displayName,
+          email: u.email,
+        }))
+    : [];
 
   return (
     <div className="flex flex-col h-full">
       <Header
         currentTab={activeTab}
-        onTabChange={(tab) => {
-          setActiveTab(tab);
-          setSelectedProjects(new Set());
-          setSelectedUsers(new Set());
-        }}
+        onTabChange={(tab) => setActiveTab(tab)}
         projectsCount={projects.filter((p) => !p.archived).length}
         archivedProjectsCount={projects.filter((p) => p.archived).length}
         usersCount={users.filter((u) => u.status !== "archived").length}
         archivedUsersCount={users.filter((u) => u.status === "archived").length}
-        editMode={editMode}
-        onToggleEditMode={() => {
-          setEditMode(!editMode);
-          setSelectedProjects(new Set());
-          setSelectedUsers(new Set());
-        }}
         onCreateProject={() => setShowCreateProject(true)}
         onCreateUser={() => setShowCreateUser(true)}
       />
 
-      <Toolbar
-        editMode={editMode}
-        selectionCount={
-          activeTab === "all" || activeTab === "archived"
-            ? selectedProjects.size
-            : selectedUsers.size
-        }
-        isProjectsTab={activeTab === "all" || activeTab === "archived"}
-        canEditSingle={
-          (activeTab === "all" || activeTab === "archived") && selectedProjects.size === 1
-        }
-        onToggleEditMode={() => setEditMode(!editMode)}
-        onClearSelection={() => {
-          setSelectedProjects(new Set());
-          setSelectedUsers(new Set());
-        }}
-        onEdit={handleEditClick}
-        onArchive={
-          activeTab === "all"
-            ? () => {
-                if (selectedProjects.size > 0) {
-                  setShowArchiveProject(true);
-                }
-              }
-            : activeTab === "users"
-              ? () => {
-                  if (selectedUsers.size > 0) {
-                    setShowArchiveUser(true);
-                  }
-                }
-              : undefined
-        }
-        onRestore={
-          activeTab === "archived"
-            ? () => {
-                const projectIds = Array.from(selectedProjects);
-                if (projectIds.length > 0) {
-                  void handleRestoreProjects(projectIds);
-                }
-              }
-            : activeTab === "users_archived"
-              ? () => {
-                  if (selectedUsers.size > 0) {
-                    void handleRestoreUsers();
-                  }
-                }
-            : undefined
-        }
-        onDelete={
-          activeTab === "users_archived" && selectedUsers.size > 0
-            ? () => setShowDeleteUserData(true)
-            : undefined
-        }
-        onEditRole={handleEditRoleClick}
-        onEditUserTitle={handleEditUserTitleClick}
-        onChangePassword={handleChangePasswordClick}
-      />
+      <div className="bg-surface-container-low border-b border-outline-variant px-6 py-3">
+        <form
+          className="relative w-full max-w-md"
+          autoComplete="off"
+          onSubmit={(e) => e.preventDefault()}
+        >
+          <span className="absolute left-3 top-2.5 text-on-surface-variant">🔎</span>
+          <input
+            type="search"
+            name="adminPanelSearch"
+            autoComplete="off"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Ara..."
+            className="w-full px-4 py-2.5 pl-10 pr-10 bg-surface border border-outline rounded-lg text-on-surface placeholder-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+          />
+          {searchQuery.trim() && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              className="absolute right-2 top-2 p-1.5 text-on-surface-variant hover:text-(--on-surface) hover:bg-(--surface-container-high) rounded-md transition-colors"
+            >
+              ✕
+            </button>
+          )}
+        </form>
+      </div>
 
       <div className="flex-1 overflow-auto">
         {activeTab === "all" || activeTab === "archived" ? (
           <ProjectsTable
             projects={filteredProjects}
-            editMode={editMode}
-            selectedProjects={selectedProjects}
-            onProjectSelect={handleProjectSelect}
-            onSelectAll={handleSelectAllProjects}
+            mode={activeTab === "archived" ? "archived" : "active"}
             onProjectClick={(project) => {
-              if (editMode && selectedProjects.size === 1) {
-                setEditingProject(project);
-                setShowEditProject(true);
-              } else if (!editMode) {
-                // Edit mode değilse detay göster
-                setSelectedProjectDetail(project);
-                setShowProjectDetail(true);
-              }
+              setSelectedProjectDetail(project);
+              setShowProjectDetail(true);
             }}
+            onEditProject={handleEditProjectById}
+            onArchiveProject={activeTab === "all" ? handleArchiveProjectById : undefined}
+            onRestoreProject={activeTab === "archived" ? handleRestoreProjectById : undefined}
           />
         ) : (
           <UsersTable
             users={filteredUsers}
-            editMode={editMode}
-            selectedUsers={selectedUsers}
-            onUserSelect={handleUserSelect}
-            onSelectAll={handleSelectAllUsers}
-            onUserClick={(user) => {
-              if (editMode && selectedUsers.size === 1 && activeTab === "users") {
-                // Find original user from users array
-                const originalUser = users.find((u) => u.id === user.id);
-                if (originalUser) {
-                  setEditingUser(originalUser);
-                  setEditUserDialogMode("role");
-                  setShowEditUserRole(true);
-                }
-              }
-            }}
+            mode={activeTab === "users_archived" ? "archived" : "active"}
+            onChangeRole={handleChangeUserRoleById}
+            onChangeTitle={handleChangeUserTitleById}
+            onChangePassword={handleChangeUserPasswordById}
+            onArchiveUser={activeTab === "users" ? handleArchiveUserById : undefined}
+            onRestoreUser={activeTab === "users_archived" ? handleRestoreUserById : undefined}
           />
         )}
       </div>
@@ -744,53 +643,29 @@ export default function AdminPanelView() {
         />
       )}
 
-      {selectedProjects.size > 0 && (
-        <>
-          <DeleteProjectDialog
-            isOpen={showDeleteProject}
-            projects={filteredProjects.filter((p) => selectedProjects.has(p.id))}
-            onClose={() => setShowDeleteProject(false)}
-            onProjectsDeleted={handleDeleteProjects}
-          />
+      <ArchiveProjectDialog
+        isOpen={showArchiveProject}
+        projects={archiveProjectList}
+        onClose={() => {
+          setShowArchiveProject(false);
+          setArchiveProjectTargetId(null);
+        }}
+        onProjectsArchived={(archivedIds) => {
+          void handleArchiveProjects(archivedIds);
+        }}
+      />
 
-          <ArchiveProjectDialog
-            isOpen={showArchiveProject}
-            projects={filteredProjects.filter((p) => selectedProjects.has(p.id))}
-            onClose={() => setShowArchiveProject(false)}
-            onProjectsArchived={handleArchiveProjects}
-          />
-        </>
-      )}
-
-      {selectedUsers.size > 0 && (
-        <>
-          <ArchiveUserDialog
-            isOpen={showArchiveUser}
-            users={users
-              .filter((u) => selectedUsers.has(u.id))
-              .map((u) => ({
-                id: u.id,
-                username: u.username,
-                displayName: u.displayName,
-                email: u.email,
-              }))}
-            onClose={() => setShowArchiveUser(false)}
-            onUsersArchived={(archivedIds) => {
-              void handleArchiveUsers(archivedIds);
-            }}
-          />
-
-          <DeleteUserDataDialog
-            isOpen={showDeleteUserData}
-            userIds={Array.from(selectedUsers)}
-            usernames={users
-              .filter((u) => selectedUsers.has(u.id))
-              .map((u) => u.username)}
-            onClose={() => setShowDeleteUserData(false)}
-            onUserDataDeleted={handleDeleteUserData}
-          />
-        </>
-      )}
+      <ArchiveUserDialog
+        isOpen={showArchiveUser}
+        users={archiveUserList}
+        onClose={() => {
+          setShowArchiveUser(false);
+          setArchiveUserTargetId(null);
+        }}
+        onUsersArchived={(archivedIds) => {
+          void handleArchiveUsers(archivedIds);
+        }}
+      />
     </div>
   );
 }

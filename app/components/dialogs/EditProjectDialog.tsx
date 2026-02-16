@@ -34,6 +34,7 @@ export default function EditProjectDialog({
   const [selectedMembers, setSelectedMembers] = useState<Set<string>>(
     new Set(project.teamMembers || [])
   );
+  const [teamMemberQuery, setTeamMemberQuery] = useState("");
   const [allUsers, setAllUsers] = useState<ApiUser[]>([]);
   const [allProjects, setAllProjects] = useState<ApiProject[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
@@ -41,6 +42,7 @@ export default function EditProjectDialog({
   useEffect(() => {
     setFormData(project);
     setSelectedMembers(new Set(project.teamMembers || []));
+    setTeamMemberQuery("");
   }, [project]);
 
   // Kullanıcıları ve projeleri yükle
@@ -131,10 +133,23 @@ export default function EditProjectDialog({
     setSelectedMembers(newSet);
   };
 
+  const normalizedTeamMemberQuery = teamMemberQuery.trim().toLowerCase();
+  const filteredUsers = allUsers.filter((u) => {
+    if (!u.username) return false;
+    if (!normalizedTeamMemberQuery) return true;
+    const haystack = `${u.username} ${u.displayName ?? ""} ${u.email ?? ""} ${u.userTitle ?? ""}`.toLowerCase();
+    return haystack.includes(normalizedTeamMemberQuery);
+  });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto p-4">
-      <div className="bg-surface-container rounded-xl p-6 shadow-2xl max-w-2xl w-full border border-outline-variant">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto p-4"
+      onClick={handleClose}
+    >
+      <div
+        className="bg-surface-container rounded-xl p-6 shadow-2xl max-w-2xl w-full border border-outline-variant"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-xl font-bold text-on-surface">Proje Düzenle</h3>
           <button
@@ -247,6 +262,23 @@ export default function EditProjectDialog({
             <label className="block text-xs font-semibold text-on-surface-variant mb-2">
               Takım Üyeleri
             </label>
+            <div className="relative mb-3">
+              <input
+                value={teamMemberQuery}
+                onChange={(e) => setTeamMemberQuery(e.target.value)}
+                placeholder="Takım üyesi ara..."
+                className="w-full px-4 py-2.5 pr-10 bg-surface border border-outline rounded-lg text-on-surface placeholder-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+              />
+              {teamMemberQuery.trim() && (
+                <button
+                  type="button"
+                  onClick={() => setTeamMemberQuery("")}
+                  className="absolute right-2 top-2 p-1.5 text-on-surface-variant hover:text-(--on-surface) hover:bg-(--surface-container-high) rounded-md transition-colors"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
             <div className="p-4 bg-surface-container-low border border-outline-variant rounded-lg max-h-64 overflow-y-auto">
               {allUsers.length === 0 ? (
                 <p className="text-sm text-on-surface-variant text-center py-4">
@@ -254,9 +286,7 @@ export default function EditProjectDialog({
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {allUsers
-                    .filter((user) => user.username) // null username'leri filtrele
-                    .map((user: ApiUser) => {
+                  {filteredUsers.map((user: ApiUser) => {
                       const isSelected = selectedMembers.has(user.username);
                       return (
                         <div

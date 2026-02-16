@@ -37,6 +37,7 @@ export default function EditProjectDialog({
   const [allUsers, setAllUsers] = useState<ApiUser[]>([]);
   const [allProjects, setAllProjects] = useState<ApiProject[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [userSearchQuery, setUserSearchQuery] = useState("");
 
   useEffect(() => {
     setFormData(project);
@@ -118,6 +119,7 @@ export default function EditProjectDialog({
     setFormData(project);
     setSelectedMembers(new Set(project.teamMembers || []));
     setErrors({});
+    setUserSearchQuery("");
     onClose();
   };
 
@@ -130,6 +132,25 @@ export default function EditProjectDialog({
     }
     setSelectedMembers(newSet);
   };
+
+  // Filtrelenmiş kullanıcıları hesapla
+  const filteredUsers = useMemo(() => {
+    if (!userSearchQuery.trim()) {
+      return allUsers.filter((user) => user.username);
+    }
+    
+    const query = userSearchQuery.toLowerCase().trim();
+    return allUsers.filter((user) => {
+      if (!user.username) return false;
+      const username = user.username.toLowerCase();
+      const displayName = (user.displayName || "").toLowerCase();
+      const email = (user.email || "").toLowerCase();
+      
+      return username.includes(query) || 
+             displayName.includes(query) || 
+             email.includes(query);
+    });
+  }, [allUsers, userSearchQuery]);
 
 
   return (
@@ -247,16 +268,30 @@ export default function EditProjectDialog({
             <label className="block text-xs font-semibold text-on-surface-variant mb-2">
               Takım Üyeleri
             </label>
+            {/* Search Input */}
+            <div className="mb-3">
+              <input
+                type="text"
+                value={userSearchQuery}
+                onChange={(e) => setUserSearchQuery(e.target.value)}
+                placeholder="Kullanıcı ara (isim, kullanıcı adı veya email)..."
+                className="w-full px-4 py-2.5 bg-surface border border-outline rounded-lg text-on-surface placeholder-on-surface-variant text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+              />
+            </div>
             <div className="p-4 bg-surface-container-low border border-outline-variant rounded-lg max-h-64 overflow-y-auto">
-              {allUsers.length === 0 ? (
+              {isLoadingUsers ? (
                 <p className="text-sm text-on-surface-variant text-center py-4">
-                  Kullanıcı bulunamadı
+                  Yükleniyor...
+                </p>
+              ) : filteredUsers.length === 0 ? (
+                <p className="text-sm text-on-surface-variant text-center py-4">
+                  {userSearchQuery.trim() 
+                    ? "Arama kriterlerine uygun kullanıcı bulunamadı" 
+                    : "Kullanıcı bulunamadı"}
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {allUsers
-                    .filter((user) => user.username) // null username'leri filtrele
-                    .map((user: ApiUser) => {
+                  {filteredUsers.map((user: ApiUser) => {
                       const isSelected = selectedMembers.has(user.username);
                       return (
                         <div

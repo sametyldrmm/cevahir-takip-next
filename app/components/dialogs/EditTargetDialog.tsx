@@ -11,6 +11,7 @@ interface EditTargetDialogProps {
   target: Target | null;
   onClose: () => void;
   onTargetUpdated: (target: Target) => void;
+  onTargetDeleted?: (targetId: string) => void;
 }
 
 export default function EditTargetDialog({
@@ -18,12 +19,15 @@ export default function EditTargetDialog({
   target,
   onClose,
   onTargetUpdated,
+  onTargetDeleted,
 }: EditTargetDialogProps) {
   const { user } = useAuth();
   const isAdmin = user?.role === "ADMIN";
   const [formData, setFormData] = useState<UpdateTargetDto>({});
   const [projects, setProjects] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const { showSuccess, showError } = useNotification();
 
   useEffect(() => {
@@ -78,7 +82,26 @@ export default function EditTargetDialog({
 
   const handleClose = () => {
     setFormData({});
+    setShowDeleteConfirm(false);
     onClose();
+  };
+
+  const handleDelete = async () => {
+    if (!target || !onTargetDeleted) return;
+
+    try {
+      setIsDeleting(true);
+      await targetsApi.deleteTarget(target.id);
+      showSuccess("Hedef başarıyla silindi");
+      onTargetDeleted(target.id);
+      handleClose();
+    } catch (error: any) {
+      const message = error.response?.data?.message || "Hedef silinirken bir hata oluştu";
+      showError(message);
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+    }
   };
 
   const statusOptions: { value: GoalStatus; label: string }[] = [
@@ -253,19 +276,58 @@ export default function EditTargetDialog({
         <div className="flex gap-3 pt-6 mt-6 border-t border-outline-variant">
           <button
             onClick={handleClose}
-            disabled={isLoading}
+            disabled={isLoading || isDeleting}
             className="flex-1 px-4 py-3 bg-surface-container-high text-on-surface rounded-lg font-medium hover:bg-(--surface-container-highest)! transition-colors disabled:opacity-50"
           >
             İptal
           </button>
+          {onTargetDeleted && (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              disabled={isLoading || isDeleting}
+              className="px-4 py-3 bg-error text-on-error rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+            >
+              Sil
+            </button>
+          )}
           <button
             onClick={handleSubmit}
-            disabled={isLoading || !formData.taskContent?.trim()}
+            disabled={isLoading || isDeleting || !formData.taskContent?.trim()}
             className="flex-1 px-4 py-3 bg-primary text-on-primary rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             {isLoading ? "Güncelleniyor..." : "Güncelle"}
           </button>
         </div>
+
+        {/* Silme Onay Dialog'u */}
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+            <div className="bg-surface-container rounded-xl p-6 shadow-2xl max-w-md w-full border border-outline-variant mx-4">
+              <h3 className="text-lg font-bold text-on-surface mb-2">
+                Hedefi Sil
+              </h3>
+              <p className="text-sm text-on-surface-variant mb-6">
+                Bu hedefi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  disabled={isDeleting}
+                  className="flex-1 px-4 py-2 bg-surface-container-high text-on-surface rounded-lg font-medium hover:bg-(--surface-container-highest)! transition-colors disabled:opacity-50"
+                >
+                  İptal
+                </button>
+                <button
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="flex-1 px-4 py-2 bg-error text-on-error rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+                >
+                  {isDeleting ? "Siliniyor..." : "Evet, Sil"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

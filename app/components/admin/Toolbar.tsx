@@ -13,6 +13,7 @@ interface ToolbarProps {
   onDelete?: () => void;
   onEditRole?: () => void;
   onEditUserTitle?: () => void;
+  onChangePassword?: () => void;
 }
 
 export default function Toolbar({
@@ -28,6 +29,7 @@ export default function Toolbar({
   onDelete,
   onEditRole,
   onEditUserTitle,
+  onChangePassword,
 }: ToolbarProps) {
   if (!editMode || selectionCount === 0) {
     return null;
@@ -81,6 +83,14 @@ export default function Toolbar({
                   >
                     Pozisyon Değiştir
                   </button>
+                  {onChangePassword && (
+                    <button
+                      onClick={onChangePassword}
+                      className="px-3 py-1.5 border border-primary rounded-lg text-sm text-primary hover:bg-(--primary-container) transition-colors"
+                    >
+                      Şifre Değiştir
+                    </button>
+                  )}
                 </>
               )}
               <button

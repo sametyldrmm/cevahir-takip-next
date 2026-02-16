@@ -7,6 +7,7 @@ export { default as ArchiveProjectDialog } from "./ArchiveProjectDialog";
 export { default as ArchiveUserDialog } from "./ArchiveUserDialog";
 export { default as DeleteUserDataDialog } from "./DeleteUserDataDialog";
 export { default as PasswordChangeDialog } from "./PasswordChangeDialog";
+export { default as AdminPasswordChangeDialog } from "./AdminPasswordChangeDialog";
 export { default as TimePickerDialog } from "./TimePickerDialog";
 export { default as ExcelExportDialog } from "./ExcelExportDialog";
 export { default as PerformanceReportDialog } from "./PerformanceReportDialog";

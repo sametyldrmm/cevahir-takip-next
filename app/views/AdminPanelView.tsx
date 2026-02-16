@@ -14,6 +14,7 @@ import {
   ArchiveProjectDialog,
   ArchiveUserDialog,
   DeleteUserDataDialog,
+  AdminPasswordChangeDialog,
 } from "@/app/components/dialogs";
 import ProjectDetailDialog from "@/app/components/dialogs/ProjectDetailDialog";
 import { Header, ProjectsTable, UsersTable, Toolbar } from "@/app/components/admin";
@@ -137,6 +138,7 @@ export default function AdminPanelView() {
   const [showEditUserRole, setShowEditUserRole] = useState(false);
   const [editUserDialogMode, setEditUserDialogMode] = useState<"role" | "title">("role");
   const [showDeleteUserData, setShowDeleteUserData] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
   const [showProjectDetail, setShowProjectDetail] = useState(false);
   const [selectedProjectDetail, setSelectedProjectDetail] = useState<Project | null>(null);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -537,6 +539,24 @@ export default function AdminPanelView() {
     }
   };
 
+  const handleChangePasswordClick = () => {
+    if (selectedUsers.size === 1) {
+      const userId = Array.from(selectedUsers)[0];
+      const user = users.find((u) => u.id === userId);
+      if (user) {
+        setEditingUser(user);
+        setShowChangePassword(true);
+      }
+    }
+  };
+
+  const handlePasswordChanged = () => {
+    setShowChangePassword(false);
+    setEditingUser(null);
+    setSelectedUsers(new Set());
+    showSuccess("Kullanıcı şifresi başarıyla değiştirildi");
+  };
+
   const filteredProjects = getFilteredProjects();
   const filteredUsers = getFilteredUsers();
 
@@ -618,6 +638,7 @@ export default function AdminPanelView() {
         }
         onEditRole={handleEditRoleClick}
         onEditUserTitle={handleEditUserTitleClick}
+        onChangePassword={handleChangePasswordClick}
       />
 
       <div className="flex-1 overflow-auto">
@@ -678,19 +699,31 @@ export default function AdminPanelView() {
       />
 
       {editingUser && (
-        <EditUserRoleDialog
-          isOpen={showEditUserRole}
-          userId={editingUser.id}
-          username={editingUser.username}
-          currentRole={editingUser.isAdmin ? "admin" : "user"}
-          currentUserTitle={editingUser.userTitle}
-          mode={editUserDialogMode}
-          onClose={() => {
-            setShowEditUserRole(false);
-            setEditingUser(null);
-          }}
-          onSubmit={handleEditUserSubmit}
-        />
+        <>
+          <EditUserRoleDialog
+            isOpen={showEditUserRole}
+            userId={editingUser.id}
+            username={editingUser.username}
+            currentRole={editingUser.isAdmin ? "admin" : "user"}
+            currentUserTitle={editingUser.userTitle}
+            mode={editUserDialogMode}
+            onClose={() => {
+              setShowEditUserRole(false);
+              setEditingUser(null);
+            }}
+            onSubmit={handleEditUserSubmit}
+          />
+          <AdminPasswordChangeDialog
+            isOpen={showChangePassword}
+            userId={editingUser.id}
+            username={editingUser.username}
+            onClose={() => {
+              setShowChangePassword(false);
+              setEditingUser(null);
+            }}
+            onPasswordChanged={handlePasswordChanged}
+          />
+        </>
       )}
 
       <CreateProjectDialog

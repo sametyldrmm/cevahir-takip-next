@@ -253,7 +253,20 @@ export default function TeamTrackingView() {
   // Projeye göre grupla
   const targetsByProject = filteredTargets.reduce(
     (acc, target) => {
-      const projectName = target.selectedProjects?.[0] || 'Belirtilmemiş';
+      const projectId = target.selectedProjects?.[0];
+      if (!projectId) {
+        const key = 'Belirtilmemiş';
+        if (!acc[key]) {
+          acc[key] = [];
+        }
+        acc[key].push(target);
+        return acc;
+      }
+      
+      // Proje ID'sinden proje ismini bul
+      const project = allProjects.find((p) => p.id === projectId);
+      const projectName = project?.name || project?.code || projectId;
+      
       if (!acc[projectName]) {
         acc[projectName] = [];
       }
@@ -689,6 +702,19 @@ export default function TeamTrackingView() {
               const targets = await targetsApi.getTeamTargets(projectIds, date);
               setTeamTargets(targets);
               showSuccess('Hedef başarıyla güncellendi');
+            } catch (error) {
+              console.error('Failed to reload targets:', error);
+            }
+            setShowEditDialog(false);
+            setEditingTarget(null);
+          }}
+          onTargetDeleted={async (targetId) => {
+            try {
+              const projectIds = Array.from(selectedProjects);
+              const date = selectedDate || undefined;
+              const targets = await targetsApi.getTeamTargets(projectIds, date);
+              setTeamTargets(targets);
+              showSuccess('Hedef başarıyla silindi');
             } catch (error) {
               console.error('Failed to reload targets:', error);
             }

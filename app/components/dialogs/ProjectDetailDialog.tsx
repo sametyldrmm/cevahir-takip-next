@@ -342,6 +342,17 @@ export default function ProjectDetailDialog({
             setShowEditDialog(false);
             setEditingTarget(null);
           }}
+          onTargetDeleted={async (targetId) => {
+            // Hedefleri yeniden yükle
+            try {
+              const projectTargets = await targetsApi.getProjectTargets(project.id, 20);
+              setTargets(projectTargets);
+            } catch (error) {
+              console.error("Failed to reload project targets:", error);
+            }
+            setShowEditDialog(false);
+            setEditingTarget(null);
+          }}
         />
       )}
     </div>

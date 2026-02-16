@@ -16,6 +16,7 @@ interface MonthlyCalendarProps {
   onDayToggle?: (date: Date) => void;
   selectedLeaveType?: string | null;
   leaves?: Record<string, { type: string; note?: string }>;
+  onEditTarget?: (target: Target) => void;
 }
 
 interface DayData {
@@ -41,6 +42,7 @@ export default function MonthlyCalendar({
   onDayToggle,
   selectedLeaveType = null,
   leaves = {},
+  onEditTarget,
 }: MonthlyCalendarProps) {
   const [viewDate, setViewDate] = useState(currentDate);
   const [dayEntriesDialog, setDayEntriesDialog] = useState<{
@@ -729,6 +731,21 @@ export default function MonthlyCalendar({
                           <p className='text-xs text-on-surface-variant whitespace-pre-wrap'>
                             {target.taskContent}
                           </p>
+                        </div>
+                      )}
+
+                      {onEditTarget && (
+                        <div className='mt-3 pt-3 border-t border-outline-variant'>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEditTarget(target);
+                              setDayEntriesDialog(null);
+                            }}
+                            className='w-full px-3 py-2 bg-primary text-on-primary rounded-lg hover:opacity-90 transition-opacity text-sm font-medium'
+                          >
+                            Düzenle
+                          </button>
                         </div>
                       )}
                     </div>

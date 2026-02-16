@@ -2,31 +2,30 @@
 
 import { useState } from "react";
 import { isAxiosError } from "axios";
-import { authApi } from "@/lib/api/auth";
+import { usersApi } from "@/lib/api/users";
 
-interface PasswordChangeDialogProps {
+interface AdminPasswordChangeDialogProps {
   isOpen: boolean;
-  userId?: string; // Artık kullanılmıyor ama geriye dönük uyumluluk için optional bırakıyoruz
+  userId: string;
+  username: string;
   onClose: () => void;
   onPasswordChanged: () => void;
 }
 
-export default function PasswordChangeDialog({
+export default function AdminPasswordChangeDialog({
   isOpen,
   userId,
+  username,
   onClose,
   onPasswordChanged,
-}: PasswordChangeDialogProps) {
-  const [currentPassword, setCurrentPassword] = useState("");
+}: AdminPasswordChangeDialogProps) {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [errors, setErrors] = useState<{
-    current?: string;
     new?: string;
     confirm?: string;
   }>({});
@@ -49,14 +48,9 @@ export default function PasswordChangeDialog({
 
   const handleSubmit = async () => {
     const newErrors: {
-      current?: string;
       new?: string;
       confirm?: string;
     } = {};
-
-    if (!currentPassword.trim()) {
-      newErrors.current = "Mevcut şifre gerekli";
-    }
 
     if (!newPassword.trim()) {
       newErrors.new = "Yeni şifre gerekli";
@@ -78,10 +72,7 @@ export default function PasswordChangeDialog({
     try {
       setIsSubmitting(true);
       setSubmitError(null);
-      await authApi.changePassword({
-        currentPassword: currentPassword.trim(),
-        newPassword: newPassword.trim(),
-      });
+      await usersApi.updateUser(userId, { password: newPassword.trim() });
       onPasswordChanged();
       handleClose();
     } catch (error: unknown) {
@@ -92,7 +83,6 @@ export default function PasswordChangeDialog({
   };
 
   const handleClose = () => {
-    setCurrentPassword("");
     setNewPassword("");
     setConfirmPassword("");
     setErrors({});
@@ -104,9 +94,14 @@ export default function PasswordChangeDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="bg-surface-container rounded-xl p-6 shadow-2xl max-w-md w-full border border-outline-variant">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-bold text-on-surface">
-            Şifre Değiştir
-          </h3>
+          <div>
+            <h3 className="text-xl font-bold text-on-surface">
+              Kullanıcı Şifresini Değiştir
+            </h3>
+            <p className="text-sm text-on-surface-variant mt-1">
+              {username} için yeni şifre belirleyin
+            </p>
+          </div>
           <button
             onClick={handleClose}
             className="p-2 hover:bg-(--surface-container-high) rounded-lg transition-colors text-on-surface-variant hover:text-(--on-surface)"
@@ -121,41 +116,6 @@ export default function PasswordChangeDialog({
               {submitError}
             </div>
           )}
-          <div>
-            <label className="block text-sm font-medium text-on-surface mb-1">
-              Mevcut Şifre
-            </label>
-            <div className="relative">
-              <input
-                type={showCurrentPassword ? "text" : "password"}
-                value={currentPassword}
-                onChange={(e) => {
-                  setCurrentPassword(e.target.value);
-                  setErrors((prev) => ({ ...prev, current: undefined }));
-                  setSubmitError(null);
-                }}
-              placeholder="Mevcut şifrenizi girin"
-              className={`w-full px-4 py-3 pl-10 bg-surface border rounded-lg text-on-surface placeholder-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all ${
-                errors.current ? "border-error" : "border-outline"
-              }`}
-              disabled={isSubmitting}
-              />
-              <span className="absolute left-3 top-2.5 text-on-surface-variant">
-                🔒
-              </span>
-              <button
-                type="button"
-                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                className="absolute right-3 top-2.5 text-on-surface-variant hover:text-(--on-surface)"
-                disabled={isSubmitting}
-              >
-                {showCurrentPassword ? "👁️" : "👁️‍🗨️"}
-              </button>
-            </div>
-            {errors.current && (
-              <p className="mt-1 text-sm text-red-500">{errors.current}</p>
-            )}
-          </div>
 
           <div>
             <label className="block text-sm font-medium text-on-surface mb-1">
@@ -170,11 +130,11 @@ export default function PasswordChangeDialog({
                   setErrors((prev) => ({ ...prev, new: undefined }));
                   setSubmitError(null);
                 }}
-              placeholder="Yeni şifrenizi girin"
-              className={`w-full px-4 py-3 pl-10 bg-surface border rounded-lg text-on-surface placeholder-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all ${
-                errors.new ? "border-error" : "border-outline"
-              }`}
-              disabled={isSubmitting}
+                placeholder="Yeni şifreyi girin"
+                className={`w-full px-4 py-3 pl-10 bg-surface border rounded-lg text-on-surface placeholder-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all ${
+                  errors.new ? "border-error" : "border-outline"
+                }`}
+                disabled={isSubmitting}
               />
               <span className="absolute left-3 top-2.5 text-on-surface-variant">
                 🔐
@@ -206,11 +166,11 @@ export default function PasswordChangeDialog({
                   setErrors((prev) => ({ ...prev, confirm: undefined }));
                   setSubmitError(null);
                 }}
-              placeholder="Yeni şifrenizi tekrar girin"
-              className={`w-full px-4 py-3 pl-10 bg-surface border rounded-lg text-on-surface placeholder-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all ${
-                errors.confirm ? "border-error" : "border-outline"
-              }`}
-              disabled={isSubmitting}
+                placeholder="Yeni şifreyi tekrar girin"
+                className={`w-full px-4 py-3 pl-10 bg-surface border rounded-lg text-on-surface placeholder-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all ${
+                  errors.confirm ? "border-error" : "border-outline"
+                }`}
+                disabled={isSubmitting}
               />
               <span className="absolute left-3 top-2.5 text-on-surface-variant">
                 🔒
@@ -250,4 +210,3 @@ export default function PasswordChangeDialog({
     </div>
   );
 }
-

@@ -81,8 +81,14 @@ export default function CreateUserDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto p-4">
-      <div className="bg-surface-container rounded-xl p-6 shadow-2xl max-w-md w-full border border-outline-variant">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto p-4"
+      onClick={handleClose}
+    >
+      <div
+        className="bg-surface-container rounded-xl p-6 shadow-2xl max-w-md w-full border border-outline-variant"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-xl font-bold text-on-surface">Yeni Kullanıcı Ekle</h3>
           <button

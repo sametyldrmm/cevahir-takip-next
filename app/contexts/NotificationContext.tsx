@@ -7,6 +7,7 @@ import React, {
   useEffect,
   useState,
   useCallback,
+  useMemo,
 } from "react";
 import toast, {
   ToastOptions,
@@ -33,17 +34,24 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     return Cookies.get("accessToken") ?? null;
   });
 
-  const showSuccess = (message: string, options?: ToastOptions) =>
-    toast.success(message, options);
+  const showSuccess = useCallback(
+    (message: string, options?: ToastOptions) => toast.success(message, options),
+    [],
+  );
 
-  const showError = (message: string, options?: ToastOptions) =>
-    toast.error(message, options);
+  const showError = useCallback(
+    (message: string, options?: ToastOptions) => toast.error(message, options),
+    [],
+  );
 
-  const showWarning = (message: string, options?: ToastOptions) =>
-    toast(message, {
-      ...options,
-      icon: "⚠️",
-    });
+  const showWarning = useCallback(
+    (message: string, options?: ToastOptions) =>
+      toast(message, {
+        ...options,
+        icon: "⚠️",
+      }),
+    [],
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -189,25 +197,27 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const interval = setInterval(() => {
       const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-      setRealTimeNotifications((prev) =>
-        prev.filter(
-          (n) => new Date(n.timestamp) > fiveMinutesAgo
-        )
-      );
+      setRealTimeNotifications((prev) => {
+        const next = prev.filter((n) => new Date(n.timestamp) > fiveMinutesAgo);
+        return next.length === prev.length ? prev : next;
+      });
     }, 60000); // Her dakika kontrol et
 
     return () => clearInterval(interval);
   }, []);
 
+  const contextValue = useMemo(
+    () => ({
+      showSuccess,
+      showError,
+      showWarning,
+      realTimeNotifications,
+    }),
+    [showSuccess, showError, showWarning, realTimeNotifications],
+  );
+
   return (
-    <NotificationContext.Provider
-      value={{
-        showSuccess,
-        showError,
-        showWarning,
-        realTimeNotifications,
-      }}
-    >
+    <NotificationContext.Provider value={contextValue}>
       {children}
       <Toaster
         position="bottom-center"

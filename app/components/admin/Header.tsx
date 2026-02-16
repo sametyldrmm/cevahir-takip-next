@@ -7,8 +7,6 @@ interface AdminHeaderProps {
   archivedProjectsCount: number;
   usersCount: number;
   archivedUsersCount: number;
-  editMode: boolean;
-  onToggleEditMode: () => void;
   onCreateProject?: () => void;
   onCreateUser?: () => void;
   onExport?: () => void;
@@ -24,8 +22,6 @@ export default function AdminHeader({
   archivedProjectsCount,
   usersCount,
   archivedUsersCount,
-  editMode,
-  onToggleEditMode,
   onCreateProject,
   onCreateUser,
   onExport,
@@ -64,16 +60,6 @@ export default function AdminHeader({
               Export
             </button>
           )}
-          <button
-            onClick={onToggleEditMode}
-            className={`px-4 py-2 rounded-lg transition-colors ${
-              editMode
-                ? "bg-primary text-on-primary"
-                : "border border-outline text-on-surface hover:bg-(--surface-container-high)"
-            }`}
-            >
-            {editMode ? "Düzenleme Modu" : "Düzenle"}
-          </button>
         </div>
       </div>
 

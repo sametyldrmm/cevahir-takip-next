@@ -99,14 +99,14 @@ export default function Toolbar({
               >
                 {onRestore ? "Geri Al" : "Arşivle"}
               </button>
-              {onDelete && (
+              {/* {onDelete && (
                 <button
                   onClick={onDelete}
                   className="px-3 py-1.5 border border-red-500 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors"
                 >
                   Tüm Verileri Sil
                 </button>
-              )}
+              )} */}
             </>
           )}
         </div>

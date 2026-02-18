@@ -184,9 +184,37 @@ function MailSettingsView() {
     string | null
   >(null);
 
-  const [editingSchedule, setEditingSchedule] = useState<AutoMailSchedule | null>(
-    null,
-  );
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    rowKey: string;
+    schedule: AutoMailSchedule;
+    title: string;
+    detail: string;
+  } | null>(null);
+
+  type ScheduleEditDraft = {
+    rowKey: string;
+    scheduleId: string | null;
+    reportType: AutoMailReportType;
+    reportPeriod: AutoMailReportPeriod;
+    selectedMailGroupIds: Set<string>;
+    selectedUserIds: Set<string>;
+    selectedProjectIds: Set<string>;
+    groupsFilterText: string;
+    usersFilterText: string;
+    projectsFilterText: string;
+    uiIntervalPreset: UiIntervalPreset;
+    autoMailIntervalPreset: AutoMailIntervalPreset;
+    autoMailCustomEvery: number;
+    autoMailCustomUnit: AutoMailIntervalUnit;
+    hour: number;
+    minute: number;
+    dayOfWeek: number;
+    dayOfMonth: number;
+  };
+
+  const [expandedRowKey, setExpandedRowKey] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<ScheduleEditDraft | null>(null);
+  const [isRowSaving, setIsRowSaving] = useState(false);
 
   const [tableFilterText, setTableFilterText] = useState("");
   const [tableSortKey, setTableSortKey] = useState<
@@ -209,7 +237,6 @@ function MailSettingsView() {
   };
 
   const resetForm = () => {
-    setEditingSchedule(null);
     setAutoMailGroupsFilterText("");
     setSelectedMailGroupIds(new Set());
     setAutoMailUsersFilterText("");
@@ -336,6 +363,138 @@ function MailSettingsView() {
 
     return [...normalizedEmails].sort((a, b) => a.localeCompare(b, "tr-TR"));
   }, [selectedUserIds, users]);
+
+  const editSelectedEmails = useMemo(() => {
+    if (!editDraft) return [];
+    const normalizedEmails = new Set<string>();
+
+    for (const u of users) {
+      if (!editDraft.selectedUserIds.has(u.id)) continue;
+      const normalized = toNormalizedEmail(u.email);
+      if (!normalized) continue;
+      normalizedEmails.add(normalized);
+    }
+
+    return [...normalizedEmails].sort((a, b) => a.localeCompare(b, "tr-TR"));
+  }, [editDraft, users]);
+
+  const editFilteredGroups = useMemo(() => {
+    const needle = (editDraft?.groupsFilterText ?? "").trim().toLowerCase();
+    if (!needle) return mailGroups;
+    return mailGroups.filter((g) => g.name.toLowerCase().includes(needle));
+  }, [editDraft?.groupsFilterText, mailGroups]);
+
+  const editFilteredUsers = useMemo(() => {
+    const needle = (editDraft?.usersFilterText ?? "").trim().toLowerCase();
+    if (!needle) return users;
+    return users.filter((u) => {
+      const haystack = `${u.displayName ?? ""} ${u.username ?? ""} ${u.email ?? ""} ${u.userTitle ?? ""}`
+        .trim()
+        .toLowerCase();
+      return haystack.includes(needle);
+    });
+  }, [editDraft?.usersFilterText, users]);
+
+  const editFilteredProjects = useMemo(() => {
+    const needle = (editDraft?.projectsFilterText ?? "").trim().toLowerCase();
+    if (!needle) return projects;
+    return projects.filter((p) => {
+      const haystack = `${p.name ?? ""} ${p.code ?? ""}`.trim().toLowerCase();
+      return haystack.includes(needle);
+    });
+  }, [editDraft?.projectsFilterText, projects]);
+
+  const editAllowedPeriodsForSelectedReport = useMemo(() => {
+    if (!editDraft) return [];
+    return allowedPeriodsByReportType[editDraft.reportType] ?? [];
+  }, [editDraft?.reportType]);
+
+  const editAllowedUiIntervals = useMemo(() => {
+    if (!editDraft) return new Set<UiIntervalPreset>(["1D", "1W", "1M", "1Y"]);
+    return getAllowedUiIntervals({
+      reportTypes: [editDraft.reportType],
+      reportPeriod: editDraft.reportPeriod,
+    });
+  }, [editDraft?.reportPeriod, editDraft?.reportType]);
+
+  const applyEditUiIntervalPreset = useCallback((nextPreset: UiIntervalPreset) => {
+    setEditDraft((prev) => {
+      if (!prev) return prev;
+
+      if (nextPreset === "1Y") {
+        return {
+          ...prev,
+          uiIntervalPreset: nextPreset,
+          autoMailIntervalPreset: "CUSTOM",
+          autoMailCustomEvery: 12,
+          autoMailCustomUnit: "MONTH",
+        };
+      }
+
+      return {
+        ...prev,
+        uiIntervalPreset: nextPreset,
+        autoMailIntervalPreset: nextPreset,
+      };
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!editDraft) return;
+
+    const allowedPeriods = editAllowedPeriodsForSelectedReport;
+    if (!allowedPeriods.includes(editDraft.reportPeriod)) {
+      const nextPeriod = allowedPeriods[0];
+      if (nextPeriod) {
+        setEditDraft((prev) => (prev ? { ...prev, reportPeriod: nextPeriod } : prev));
+      }
+      return;
+    }
+
+    if (editAllowedUiIntervals.has(editDraft.uiIntervalPreset)) return;
+
+    const fallbackOrder: UiIntervalPreset[] = ["1Y", "1M", "1W", "1D"];
+    const fallback =
+      fallbackOrder.find((p) => editAllowedUiIntervals.has(p)) ??
+      uiIntervalPresetOptions.find((o) => editAllowedUiIntervals.has(o.value))?.value ??
+      "1W";
+    applyEditUiIntervalPreset(fallback);
+  }, [
+    applyEditUiIntervalPreset,
+    editAllowedPeriodsForSelectedReport,
+    editAllowedUiIntervals,
+    editDraft,
+  ]);
+
+  const toggleEditSelectedGroup = (groupId: string) => {
+    setEditDraft((prev) => {
+      if (!prev) return prev;
+      const next = new Set(prev.selectedMailGroupIds);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return { ...prev, selectedMailGroupIds: next };
+    });
+  };
+
+  const toggleEditSelectedUser = (userId: string) => {
+    setEditDraft((prev) => {
+      if (!prev) return prev;
+      const next = new Set(prev.selectedUserIds);
+      if (next.has(userId)) next.delete(userId);
+      else next.add(userId);
+      return { ...prev, selectedUserIds: next };
+    });
+  };
+
+  const toggleEditSelectedProject = (projectId: string) => {
+    setEditDraft((prev) => {
+      if (!prev) return prev;
+      const next = new Set(prev.selectedProjectIds);
+      if (next.has(projectId)) next.delete(projectId);
+      else next.add(projectId);
+      return { ...prev, selectedProjectIds: next };
+    });
+  };
 
   const toggleSelectedGroup = (groupId: string) => {
     setSelectedMailGroupIds((prev) => {
@@ -480,79 +639,36 @@ function MailSettingsView() {
     applyUiIntervalPreset(nextInterval);
   };
 
-  const startEditingSchedule = (schedule: AutoMailSchedule) => {
-    try {
-      console.log("Editing schedule:", schedule);
-      
-      if (!schedule) {
-        showError("Düzenlenecek ayar bulunamadı");
-        return;
-      }
+  const closeRowEditor = () => {
+    setExpandedRowKey(null);
+    setEditDraft(null);
+    setIsRowSaving(false);
+  };
 
-      setEditingSchedule(schedule);
+  const toNormalizedReportTypes = (reportTypes: string[] | undefined) => {
+    return (reportTypes ?? []).map((type) => {
+      if (type === "TARGETS") return "TARGETS" as AutoMailReportType;
+      if (type === "PERFORMANCE") return "PERFORMANCE" as AutoMailReportType;
+      if (type === "MISSING_TARGETS") return "MISSING_TARGETS" as AutoMailReportType;
+      return type as AutoMailReportType;
+    });
+  };
 
-      // Backend'den gelen reportTypes'ı AutoMailReportType'a dönüştür
-      // Backend ReportType kullanıyor: 'TARGETS' | 'PROJECTS' | 'USERS' | 'TEAM'
-      // Frontend AutoMailReportType bekliyor: 'PERFORMANCE' | 'TARGETS' | 'MISSING_TARGETS'
-      const scheduleReportTypes = (schedule.reportTypes ?? []).map((type: string) => {
-        // Backend'den gelen ReportType'ı AutoMailReportType'a map et
-        if (type === 'TARGETS') return 'TARGETS' as AutoMailReportType;
-        if (type === 'PERFORMANCE') return 'PERFORMANCE' as AutoMailReportType;
-        if (type === 'MISSING_TARGETS') return 'MISSING_TARGETS' as AutoMailReportType;
-        // Eğer farklı bir tip gelirse, olduğu gibi bırak (hata verecek ama)
-        return type as AutoMailReportType;
-      });
-      
-      console.log("Original reportTypes:", schedule.reportTypes);
-      console.log("Mapped reportTypes:", scheduleReportTypes);
-      
-      if (scheduleReportTypes.length === 0) {
-        showError("Bu ayarda rapor tipi bulunamadı");
-        return;
-      }
-      
-      if (scheduleReportTypes.length > 1) {
-        showError("Bu ayarda birden fazla rapor tipi var. İlk rapor tipi ile düzenlenebilir.");
-      }
-      const primaryReportType = scheduleReportTypes[0] ?? null;
-      if (!primaryReportType) {
-        showError("Rapor tipi belirlenemedi");
-        return;
-      }
-      
-      setSelectedReportTypes(new Set([primaryReportType]));
-      
-      // periodByReportType'dan period'u al, yoksa varsayılanı kullan
-      let nextPeriod: AutoMailReportPeriod | null = null;
-      
-      console.log("primaryReportType:", primaryReportType);
-      console.log("schedule.periodByReportType:", schedule.periodByReportType);
-      console.log("allowedPeriodsByReportType:", allowedPeriodsByReportType);
-      
-      if (schedule.periodByReportType && schedule.periodByReportType[primaryReportType]) {
-        nextPeriod = schedule.periodByReportType[primaryReportType] as AutoMailReportPeriod;
-        console.log("Period from periodByReportType:", nextPeriod);
-      } else {
-        // Varsayılan period'u al
-        const defaultPeriods = allowedPeriodsByReportType[primaryReportType];
-        nextPeriod = defaultPeriods?.[0] ?? null;
-        console.log("Default period:", nextPeriod, "from periods:", defaultPeriods);
-      }
-      
-      if (!nextPeriod) {
-        const errorMsg = `Rapor tipi ${primaryReportType} için geçerli bir dönem bulunamadı. Lütfen yeni bir ayar oluşturun.`;
-        console.error(errorMsg);
-        showError(errorMsg);
-        return;
-      }
-      
-      console.log("Setting selectedReportPeriod to:", nextPeriod);
-      setSelectedReportPeriod(nextPeriod);
-    setSelectedMailGroupIds(new Set(schedule.mailGroupIds ?? []));
-    setSelectedProjectIds(
-      primaryReportType === "TARGETS" ? new Set(schedule.projectIds ?? []) : new Set(),
-    );
-    setProjectsFilterText("");
+  const buildEditDraft = (
+    rowKey: string,
+    schedule: AutoMailSchedule,
+  ): ScheduleEditDraft | null => {
+    const scheduleReportTypes = toNormalizedReportTypes(schedule.reportTypes as string[]);
+    const primaryReportType = scheduleReportTypes[0];
+    if (!primaryReportType) return null;
+
+    const allowedPeriods = allowedPeriodsByReportType[primaryReportType] ?? [];
+    const periodFromSchedule =
+      schedule.periodByReportType?.[primaryReportType] ?? null;
+    const reportPeriod = allowedPeriods.includes(periodFromSchedule as AutoMailReportPeriod)
+      ? (periodFromSchedule as AutoMailReportPeriod)
+      : (allowedPeriods[0] ?? null);
+    if (!reportPeriod) return null;
 
     const isYearlyCustom =
       schedule.intervalPreset === "CUSTOM" &&
@@ -574,52 +690,41 @@ function MailSettingsView() {
       schedule.customEvery === 1 &&
       schedule.customUnit === "MONTH";
 
-    if (isYearlyCustom) {
-      setUiIntervalPreset("1Y");
-      setAutoMailIntervalPreset("CUSTOM");
-      setAutoMailCustomEvery(12);
-      setAutoMailCustomUnit("MONTH");
-    } else if (isDailyCustom) {
-      setUiIntervalPreset("1D");
-      setAutoMailIntervalPreset("1D");
-      setAutoMailCustomEvery(1);
-      setAutoMailCustomUnit("DAY");
-    } else if (isWeeklyCustom) {
-      setUiIntervalPreset("1W");
-      setAutoMailIntervalPreset("1W");
-      setAutoMailCustomEvery(1);
-      setAutoMailCustomUnit("WEEK");
-    } else if (isMonthlyCustom) {
-      setUiIntervalPreset("1M");
-      setAutoMailIntervalPreset("1M");
-      setAutoMailCustomEvery(1);
-      setAutoMailCustomUnit("MONTH");
-    } else if (schedule.intervalPreset === "CUSTOM") {
-      showError("Bu ayarda artık desteklenmeyen özel aralık var. Aralık yeniden seçilmeli.");
-      setUiIntervalPreset("1W");
-      setAutoMailIntervalPreset("1W");
-      setAutoMailCustomEvery(1);
-      setAutoMailCustomUnit("WEEK");
-    } else {
-      // intervalPreset değerini kontrol et ve dönüştür
-      const preset = schedule.intervalPreset;
-      if (preset === "1D" || preset === "1W" || preset === "1M") {
-        setUiIntervalPreset(preset as UiIntervalPreset);
-        setAutoMailIntervalPreset(preset);
-      } else {
-        // Varsayılan değer
-        setUiIntervalPreset("1W");
-        setAutoMailIntervalPreset("1W");
-      }
-      setAutoMailCustomEvery(1);
-      setAutoMailCustomUnit("WEEK");
-    }
+    let nextUiInterval: UiIntervalPreset = "1W";
+    let nextIntervalPreset: AutoMailIntervalPreset = "1W";
+    let nextCustomEvery = 1;
+    let nextCustomUnit: AutoMailIntervalUnit = "WEEK";
 
-    // Zamanlama ayarlarını yükle
-    setHour(schedule.hour ?? 9);
-    setMinute(schedule.minute ?? 0);
-    setDayOfWeek(schedule.dayOfWeek ?? 1);
-    setDayOfMonth(schedule.dayOfMonth ?? 1);
+    if (isYearlyCustom) {
+      nextUiInterval = "1Y";
+      nextIntervalPreset = "CUSTOM";
+      nextCustomEvery = 12;
+      nextCustomUnit = "MONTH";
+    } else if (isDailyCustom) {
+      nextUiInterval = "1D";
+      nextIntervalPreset = "1D";
+      nextCustomEvery = 1;
+      nextCustomUnit = "DAY";
+    } else if (isWeeklyCustom) {
+      nextUiInterval = "1W";
+      nextIntervalPreset = "1W";
+      nextCustomEvery = 1;
+      nextCustomUnit = "WEEK";
+    } else if (isMonthlyCustom) {
+      nextUiInterval = "1M";
+      nextIntervalPreset = "1M";
+      nextCustomEvery = 1;
+      nextCustomUnit = "MONTH";
+    } else if (
+      schedule.intervalPreset === "1D" ||
+      schedule.intervalPreset === "1W" ||
+      schedule.intervalPreset === "1M"
+    ) {
+      nextUiInterval = schedule.intervalPreset as UiIntervalPreset;
+      nextIntervalPreset = schedule.intervalPreset;
+      nextCustomEvery = 1;
+      nextCustomUnit = "WEEK";
+    }
 
     const scheduleEmails = (schedule.emails ?? [])
       .map((e) => toNormalizedEmail(e))
@@ -633,21 +738,51 @@ function MailSettingsView() {
     }
 
     const nextSelectedUserIds = new Set<string>();
-
     for (const email of scheduleEmails) {
       const mappedUserId = userIdByEmail.get(email);
-      if (mappedUserId) {
-        nextSelectedUserIds.add(mappedUserId);
-      }
+      if (mappedUserId) nextSelectedUserIds.add(mappedUserId);
     }
 
-    setSelectedUserIds(nextSelectedUserIds);
+    return {
+      rowKey,
+      scheduleId:
+        typeof schedule.id === "string" && schedule.id.trim() ? schedule.id : null,
+      reportType: primaryReportType,
+      reportPeriod,
+      selectedMailGroupIds: new Set(schedule.mailGroupIds ?? []),
+      selectedUserIds: nextSelectedUserIds,
+      selectedProjectIds:
+        primaryReportType === "TARGETS"
+          ? new Set(schedule.projectIds ?? [])
+          : new Set(),
+      groupsFilterText: "",
+      usersFilterText: "",
+      projectsFilterText: "",
+      uiIntervalPreset: nextUiInterval,
+      autoMailIntervalPreset: nextIntervalPreset,
+      autoMailCustomEvery: nextCustomEvery,
+      autoMailCustomUnit: nextCustomUnit,
+      hour: schedule.hour ?? 9,
+      minute: schedule.minute ?? 0,
+      dayOfWeek: schedule.dayOfWeek ?? 1,
+      dayOfMonth: schedule.dayOfMonth ?? 1,
+    };
+  };
 
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    } catch (error) {
-      console.error("Error in startEditingSchedule:", error);
-      showError("Ayar düzenlenirken bir hata oluştu. Lütfen tekrar deneyin.");
+  const toggleRowEditor = (rowKey: string, schedule: AutoMailSchedule) => {
+    if (expandedRowKey === rowKey) {
+      closeRowEditor();
+      return;
     }
+
+    const draft = buildEditDraft(rowKey, schedule);
+    if (!draft) {
+      showError("Ayar düzenleme ekranı açılamadı. Lütfen tekrar deneyin.");
+      return;
+    }
+
+    setExpandedRowKey(rowKey);
+    setEditDraft(draft);
   };
 
   const saveSchedule = async () => {
@@ -727,11 +862,7 @@ function MailSettingsView() {
 
       await reportsApi.upsertAutoMailSchedule(payload);
 
-      showSuccess(
-        editingSchedule
-          ? "Otomatik mail ayarları güncellendi"
-          : "Otomatik mail ayarları kaydedildi",
-      );
+      showSuccess("Otomatik mail ayarları kaydedildi");
 
       resetForm();
       await loadSchedules();
@@ -745,7 +876,104 @@ function MailSettingsView() {
     }
   };
 
-  const deleteSchedule = async (schedule: AutoMailSchedule) => {
+  const saveEditedSchedule = async () => {
+    if (!editDraft) return;
+    if (!editDraft.scheduleId) {
+      showError("Güncellenecek ayar bulunamadı");
+      return;
+    }
+
+    try {
+      setIsRowSaving(true);
+
+      const allowedPeriods = allowedPeriodsByReportType[editDraft.reportType] ?? [];
+      if (!allowedPeriods.includes(editDraft.reportPeriod)) {
+        showError("Seçilen rapor dönemi bu rapor tipi için desteklenmiyor");
+        return;
+      }
+
+      const mailGroupIds = [...editDraft.selectedMailGroupIds];
+      const emails = editSelectedEmails;
+
+      if (mailGroupIds.length === 0 && emails.length === 0) {
+        showError("Lütfen en az bir mail grubu veya kullanıcı seçin");
+        return;
+      }
+
+      if (editDraft.autoMailIntervalPreset === "CUSTOM") {
+        const isYearly =
+          editDraft.autoMailCustomEvery === 12 && editDraft.autoMailCustomUnit === "MONTH";
+        const isDaily =
+          editDraft.autoMailCustomEvery === 1 && editDraft.autoMailCustomUnit === "DAY";
+        if (!isYearly && !isDaily) {
+          showError("Seçilen gönderim aralığı desteklenmiyor");
+          return;
+        }
+      }
+
+      const reportDays = reportPeriodDays[editDraft.reportPeriod];
+      const scheduleDays = cadenceDaysByUiIntervalPreset[editDraft.uiIntervalPreset];
+
+      if (!(typeof reportDays === "number" && typeof scheduleDays === "number")) {
+        showError("Seçilen rapor dönemi veya gönderim aralığı desteklenmiyor");
+        return;
+      }
+
+      if (scheduleDays > reportDays) {
+        showError("Gönderim aralığı rapor döneminden daha seyrek olamaz");
+        return;
+      }
+
+      const payload = {
+        reportTypes: [editDraft.reportType],
+        mailGroupIds: mailGroupIds.length ? mailGroupIds : undefined,
+        emails: emails.length ? emails : undefined,
+        projectIds:
+          editDraft.reportType === "TARGETS"
+            ? [...editDraft.selectedProjectIds]
+            : undefined,
+        intervalPreset: editDraft.autoMailIntervalPreset,
+        customEvery:
+          editDraft.autoMailIntervalPreset === "CUSTOM"
+            ? editDraft.autoMailCustomEvery
+            : undefined,
+        customUnit:
+          editDraft.autoMailIntervalPreset === "CUSTOM"
+            ? editDraft.autoMailCustomUnit
+            : undefined,
+        hour: editDraft.hour,
+        minute: editDraft.minute,
+        dayOfWeek:
+          editDraft.uiIntervalPreset === "1W" || editDraft.autoMailIntervalPreset === "1W"
+            ? editDraft.dayOfWeek
+            : undefined,
+        dayOfMonth:
+          editDraft.uiIntervalPreset === "1M" || editDraft.autoMailIntervalPreset === "1M"
+            ? editDraft.dayOfMonth
+            : undefined,
+      };
+
+      await reportsApi.updateAutoMailSchedule(editDraft.scheduleId, payload);
+      showSuccess("Otomatik mail ayarları güncellendi");
+
+      await loadSchedules();
+      closeRowEditor();
+    } catch (error: unknown) {
+      showError(
+        getApiErrorMessage(error) ??
+          "Otomatik mail ayarları kaydedilirken bir hata oluştu",
+      );
+    } finally {
+      setIsRowSaving(false);
+    }
+  };
+
+  const getScheduleDeleteKey = (schedule: AutoMailSchedule) => {
+    if (typeof schedule.id === "string" && schedule.id.trim()) return schedule.id;
+    return "unknown";
+  };
+
+  const deleteSchedule = async (schedule: AutoMailSchedule, rowKey: string) => {
     const scheduleId =
       typeof schedule.id === "string" && schedule.id.trim() ? schedule.id : null;
 
@@ -762,10 +990,7 @@ function MailSettingsView() {
       }
 
       showSuccess("Otomatik mail ayarı silindi");
-
-      if (editingSchedule && (editingSchedule.id ?? null) === scheduleId) {
-        resetForm();
-      }
+      if (expandedRowKey === rowKey) closeRowEditor();
 
       await loadSchedules();
     } catch (error: unknown) {
@@ -890,8 +1115,6 @@ function MailSettingsView() {
     setTableSortDirection("asc");
   };
 
-  const isEditing = !!editingSchedule;
-
   return (
     <div className="p-6 space-y-6">
       <div>
@@ -907,23 +1130,12 @@ function MailSettingsView() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h3 className="text-lg font-semibold text-on-surface">
-              {isEditing ? "Ayarı Düzenle" : "Yeni Ayar Oluştur"}
+              Yeni Ayar Oluştur
             </h3>
             <p className="text-xs text-on-surface-variant mt-1">
               Seçilen rapor tipleri belirlenen aralıkla otomatik gönderilir
             </p>
           </div>
-
-          {isEditing && (
-            <button
-              type="button"
-              onClick={resetForm}
-              disabled={isSaving}
-              className="px-4 py-2 border border-outline text-on-surface rounded-lg hover:bg-(--surface-container-high) transition-colors disabled:opacity-60"
-            >
-              Vazgeç
-            </button>
-          )}
         </div>
 
         <div className="mt-5 space-y-5">
@@ -1453,9 +1665,11 @@ function MailSettingsView() {
                       ? row.schedule.id
                       : "unknown";
                   const isDeleting = scheduleBeingDeletedId === deletingKey;
+                  const isExpanded = expandedRowKey === row.key;
+                  const canInteract = !(isSaving || isDeleting || isRowSaving);
 
-                  return (
-                    <tr key={row.key} className="border-b border-outline-variant">
+                  return [
+                    <tr key={`${row.key}-row`} className="border-b border-outline-variant">
                       <td className="px-4 py-3 text-on-surface">
                         {row.reportTypesText}
                       </td>
@@ -1472,27 +1686,518 @@ function MailSettingsView() {
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            onClick={() => {
-                              console.log("Düzenle butonuna tıklandı, schedule:", row.schedule);
-                              startEditingSchedule(row.schedule);
-                            }}
-                            disabled={isSaving || isDeleting}
+                            onClick={() => toggleRowEditor(row.key, row.schedule)}
+                            disabled={!canInteract}
                             className="px-3 py-2 rounded-lg border border-outline text-on-surface hover:bg-(--surface-container-high) transition-colors disabled:opacity-60"
                           >
-                            Düzenle
+                            {isExpanded ? "Kapat" : "Düzenle"}
                           </button>
                           <button
                             type="button"
-                            onClick={() => deleteSchedule(row.schedule)}
-                            disabled={isSaving || isDeleting}
-                            className="px-3 py-2 rounded-lg border border-error text-error hover:bg-error/10 transition-colors disabled:opacity-60"
+                            onClick={() =>
+                              setDeleteConfirm({
+                                rowKey: row.key,
+                                schedule: row.schedule,
+                                title: "Otomatik mail ayarını sil",
+                                detail: row.reportTypesText,
+                              })
+                            }
+                            disabled={isSaving || isDeleting || isRowSaving}
+                            className="px-3 py-2 rounded-lg border border-error text-error hover:bg-red-100 transition-colors disabled:opacity-60"
                           >
                             {isDeleting ? "Siliniyor..." : "Sil"}
                           </button>
                         </div>
                       </td>
-                    </tr>
-                  );
+                    </tr>,
+                    isExpanded ? (
+                      <tr key={`${row.key}-edit`} className="border-b border-outline-variant">
+                        <td colSpan={5} className="px-4 py-4 bg-surface">
+                          {editDraft?.rowKey !== row.key ? (
+                            <div className="text-sm text-on-surface-variant">
+                              Düzenleme formu yüklenemedi.
+                            </div>
+                          ) : (
+                            <div className="rounded-xl border border-outline-variant bg-surface-container p-4">
+                              <div className="flex items-center justify-between gap-3">
+                                <div>
+                                  <div className="text-sm font-semibold text-on-surface">
+                                    Ayarı Düzenle
+                                  </div>
+                                  <div className="text-xs text-on-surface-variant mt-1">
+                                    Değişiklikleri bu satırdan kaydedin.
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={closeRowEditor}
+                                  disabled={isRowSaving}
+                                  className="px-3 py-2 rounded-lg border border-outline text-on-surface hover:bg-(--surface-container-high) transition-colors disabled:opacity-60"
+                                >
+                                  Kapat
+                                </button>
+                              </div>
+
+                              <div className="mt-4 grid grid-cols-1 lg:grid-cols-4 gap-4">
+                                <div className="rounded-lg border border-outline-variant bg-surface p-4">
+                                  <label className="block text-sm font-semibold text-on-surface">
+                                    Rapor Tipi
+                                  </label>
+                                  <select
+                                    value={editDraft.reportType}
+                                    onChange={(e) => {
+                                      const nextType = e.target.value as AutoMailReportType;
+                                      const nextPeriod =
+                                        (allowedPeriodsByReportType[nextType] ?? [])[0] ??
+                                        editDraft.reportPeriod;
+                                      const desiredInterval = getUiIntervalPresetForPeriod(nextPeriod);
+                                      setEditDraft((prev) => {
+                                        if (!prev) return prev;
+                                        return {
+                                          ...prev,
+                                          reportType: nextType,
+                                          reportPeriod: nextPeriod,
+                                          selectedProjectIds:
+                                            nextType === "TARGETS"
+                                              ? prev.selectedProjectIds
+                                              : new Set(),
+                                          projectsFilterText: "",
+                                          uiIntervalPreset: desiredInterval,
+                                          autoMailIntervalPreset:
+                                            desiredInterval === "1Y" ? "CUSTOM" : desiredInterval,
+                                          autoMailCustomEvery: desiredInterval === "1Y" ? 12 : 1,
+                                          autoMailCustomUnit: desiredInterval === "1Y" ? "MONTH" : "WEEK",
+                                        };
+                                      });
+                                    }}
+                                    disabled={isRowSaving}
+                                    className="mt-2 w-full px-3 py-2 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all disabled:opacity-60"
+                                  >
+                                    {autoMailReportTypeOptions.map((opt) => (
+                                      <option key={opt.type} value={opt.type}>
+                                        {opt.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                <div className="rounded-lg border border-outline-variant bg-surface p-4">
+                                  <label className="block text-sm font-semibold text-on-surface">
+                                    Rapor Dönemi
+                                  </label>
+                                  <select
+                                    value={editDraft.reportPeriod}
+                                    onChange={(e) => {
+                                      const nextPeriod = e.target.value as AutoMailReportPeriod;
+                                      const desiredInterval = getUiIntervalPresetForPeriod(nextPeriod);
+                                      setEditDraft((prev) =>
+                                        prev
+                                          ? {
+                                              ...prev,
+                                              reportPeriod: nextPeriod,
+                                              uiIntervalPreset: desiredInterval,
+                                              autoMailIntervalPreset:
+                                                desiredInterval === "1Y" ? "CUSTOM" : desiredInterval,
+                                              autoMailCustomEvery: desiredInterval === "1Y" ? 12 : 1,
+                                              autoMailCustomUnit:
+                                                desiredInterval === "1Y" ? "MONTH" : "WEEK",
+                                            }
+                                          : prev,
+                                      );
+                                    }}
+                                    disabled={isRowSaving}
+                                    className="mt-2 w-full px-3 py-2 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all disabled:opacity-60"
+                                  >
+                                    {editAllowedPeriodsForSelectedReport.map((p) => (
+                                      <option key={p} value={p}>
+                                        {periodLabels[p]}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                <div className="rounded-lg border border-outline-variant bg-surface p-4">
+                                  <div className="text-sm font-semibold text-on-surface">
+                                    Gönderim Aralığı
+                                  </div>
+                                  <div className="mt-3 space-y-2">
+                                    {uiIntervalPresetOptions.map((option) => {
+                                      const isAllowed = editAllowedUiIntervals.has(option.value);
+                                      const isDisabled = isRowSaving || !isAllowed;
+                                      return (
+                                        <label
+                                          key={option.value}
+                                          className={`flex items-center gap-2 ${
+                                            isDisabled
+                                              ? "cursor-not-allowed opacity-60"
+                                              : "cursor-pointer"
+                                          }`}
+                                        >
+                                          <input
+                                            type="radio"
+                                            name={`edit-interval-${row.key}`}
+                                            checked={editDraft.uiIntervalPreset === option.value}
+                                            onChange={() => applyEditUiIntervalPreset(option.value)}
+                                            disabled={isDisabled}
+                                            className="w-4 h-4 text-primary bg-surface border-outline rounded focus:ring-2 focus:ring-primary"
+                                          />
+                                          <span className="text-sm text-on-surface">
+                                            {option.label}
+                                          </span>
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+
+                                <div className="rounded-lg border border-outline-variant bg-surface p-4">
+                                  <div className="text-sm font-semibold text-on-surface mb-3">
+                                    Zamanlama
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-3 mb-3">
+                                    <div>
+                                      <label className="block text-xs text-on-surface-variant mb-1">
+                                        Saat
+                                      </label>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        max="23"
+                                        value={editDraft.hour}
+                                        onChange={(e) =>
+                                          setEditDraft((prev) =>
+                                            prev
+                                              ? {
+                                                  ...prev,
+                                                  hour: parseInt(e.target.value) || 0,
+                                                }
+                                              : prev,
+                                          )
+                                        }
+                                        disabled={isRowSaving}
+                                        className="w-full px-3 py-2 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all disabled:opacity-60"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-xs text-on-surface-variant mb-1">
+                                        Dakika
+                                      </label>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        max="59"
+                                        value={editDraft.minute}
+                                        onChange={(e) =>
+                                          setEditDraft((prev) =>
+                                            prev
+                                              ? {
+                                                  ...prev,
+                                                  minute: parseInt(e.target.value) || 0,
+                                                }
+                                              : prev,
+                                          )
+                                        }
+                                        disabled={isRowSaving}
+                                        className="w-full px-3 py-2 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all disabled:opacity-60"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  {(editDraft.uiIntervalPreset === "1W" ||
+                                    editDraft.autoMailIntervalPreset === "1W") && (
+                                    <div className="mb-3">
+                                      <label className="block text-xs text-on-surface-variant mb-1">
+                                        Haftanın Günü
+                                      </label>
+                                      <select
+                                        value={editDraft.dayOfWeek}
+                                        onChange={(e) =>
+                                          setEditDraft((prev) =>
+                                            prev
+                                              ? {
+                                                  ...prev,
+                                                  dayOfWeek: parseInt(e.target.value),
+                                                }
+                                              : prev,
+                                          )
+                                        }
+                                        disabled={isRowSaving}
+                                        className="w-full px-3 py-2 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all disabled:opacity-60"
+                                      >
+                                        <option value={0}>Pazar</option>
+                                        <option value={1}>Pazartesi</option>
+                                        <option value={2}>Salı</option>
+                                        <option value={3}>Çarşamba</option>
+                                        <option value={4}>Perşembe</option>
+                                        <option value={5}>Cuma</option>
+                                        <option value={6}>Cumartesi</option>
+                                      </select>
+                                    </div>
+                                  )}
+
+                                  {(editDraft.uiIntervalPreset === "1M" ||
+                                    editDraft.autoMailIntervalPreset === "1M") && (
+                                    <div>
+                                      <label className="block text-xs text-on-surface-variant mb-1">
+                                        Ayın Günü
+                                      </label>
+                                      <input
+                                        type="number"
+                                        min="1"
+                                        max="31"
+                                        value={editDraft.dayOfMonth}
+                                        onChange={(e) =>
+                                          setEditDraft((prev) =>
+                                            prev
+                                              ? {
+                                                  ...prev,
+                                                  dayOfMonth: parseInt(e.target.value) || 1,
+                                                }
+                                              : prev,
+                                          )
+                                        }
+                                        disabled={isRowSaving}
+                                        className="w-full px-3 py-2 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all disabled:opacity-60"
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                <div className="rounded-lg border border-outline-variant bg-surface p-4">
+                                  <div className="flex items-center justify-between gap-4">
+                                    <label className="block text-sm font-semibold text-on-surface">
+                                      Mail Grupları
+                                    </label>
+                                    <span className="text-xs text-on-surface-variant">
+                                      {editDraft.selectedMailGroupIds.size} seçili
+                                    </span>
+                                  </div>
+
+                                  <div className="mt-3">
+                                    <input
+                                      value={editDraft.groupsFilterText}
+                                      onChange={(e) =>
+                                        setEditDraft((prev) =>
+                                          prev ? { ...prev, groupsFilterText: e.target.value } : prev,
+                                        )
+                                      }
+                                      disabled={isRowSaving || isMailGroupsLoading}
+                                      className="w-full px-3 py-2 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary transition-all disabled:opacity-60"
+                                      placeholder="Grup ara"
+                                    />
+                                  </div>
+
+                                  <div className="mt-3 max-h-48 overflow-y-auto rounded-lg border border-outline bg-surface">
+                                    {isMailGroupsLoading ? (
+                                      <div className="p-4 text-sm text-on-surface-variant">
+                                        Yükleniyor...
+                                      </div>
+                                    ) : editFilteredGroups.length === 0 ? (
+                                      <div className="p-4 text-sm text-on-surface-variant">
+                                        Grup bulunamadı.
+                                      </div>
+                                    ) : (
+                                      editFilteredGroups.map((g) => {
+                                        const isChecked = editDraft.selectedMailGroupIds.has(g.id);
+                                        return (
+                                          <label
+                                            key={g.id}
+                                            className="flex items-center gap-3 p-3 border-b border-outline-variant last:border-b-0 hover:bg-(--surface-container-high) cursor-pointer"
+                                          >
+                                            <input
+                                              type="checkbox"
+                                              checked={isChecked}
+                                              onChange={() => toggleEditSelectedGroup(g.id)}
+                                              disabled={isRowSaving}
+                                              className="w-4 h-4 text-primary bg-surface border-outline rounded focus:ring-2 focus:ring-primary"
+                                            />
+                                            <div className="min-w-0 flex-1">
+                                              <div className="text-sm font-medium text-on-surface truncate">
+                                                {g.name}
+                                              </div>
+                                              <div className="text-xs text-on-surface-variant truncate">
+                                                {g.emails.length} e-posta
+                                              </div>
+                                            </div>
+                                          </label>
+                                        );
+                                      })
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="rounded-lg border border-outline-variant bg-surface p-4">
+                                  <div className="flex items-center justify-between gap-4">
+                                    <label className="block text-sm font-semibold text-on-surface">
+                                      Kullanıcılar
+                                    </label>
+                                    <span className="text-xs text-on-surface-variant">
+                                      {editDraft.selectedUserIds.size} seçili
+                                    </span>
+                                  </div>
+
+                                  <div className="mt-3">
+                                    <input
+                                      value={editDraft.usersFilterText}
+                                      onChange={(e) =>
+                                        setEditDraft((prev) =>
+                                          prev ? { ...prev, usersFilterText: e.target.value } : prev,
+                                        )
+                                      }
+                                      disabled={isRowSaving || isUsersLoading}
+                                      className="w-full px-3 py-2 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary transition-all disabled:opacity-60"
+                                      placeholder="İsim / kullanıcı adı / e-posta ara"
+                                    />
+                                  </div>
+
+                                  <div className="mt-3 max-h-48 overflow-y-auto rounded-lg border border-outline bg-surface">
+                                    {isUsersLoading ? (
+                                      <div className="p-4 text-sm text-on-surface-variant">
+                                        Yükleniyor...
+                                      </div>
+                                    ) : editFilteredUsers.length === 0 ? (
+                                      <div className="p-4 text-sm text-on-surface-variant">
+                                        Kullanıcı bulunamadı.
+                                      </div>
+                                    ) : (
+                                      editFilteredUsers.map((u) => {
+                                        const isChecked = editDraft.selectedUserIds.has(u.id);
+                                        return (
+                                          <label
+                                            key={u.id}
+                                            className="flex items-center gap-3 p-3 border-b border-outline-variant last:border-b-0 hover:bg-(--surface-container-high) cursor-pointer"
+                                          >
+                                            <input
+                                              type="checkbox"
+                                              checked={isChecked}
+                                              onChange={() => toggleEditSelectedUser(u.id)}
+                                              disabled={isRowSaving}
+                                              className="w-4 h-4 text-primary bg-surface border-outline rounded focus:ring-2 focus:ring-primary"
+                                            />
+                                            <div className="min-w-0">
+                                              <div className="text-sm font-medium text-on-surface truncate">
+                                                {`${u.displayName || u.username || "Kullanıcı"}${u.userTitle ? ` - ${u.userTitle}` : ""}`}
+                                              </div>
+                                              <div className="text-xs text-on-surface-variant truncate">
+                                                {u.email}
+                                              </div>
+                                            </div>
+                                          </label>
+                                        );
+                                      })
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {editDraft.reportType === "TARGETS" && (
+                                <div className="mt-4 rounded-lg border border-outline-variant bg-surface p-4">
+                                  <div className="flex items-center justify-between gap-4">
+                                    <label className="block text-sm font-semibold text-on-surface">
+                                      Projeler
+                                    </label>
+                                    <span className="text-xs text-on-surface-variant">
+                                      {editDraft.selectedProjectIds.size
+                                        ? `${editDraft.selectedProjectIds.size} seçili`
+                                        : "Tümü"}
+                                    </span>
+                                  </div>
+
+                                  <div className="mt-2 text-xs text-on-surface-variant">
+                                    Proje seçmezseniz rapor tüm projeler için oluşturulur.
+                                  </div>
+
+                                  <div className="mt-3">
+                                    <input
+                                      value={editDraft.projectsFilterText}
+                                      onChange={(e) =>
+                                        setEditDraft((prev) =>
+                                          prev
+                                            ? { ...prev, projectsFilterText: e.target.value }
+                                            : prev,
+                                        )
+                                      }
+                                      disabled={isRowSaving || isProjectsLoading}
+                                      className="w-full px-3 py-2 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary transition-all disabled:opacity-60"
+                                      placeholder="Proje ara"
+                                    />
+                                  </div>
+
+                                  <div className="mt-3 max-h-48 overflow-y-auto rounded-lg border border-outline bg-surface">
+                                    {isProjectsLoading ? (
+                                      <div className="p-4 text-sm text-on-surface-variant">
+                                        Yükleniyor...
+                                      </div>
+                                    ) : editFilteredProjects.length === 0 ? (
+                                      <div className="p-4 text-sm text-on-surface-variant">
+                                        Proje bulunamadı.
+                                      </div>
+                                    ) : (
+                                      editFilteredProjects.map((p) => {
+                                        const isChecked = editDraft.selectedProjectIds.has(p.id);
+                                        return (
+                                          <label
+                                            key={p.id}
+                                            className="flex items-center gap-3 p-3 border-b border-outline-variant last:border-b-0 hover:bg-(--surface-container-high) cursor-pointer"
+                                          >
+                                            <input
+                                              type="checkbox"
+                                              checked={isChecked}
+                                              onChange={() => toggleEditSelectedProject(p.id)}
+                                              disabled={isRowSaving}
+                                              className="w-4 h-4 text-primary bg-surface border-outline rounded focus:ring-2 focus:ring-primary"
+                                            />
+                                            <div className="min-w-0">
+                                              <div className="text-sm font-medium text-on-surface truncate">
+                                                {p.name}
+                                              </div>
+                                              {p.code && (
+                                                <div className="text-xs text-on-surface-variant truncate">
+                                                  {p.code}
+                                                </div>
+                                              )}
+                                            </div>
+                                          </label>
+                                        );
+                                      })
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                              <div className="mt-4 flex items-center justify-between gap-3">
+                                <div className="text-xs text-on-surface-variant">
+                                  {editDraft.selectedMailGroupIds.size} grup •{" "}
+                                  {editDraft.selectedUserIds.size} kullanıcı •{" "}
+                                  {editSelectedEmails.length} e-posta
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={closeRowEditor}
+                                    disabled={isRowSaving}
+                                    className="px-4 py-2 rounded-lg border border-outline text-on-surface hover:bg-(--surface-container-high) transition-colors disabled:opacity-60"
+                                  >
+                                    Vazgeç
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={saveEditedSchedule}
+                                    disabled={isRowSaving}
+                                    className="px-4 py-2 rounded-lg bg-primary text-on-primary hover:opacity-90 transition-opacity font-medium disabled:opacity-60"
+                                  >
+                                    {isRowSaving ? "Kaydediliyor..." : "Kaydet"}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ) : null,
+                  ];
                 })
               )}
             </tbody>
@@ -1525,6 +2230,56 @@ function MailSettingsView() {
           </div>
         </div>
       </div>
+
+      {deleteConfirm && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onClick={() => {
+            if (scheduleBeingDeletedId) return;
+            setDeleteConfirm(null);
+          }}
+        >
+          <div
+            className="bg-surface-container rounded-xl p-6 shadow-2xl max-w-md w-full border border-outline-variant"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-bold text-on-surface mb-2">
+              {deleteConfirm.title}
+            </h3>
+            <p className="text-sm text-on-surface-variant mb-4">
+              Bu ayarı silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+            </p>
+            <div className="mb-6 p-3 bg-surface-container-low border border-outline-variant rounded-lg text-sm text-on-surface">
+              {deleteConfirm.detail}
+            </div>
+            <div className="flex gap-3 pt-4 border-t border-outline-variant">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirm(null)}
+                disabled={scheduleBeingDeletedId !== null}
+                className="flex-1 px-4 py-2 bg-surface-container-high text-on-surface rounded-lg font-medium hover:bg-(--surface-container-highest)! transition-colors disabled:opacity-50"
+              >
+                İptal
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const deletingKey = getScheduleDeleteKey(deleteConfirm.schedule);
+                  if (scheduleBeingDeletedId === deletingKey) return;
+                  await deleteSchedule(deleteConfirm.schedule, deleteConfirm.rowKey);
+                  setDeleteConfirm(null);
+                }}
+                disabled={scheduleBeingDeletedId !== null}
+                className="flex-1 px-4 py-2 bg-error text-on-error rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {scheduleBeingDeletedId === getScheduleDeleteKey(deleteConfirm.schedule)
+                  ? "Siliniyor..."
+                  : "Sil"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

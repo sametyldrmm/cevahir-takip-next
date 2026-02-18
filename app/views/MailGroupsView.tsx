@@ -72,11 +72,11 @@ export default function MailGroupsView() {
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupEmails, setNewGroupEmails] = useState<string[]>([]);
   const [newGroupEmailInput, setNewGroupEmailInput] = useState('');
-  const [newGroupSelectedUserId, setNewGroupSelectedUserId] = useState('');
+  const [newGroupUserSearchText, setNewGroupUserSearchText] = useState('');
   const [newGroupError, setNewGroupError] = useState<string | null>(null);
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
 
-  const [selectedUserIdByGroupId, setSelectedUserIdByGroupId] = useState<
+  const [userSearchTextByGroupId, setUserSearchTextByGroupId] = useState<
     Record<string, string>
   >({});
   const [emailToAddByGroupId, setEmailToAddByGroupId] = useState<
@@ -85,6 +85,11 @@ export default function MailGroupsView() {
   const [groupActionErrorByGroupId, setGroupActionErrorByGroupId] = useState<
     Record<string, string | null>
   >({});
+
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    groupId: string;
+    groupName: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -142,6 +147,18 @@ export default function MailGroupsView() {
 
     return sorted;
   }, [filterText, groups, sortDirection, sortKey]);
+
+  const newGroupSelectableUsers = useMemo(() => {
+    const normalizedQuery = newGroupUserSearchText.trim().toLowerCase();
+    const base = users.filter(
+      (u) => !newGroupEmails.some((e) => normalizeEmail(e) === normalizeEmail(u.email)),
+    );
+    if (!normalizedQuery) return base;
+    return base.filter((u) => {
+      const haystack = `${u.username} ${u.email} ${u.displayName ?? ''} ${u.userTitle ?? ''}`.toLowerCase();
+      return haystack.includes(normalizedQuery);
+    });
+  }, [newGroupEmails, newGroupUserSearchText, users]);
 
   const totalPages = Math.max(1, Math.ceil(visibleGroups.length / pageSize));
   const currentPage = Math.min(page, totalPages);
@@ -209,13 +226,11 @@ export default function MailGroupsView() {
     setNewGroupEmails((prev) => [...prev, email]);
   };
 
-  const addSelectedUserToNewGroupEmails = () => {
+  const addUserToNewGroupEmails = (userId: string) => {
     setNewGroupError(null);
-    if (!newGroupSelectedUserId) return;
-    const selectedUser = users.find((u) => u.id === newGroupSelectedUserId);
+    const selectedUser = users.find((u) => u.id === userId);
     if (!selectedUser) return;
     addNewGroupEmail(selectedUser.email);
-    setNewGroupSelectedUserId('');
   };
 
   const removeNewGroupEmail = (email: string) => {
@@ -285,7 +300,7 @@ export default function MailGroupsView() {
         next.delete(groupId);
         return next;
       });
-      setSelectedUserIdByGroupId((prev) => {
+      setUserSearchTextByGroupId((prev) => {
         const next = { ...prev };
         delete next[groupId];
         return next;
@@ -352,22 +367,13 @@ export default function MailGroupsView() {
     }
   };
 
-  const addUserToGroup = async (groupId: string) => {
+  const addUserToGroup = async (groupId: string, userId: string) => {
     setGroupActionErrorByGroupId((prev) => ({ ...prev, [groupId]: null }));
-    const selectedUserId = selectedUserIdByGroupId[groupId];
-    if (!selectedUserId) {
-      setGroupActionErrorByGroupId((prev) => ({
-        ...prev,
-        [groupId]: 'Lütfen bir kullanıcı seçin',
-      }));
-      return;
-    }
-
-    const selectedUser = users.find((u) => u.id === selectedUserId);
+    const selectedUser = users.find((u) => u.id === userId);
     if (!selectedUser) {
       setGroupActionErrorByGroupId((prev) => ({
         ...prev,
-        [groupId]: 'Seçili kullanıcı bulunamadı',
+        [groupId]: 'Kullanıcı bulunamadı',
       }));
       return;
     }
@@ -393,7 +399,7 @@ export default function MailGroupsView() {
       setGroups((prev) =>
         prev.map((g) => (g.id === groupId ? response.data : g)),
       );
-      setSelectedUserIdByGroupId((prev) => ({ ...prev, [groupId]: '' }));
+      setUserSearchTextByGroupId((prev) => ({ ...prev, [groupId]: '' }));
       showSuccess('E-posta gruba eklendi');
     } catch (error: unknown) {
       setGroupActionErrorByGroupId((prev) => ({
@@ -549,30 +555,49 @@ export default function MailGroupsView() {
                   </span>
                 )}
               </div>
-              <div className='mt-2 flex gap-2'>
-                <select
-                  value={newGroupSelectedUserId}
-                  onChange={(e) => setNewGroupSelectedUserId(e.target.value)}
+              <div className='mt-2'>
+                <input
+                  value={newGroupUserSearchText}
+                  onChange={(e) => setNewGroupUserSearchText(e.target.value)}
                   disabled={isUsersLoading}
-                  className='flex-1 px-3 py-2 rounded-lg bg-surface border border-outline-variant text-on-surface focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-60'
-                >
-                  <option value=''>Kullanıcı seçin</option>
-                  {users
-                    .filter((u) => !newGroupEmails.some((e) => normalizeEmail(e) === normalizeEmail(u.email)))
-                    .map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {`${u.displayName || u.username}${u.userTitle ? ` - ${u.userTitle}` : ''} (${u.username})`}
-                      </option>
+                  className='w-full px-3 py-2 rounded-lg bg-surface border border-outline-variant text-on-surface focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-60'
+                  placeholder='Kullanıcı ara...'
+                />
+              </div>
+              <div className='mt-3 rounded-xl border border-outline-variant bg-surface max-h-56 overflow-y-auto'>
+                {!newGroupUserSearchText.trim() ? (
+                  <div className='p-4 text-sm text-on-surface-variant'>
+                    Arama yapınca sonuçlar burada görünecek.
+                  </div>
+                ) : newGroupSelectableUsers.length === 0 ? (
+                  <div className='p-4 text-sm text-on-surface-variant'>
+                    Sonuç bulunamadı.
+                  </div>
+                ) : (
+                  <div className='divide-y divide-outline-variant'>
+                    {newGroupSelectableUsers.map((u) => (
+                      <button
+                        type='button'
+                        key={u.id}
+                        onClick={() => addUserToNewGroupEmails(u.id)}
+                        disabled={isUsersLoading}
+                        className='w-full p-3 flex items-center justify-between gap-3 hover:bg-(--surface-container-high) transition-colors text-left disabled:opacity-60'
+                      >
+                        <div className='min-w-0'>
+                          <div className='text-sm font-medium text-on-surface truncate'>
+                            {`${u.displayName || u.username}${u.userTitle ? ` - ${u.userTitle}` : ''}`}
+                          </div>
+                          <div className='text-xs text-on-surface-variant truncate'>
+                            {`${u.username} • ${u.email}`}
+                          </div>
+                        </div>
+                        <span className='shrink-0 text-xs font-medium text-on-surface-variant'>
+                          Ekle
+                        </span>
+                      </button>
                     ))}
-                </select>
-                <button
-                  type='button'
-                  onClick={addSelectedUserToNewGroupEmails}
-                  disabled={isUsersLoading || !newGroupSelectedUserId}
-                  className='px-3 py-2 rounded-lg border border-outline text-on-surface hover:bg-(--surface-container-high) transition-colors disabled:opacity-60'
-                >
-                  Ekle
-                </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -730,6 +755,7 @@ export default function MailGroupsView() {
                 const isExpanded = expandedGroupIds.has(group.id);
                 const errorMessage = groupActionErrorByGroupId[group.id] ?? null;
                 const isBusy = isGroupBusyById[group.id] ?? false;
+                const userSearchText = userSearchTextByGroupId[group.id] ?? '';
 
                 const selectableUsers = users.filter((u) => {
                   const alreadyInGroup = group.emails.some(
@@ -737,6 +763,14 @@ export default function MailGroupsView() {
                   );
                   return !alreadyInGroup;
                 });
+
+                const normalizedUserSearchText = userSearchText.trim().toLowerCase();
+                const filteredSelectableUsers = normalizedUserSearchText
+                  ? selectableUsers.filter((u) => {
+                      const haystack = `${u.username} ${u.email} ${u.displayName ?? ''} ${u.userTitle ?? ''}`.toLowerCase();
+                      return haystack.includes(normalizedUserSearchText);
+                    })
+                  : selectableUsers;
 
                 return (
                   <div
@@ -781,7 +815,7 @@ export default function MailGroupsView() {
                               e.stopPropagation();
                               toggleExpanded(group.id);
                             }}
-                            className='px-3 py-1.5 border border-outline rounded-lg text-sm text-on-surface hover:bg-(--surface-container-high) transition-colors'
+                            className='px-3 py-1.5 border border-outline rounded-lg text-sm text-on-surface hover:bg-(--surface) transition-colors'
                           >
                             {isExpanded ? 'Kapat' : 'Detay'}
                           </button>
@@ -789,10 +823,10 @@ export default function MailGroupsView() {
                             type='button'
                             onClick={(e) => {
                               e.stopPropagation();
-                              void deleteGroup(group.id);
+                              setDeleteConfirm({ groupId: group.id, groupName: group.name });
                             }}
                             disabled={isBusy}
-                            className='px-3 py-1.5 border border-red-500 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors'
+                            className='px-3 py-1.5 border border-red-500 text-red-500 rounded-lg text-sm hover:bg-red-100 transition-colors'
                           >
                             Sil
                           </button>
@@ -855,33 +889,54 @@ export default function MailGroupsView() {
                                 )}
                               </div>
 
-                              <div className='mt-3 flex gap-2'>
-                                <select
-                                  value={selectedUserIdByGroupId[group.id] ?? ''}
+                              <div className='mt-3'>
+                                <input
+                                  value={userSearchText}
                                   onChange={(e) =>
-                                    setSelectedUserIdByGroupId((prev) => ({
+                                    setUserSearchTextByGroupId((prev) => ({
                                       ...prev,
                                       [group.id]: e.target.value,
                                     }))
                                   }
                                   disabled={isUsersLoading || isBusy}
-                                  className='flex-1 px-3 py-2 rounded-lg bg-surface border border-outline-variant text-on-surface focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-60'
-                                >
-                                  <option value=''>Kullanıcı seçin</option>
-                                  {selectableUsers.map((u) => (
-                                    <option key={u.id} value={u.id}>
-                                      {`${u.displayName || u.username}${u.userTitle ? ` - ${u.userTitle}` : ''} (${u.username})`}
-                                    </option>
-                                  ))}
-                                </select>
-                                <button
-                                  type='button'
-                                  onClick={() => addUserToGroup(group.id)}
-                                  disabled={isUsersLoading || isBusy}
-                                  className='px-3 py-2 rounded-lg border border-outline text-on-surface hover:bg-(--surface-container-high) transition-colors disabled:opacity-60'
-                                >
-                                  Ekle
-                                </button>
+                                  className='w-full px-3 py-2 rounded-lg bg-surface border border-outline-variant text-on-surface focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-60'
+                                  placeholder='Kullanıcı ara...'
+                                />
+                              </div>
+                              <div className='mt-3 rounded-xl border border-outline-variant bg-surface max-h-56 overflow-y-auto'>
+                                {!userSearchText.trim() ? (
+                                  <div className='p-4 text-sm text-on-surface-variant'>
+                                    Arama yapınca sonuçlar burada görünecek.
+                                  </div>
+                                ) : filteredSelectableUsers.length === 0 ? (
+                                  <div className='p-4 text-sm text-on-surface-variant'>
+                                    Sonuç bulunamadı.
+                                  </div>
+                                ) : (
+                                  <div className='divide-y divide-outline-variant'>
+                                    {filteredSelectableUsers.map((u) => (
+                                      <button
+                                        type='button'
+                                        key={u.id}
+                                        onClick={() => void addUserToGroup(group.id, u.id)}
+                                        disabled={isUsersLoading || isBusy}
+                                        className='w-full p-3 flex items-center justify-between gap-3 hover:bg-(--surface-container-high) transition-colors text-left disabled:opacity-60'
+                                      >
+                                        <div className='min-w-0'>
+                                          <div className='text-sm font-medium text-on-surface truncate'>
+                                            {`${u.displayName || u.username}${u.userTitle ? ` - ${u.userTitle}` : ''}`}
+                                          </div>
+                                          <div className='text-xs text-on-surface-variant truncate'>
+                                            {`${u.username} • ${u.email}`}
+                                          </div>
+                                        </div>
+                                        <span className='shrink-0 text-xs font-medium text-on-surface-variant'>
+                                          Ekle
+                                        </span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                             </div>
 
@@ -992,6 +1047,55 @@ export default function MailGroupsView() {
           </div>
         </div>
       </div>
+
+      {deleteConfirm && (
+        <div
+          className='fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4'
+          onClick={() => {
+            const busy = isGroupBusyById[deleteConfirm.groupId] ?? false;
+            if (busy) return;
+            setDeleteConfirm(null);
+          }}
+        >
+          <div
+            className='bg-surface-container rounded-xl p-6 shadow-2xl max-w-md w-full border border-outline-variant'
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className='text-lg font-bold text-on-surface mb-2'>
+              Mail grubunu sil
+            </h3>
+            <p className='text-sm text-on-surface-variant mb-4'>
+              Bu mail grubunu silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+            </p>
+            <div className='mb-6 p-3 bg-surface-container-low border border-outline-variant rounded-lg text-sm text-on-surface'>
+              {deleteConfirm.groupName}
+            </div>
+            <div className='flex gap-3 pt-4 border-t border-outline-variant'>
+              <button
+                type='button'
+                onClick={() => setDeleteConfirm(null)}
+                disabled={isGroupBusyById[deleteConfirm.groupId] ?? false}
+                className='flex-1 px-4 py-2 bg-surface-container-high text-on-surface rounded-lg font-medium hover:bg-(--surface-container-highest)! transition-colors disabled:opacity-50'
+              >
+                İptal
+              </button>
+              <button
+                type='button'
+                onClick={async () => {
+                  const busy = isGroupBusyById[deleteConfirm.groupId] ?? false;
+                  if (busy) return;
+                  await deleteGroup(deleteConfirm.groupId);
+                  setDeleteConfirm(null);
+                }}
+                disabled={isGroupBusyById[deleteConfirm.groupId] ?? false}
+                className='flex-1 px-4 py-2 bg-error text-on-error rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50'
+              >
+                {(isGroupBusyById[deleteConfirm.groupId] ?? false) ? 'Siliniyor...' : 'Sil'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

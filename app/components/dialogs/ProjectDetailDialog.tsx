@@ -42,6 +42,7 @@ export default function ProjectDetailDialog({
   const [isLoadingTargets, setIsLoadingTargets] = useState(false);
   const [editingTarget, setEditingTarget] = useState<Target | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [teamMemberQuery, setTeamMemberQuery] = useState("");
   const isAdmin = user?.role === "ADMIN";
 
   useEffect(() => {
@@ -63,6 +64,12 @@ export default function ProjectDetailDialog({
       setTargets([]);
     }
   }, [isOpen, project?.id]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setTeamMemberQuery("");
+    }
+  }, [isOpen]);
 
   if (!isOpen || !project) return null;
 
@@ -89,10 +96,23 @@ export default function ProjectDetailDialog({
     }
   };
 
+  const normalizedTeamMemberQuery = teamMemberQuery.trim().toLowerCase();
+  const filteredTeamMembers =
+    project.users?.filter((u) => {
+      if (!normalizedTeamMemberQuery) return true;
+      const haystack = `${u.username} ${u.email} ${u.displayName ?? ""} ${u.userTitle ?? ""}`.toLowerCase();
+      return haystack.includes(normalizedTeamMemberQuery);
+    }) ?? [];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto p-4">
-      <div className="bg-surface-container rounded-xl p-6 shadow-2xl max-w-3xl w-full border border-outline-variant max-h-[90vh] overflow-y-auto">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-surface-container rounded-xl p-6 shadow-2xl max-w-3xl w-full border border-outline-variant max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-2xl font-bold text-on-surface">Proje Detayları</h3>
           <button
@@ -184,8 +204,25 @@ export default function ProjectDetailDialog({
           {project.users && project.users.length > 0 && (
             <div className="bg-surface-container-high rounded-lg p-4 border border-outline-variant">
               <h4 className="text-lg font-semibold text-on-surface mb-4">Takım Üyeleri</h4>
+              <div className="relative mb-3">
+                <input
+                  value={teamMemberQuery}
+                  onChange={(e) => setTeamMemberQuery(e.target.value)}
+                  placeholder="Takım üyesi ara..."
+                  className="w-full px-4 py-2.5 pr-10 bg-surface border border-outline rounded-lg text-on-surface placeholder-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+                />
+                {teamMemberQuery.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => setTeamMemberQuery("")}
+                    className="absolute right-2 top-2 p-1.5 text-on-surface-variant hover:text-(--on-surface) hover:bg-(--surface-container-high) rounded-md transition-colors"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
               <div className="space-y-2 max-h-64 overflow-y-auto">
-                {project.users.map((user) => (
+                {filteredTeamMembers.map((user) => (
                   <div
                     key={user.id}
                     className="flex items-center justify-between p-3 bg-surface rounded-lg border border-outline-variant"
@@ -324,36 +361,36 @@ export default function ProjectDetailDialog({
       </div>
 
       {isAdmin && editingTarget && (
-        <EditTargetDialog
-          isOpen={showEditDialog}
-          target={editingTarget}
-          onClose={() => {
-            setShowEditDialog(false);
-            setEditingTarget(null);
-          }}
-          onTargetUpdated={async (updatedTarget) => {
-            // Hedefleri yeniden yükle
-            try {
-              const projectTargets = await targetsApi.getProjectTargets(project.id, 20);
-              setTargets(projectTargets);
-            } catch (error) {
-              console.error("Failed to reload project targets:", error);
-            }
-            setShowEditDialog(false);
-            setEditingTarget(null);
-          }}
-          onTargetDeleted={async (targetId) => {
-            // Hedefleri yeniden yükle
-            try {
-              const projectTargets = await targetsApi.getProjectTargets(project.id, 20);
-              setTargets(projectTargets);
-            } catch (error) {
-              console.error("Failed to reload project targets:", error);
-            }
-            setShowEditDialog(false);
-            setEditingTarget(null);
-          }}
-        />
+        <div onClick={(e) => e.stopPropagation()}>
+          <EditTargetDialog
+            isOpen={showEditDialog}
+            target={editingTarget}
+            onClose={() => {
+              setShowEditDialog(false);
+              setEditingTarget(null);
+            }}
+            onTargetUpdated={async (updatedTarget) => {
+              try {
+                const projectTargets = await targetsApi.getProjectTargets(project.id, 20);
+                setTargets(projectTargets);
+              } catch (error) {
+                console.error("Failed to reload project targets:", error);
+              }
+              setShowEditDialog(false);
+              setEditingTarget(null);
+            }}
+            onTargetDeleted={async (targetId) => {
+              try {
+                const projectTargets = await targetsApi.getProjectTargets(project.id, 20);
+                setTargets(projectTargets);
+              } catch (error) {
+                console.error("Failed to reload project targets:", error);
+              }
+              setShowEditDialog(false);
+              setEditingTarget(null);
+            }}
+          />
+        </div>
       )}
     </div>
   );

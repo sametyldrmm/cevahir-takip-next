@@ -91,8 +91,14 @@ export default function AdminPasswordChangeDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-surface-container rounded-xl p-6 shadow-2xl max-w-md w-full border border-outline-variant">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      onClick={handleClose}
+    >
+      <div
+        className="bg-surface-container rounded-xl p-6 shadow-2xl max-w-md w-full border border-outline-variant"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between mb-6">
           <div>
             <h3 className="text-xl font-bold text-on-surface">
@@ -110,7 +116,14 @@ export default function AdminPasswordChangeDialog({
           </button>
         </div>
 
-        <div className="space-y-4">
+        <form
+          className="space-y-4"
+          autoComplete="off"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void handleSubmit();
+          }}
+        >
           {submitError && (
             <div className="px-4 py-3 rounded-lg border border-error bg-error/10 text-error text-sm">
               {submitError}
@@ -124,6 +137,8 @@ export default function AdminPasswordChangeDialog({
             <div className="relative">
               <input
                 type={showNewPassword ? "text" : "password"}
+                name="adminNewPassword"
+                autoComplete="new-password"
                 value={newPassword}
                 onChange={(e) => {
                   setNewPassword(e.target.value);
@@ -160,6 +175,8 @@ export default function AdminPasswordChangeDialog({
             <div className="relative">
               <input
                 type={showConfirmPassword ? "text" : "password"}
+                name="adminConfirmPassword"
+                autoComplete="new-password"
                 value={confirmPassword}
                 onChange={(e) => {
                   setConfirmPassword(e.target.value);
@@ -188,7 +205,7 @@ export default function AdminPasswordChangeDialog({
               <p className="mt-1 text-sm text-red-500">{errors.confirm}</p>
             )}
           </div>
-        </div>
+        </form>
 
         <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-outline-variant">
           <button

@@ -51,7 +51,7 @@ export default function LoginView({
     <div className="flex h-screen">
       {/* Sol: Arka plan görseli */}
       <div className="flex-1 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-600 to-purple-600">
+        <div className="absolute inset-0 bg-gradient-to-br from-red-600 to-red-300">
           {/* Buraya dinamik görsel gelecek */}
         </div>
         <div className="absolute top-10 left-10 text-white">
@@ -65,7 +65,7 @@ export default function LoginView({
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
             <div className="w-36 h-36 mx-auto mb-4 bg-primary/20 rounded-full flex items-center justify-center">
-              <span className="text-6xl">🏢</span>
+              <span className="text-6xl"><Image src="/cevahir-dark-logo.png" alt="CPM Logo" width={200} height={200} /></span>
             </div>
             <h1 className="text-3xl font-bold text-on-surface mb-2">Hoş Geldiniz</h1>
             <p className="text-on-surface-variant">CPM Günlük Hedefler</p>
@@ -105,7 +105,7 @@ export default function LoginView({
 
             <button
               type="submit"
-              className="w-full bg-primary text-on-primary py-4 rounded-lg font-medium hover:opacity-90 transition-opacity"
+              className="w-full bg-(--dark-button-bg-light) text-on-primary py-4 rounded-lg font-medium hover:bg-(--dark-button-bg) transition-opacity"
             >
               Giriş Yap
             </button>

@@ -53,6 +53,7 @@ export default function AdminPanelView() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [usersSearch, setUsersSearch] = useState("");
   const { showSuccess, showError } = useNotification();
   const getApiErrorMessage = (error: unknown) => {
     if (isAxiosError<{ message?: string }>(error)) {
@@ -525,6 +526,8 @@ export default function AdminPanelView() {
         archivedUsersCount={users.filter((u) => u.status === "archived").length}
         onCreateProject={() => setShowCreateProject(true)}
         onCreateUser={() => setShowCreateUser(true)}
+        usersSearch={usersSearch}
+        onUsersSearchChange={setUsersSearch}
       />
 
       <div className="bg-surface-container-low border-b border-outline-variant px-6 py-3">

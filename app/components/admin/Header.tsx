@@ -13,6 +13,8 @@ interface AdminHeaderProps {
   onExcelExport?: () => void;
   onMissingTargetsExport?: () => void;
   onPerformanceReport?: () => void;
+  usersSearch?: string;
+  onUsersSearchChange?: (search: string) => void;
 }
 
 export default function AdminHeader({
@@ -25,6 +27,8 @@ export default function AdminHeader({
   onCreateProject,
   onCreateUser,
   onExport,
+  usersSearch,
+  onUsersSearchChange,
 }: AdminHeaderProps) {
   const isProjectsTab = currentTab === "all" || currentTab === "archived";
   const isUsersTab = currentTab === "users" || currentTab === "users_archived";
@@ -62,6 +66,18 @@ export default function AdminHeader({
           )}
         </div>
       </div>
+
+      {isUsersTab && onUsersSearchChange && (
+        <div className="mb-4">
+          <input
+            type="text"
+            value={usersSearch || ""}
+            onChange={(e) => onUsersSearchChange(e.target.value)}
+            placeholder="Kullanıcı ara (username, display name, pozisyon)..."
+            className="w-full px-4 py-2 bg-surface border border-outline rounded-lg text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+          />
+        </div>
+      )}
 
       <div className="flex gap-4 border-b border-outline-variant">
         <button

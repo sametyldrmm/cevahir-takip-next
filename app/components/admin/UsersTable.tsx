@@ -44,50 +44,52 @@ export default function UsersTable({
   const allSelected =
     isSelectable && users.length > 0 && selectedUsers.size === users.length;
 
+  const gridCols = isSelectable
+    ? "grid grid-cols-[48px_minmax(140px,1.3fr)_minmax(140px,1.5fr)_minmax(160px,1.8fr)_minmax(100px,1fr)_minmax(80px,0.9fr)_minmax(110px,1fr)]"
+    : "grid grid-cols-[minmax(140px,1.2fr)_minmax(140px,1.4fr)_minmax(160px,1.7fr)_minmax(100px,1fr)_minmax(80px,0.9fr)_minmax(110px,1fr)_minmax(240px,2.2fr)]";
+
   return (
     <div className="border border-outline-variant rounded-xl m-5 shadow-sm overflow-hidden">
-      {/* Header */}
-      <div className="bg-surface-container-low px-5 py-3.5 border-b border-outline-variant">
-        <div className="flex items-center gap-0">
-          {isSelectable && (
-            <div className="w-12 flex items-center justify-center">
-              <input
-                type="checkbox"
-                checked={allSelected}
-                disabled={!isEditMode}
-                onChange={(e) => rest.onSelectAll(e.target.checked)}
-                className="w-4 h-4"
-              />
+      <div className="max-h-[600px] overflow-y-auto overflow-x-hidden bg-surface">
+        <div className="sticky top-0 z-10 bg-surface-container-low px-4 py-3 border-b border-outline-variant">
+          <div className={`${gridCols} items-center gap-3`}>
+            {isSelectable && (
+              <div className="min-w-0 flex items-center justify-center">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  disabled={!isEditMode}
+                  onChange={(e) => rest.onSelectAll(e.target.checked)}
+                  className="w-4 h-4"
+                />
+              </div>
+            )}
+            <div className="min-w-0 text-xs font-semibold text-on-surface-variant">
+              Username
             </div>
-          )}
-          <div className="w-56 text-xs font-semibold text-on-surface-variant">
-            Username
-          </div>
-          <div className="w-56 text-xs font-semibold text-on-surface-variant">
-            Display Name
-          </div>
-          <div className="w-56 text-xs font-semibold text-on-surface-variant">
-            Pozisyon
-          </div>
-          <div className="w-32 text-xs font-semibold text-on-surface-variant">
-            Status
-          </div>
-          <div className="w-32 text-xs font-semibold text-on-surface-variant">
-            Total Targets
-          </div>
-          <div className="w-40 text-xs font-semibold text-on-surface-variant">
-            Last Target Date
-          </div>
-          {!isSelectable && (
-            <div className="flex-1 text-xs font-semibold text-on-surface-variant text-right">
-              İşlemler
+            <div className="min-w-0 text-xs font-semibold text-on-surface-variant">
+              Display Name
             </div>
-          )}
+            <div className="min-w-0 text-xs font-semibold text-on-surface-variant">
+              Pozisyon
+            </div>
+            <div className="min-w-0 text-xs font-semibold text-on-surface-variant">
+              Status
+            </div>
+            <div className="min-w-0 text-xs font-semibold text-on-surface-variant">
+              Total Targets
+            </div>
+            <div className="min-w-0 text-xs font-semibold text-on-surface-variant">
+              Last Target Date
+            </div>
+            {!isSelectable && (
+              <div className="min-w-0 text-xs font-semibold text-on-surface-variant text-right">
+                İşlemler
+              </div>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Rows */}
-      <div className="max-h-[600px] overflow-y-auto bg-surface">
         {users.length === 0 ? (
           <div className="p-12 text-center text-on-surface-variant">
             Kullanıcı bulunamadı
@@ -105,114 +107,118 @@ export default function UsersTable({
                   }
                   onUserClick?.(user);
                 }}
-                className={`flex items-center gap-0 px-5 py-3.5 border-b border-outline-variant transition-all hover:bg-(--surface-container-high) ${
+                className={`px-4 py-3 border-b border-outline-variant transition-all hover:bg-(--surface-container-high) ${
                   index === users.length - 1 ? "border-b-0" : ""
                 }`}
               >
-                {isSelectable && (
-                  <div className="w-12 flex items-center justify-center">
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      disabled={!isEditMode}
-                      onChange={(e) => rest.onUserSelect(user.id, e.target.checked)}
-                      onClick={(e) => e.stopPropagation()}
-                      className="w-4 h-4"
-                    />
+                <div className={`${gridCols} items-center gap-3`}>
+                  {isSelectable && (
+                    <div className="min-w-0 flex items-center justify-center">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        disabled={!isEditMode}
+                        onChange={(e) =>
+                          rest.onUserSelect(user.id, e.target.checked)
+                        }
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-4 h-4"
+                      />
+                    </div>
+                  )}
+                  <div className="min-w-0 text-sm text-on-surface font-medium truncate">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="truncate">{user.username}</span>
+                      {user.isAdmin && (
+                        <span className="text-xs px-2 py-0.5 bg-primary-container text-primary rounded-lg font-medium shrink-0">
+                          Admin
+                        </span>
+                      )}
+                    </div>
                   </div>
-                )}
-                <div className="w-56 text-sm text-on-surface font-medium">
-                  <div className="flex items-center gap-2">
-                    {user.username}
-                    {user.isAdmin && (
-                      <span className="text-xs px-2 py-0.5 bg-primary-container text-primary rounded-lg font-medium">
-                        Admin
-                      </span>
-                    )}
+                  <div className="min-w-0 text-sm text-on-surface-variant truncate">
+                    {user.displayName}
                   </div>
-                </div>
-                <div className="w-56 text-sm text-on-surface-variant">
-                  {user.displayName}
-                </div>
-                <div className="w-56 text-sm text-on-surface-variant">
-                  {user.userTitle?.trim() || "-"}
-                </div>
-                <div className="w-32">
-                  <span
-                    className={`text-xs px-2 py-1 rounded-lg font-medium ${
-                      user.status === "active"
-                        ? "bg-success-container text-success"
-                        : "bg-surface-container-high text-on-surface-variant"
-                    }`}
-                  >
-                    {user.status === "active" ? "Aktif" : "Arşivli"}
-                  </span>
-                </div>
-                <div className="w-32 text-sm text-on-surface-variant font-medium">
-                  {user.totalTargets}
-                </div>
-                <div className="w-40 text-sm text-on-surface-variant">
-                  {user.lastTargetDate
-                    ? new Date(user.lastTargetDate).toLocaleDateString("tr-TR")
-                    : "-"}
-                </div>
-                {!isSelectable && (
-                  <div className="flex-1 flex justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        rest.onChangeRole(user.id);
-                      }}
-                      className="px-3 py-1.5 border border-primary rounded-lg text-sm text-primary hover:bg-(--primary-container) transition-colors"
+                  <div className="min-w-0 text-sm text-on-surface-variant truncate">
+                    {user.userTitle?.trim() || "-"}
+                  </div>
+                  <div className="min-w-0">
+                    <span
+                      className={`text-xs px-2 py-1 rounded-lg font-medium ${
+                        user.status === "active"
+                          ? "bg-success-container text-success"
+                          : "bg-surface-container-high text-on-surface-variant"
+                      }`}
                     >
-                      Rol Değiştir
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        rest.onChangeTitle(user.id);
-                      }}
-                      className="px-3 py-1.5 border border-primary rounded-lg text-sm text-primary hover:bg-(--primary-container) transition-colors"
-                    >
-                      Pozisyon Değiştir
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        rest.onChangePassword(user.id);
-                      }}
-                      className="px-3 py-1.5 border border-primary rounded-lg text-sm text-primary hover:bg-(--primary-container) transition-colors"
-                    >
-                      Şifre Değiştir
-                    </button>
-                    {rest.mode === "archived" ? (
+                      {user.status === "active" ? "Aktif" : "Arşivli"}
+                    </span>
+                  </div>
+                  <div className="min-w-0 text-sm text-on-surface-variant font-medium">
+                    {user.totalTargets}
+                  </div>
+                  <div className="min-w-0 text-sm text-on-surface-variant">
+                    {user.lastTargetDate
+                      ? new Date(user.lastTargetDate).toLocaleDateString("tr-TR")
+                      : "-"}
+                  </div>
+                  {!isSelectable && (
+                    <div className="min-w-0 flex justify-end gap-2">
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          rest.onRestoreUser?.(user.id);
+                          rest.onChangeRole(user.id);
                         }}
-                        className="px-3 py-1.5 border border-red-500  text-red-500 rounded-lg text-sm hover:bg-red-100 transition-colors"
+                        className="px-2.5 py-1.5 border border-primary rounded-lg text-xs text-primary hover:bg-(--primary-container) transition-colors"
                       >
-                        Geri Al
+                        Rol Değiştir
                       </button>
-                    ) : (
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          rest.onArchiveUser?.(user.id);
+                          rest.onChangeTitle(user.id);
                         }}
-                        className="px-3 py-1.5 border border-red-500  text-red-500 rounded-lg text-sm hover:bg-red-100 transition-colors"
+                        className="px-2.5 py-1.5 border border-primary rounded-lg text-xs text-primary hover:bg-(--primary-container) transition-colors"
                       >
-                        Arşivle
+                        Pozisyon Değiştir
                       </button>
-                    )}
-                  </div>
-                )}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          rest.onChangePassword(user.id);
+                        }}
+                        className="px-2.5 py-1.5 border border-primary rounded-lg text-xs text-primary hover:bg-(--primary-container) transition-colors"
+                      >
+                        Şifre Değiştir
+                      </button>
+                      {rest.mode === "archived" ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            rest.onRestoreUser?.(user.id);
+                          }}
+                          className="px-2.5 py-1.5 border border-red-500 text-red-500 rounded-lg text-xs hover:bg-red-100 transition-colors"
+                        >
+                          Geri Al
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            rest.onArchiveUser?.(user.id);
+                          }}
+                          className="px-2.5 py-1.5 border border-red-500 text-red-500 rounded-lg text-xs hover:bg-red-100 transition-colors"
+                        >
+                          Arşivle
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })

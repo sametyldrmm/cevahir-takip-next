@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { projectsApi, Project } from '@/lib/api/projects';
 import {
   targetsApi,
@@ -119,6 +120,7 @@ const parseMeetingLocalDateTime = (dateIso: string, timeHHMM: string) => {
 };
 
 export default function TargetFormView() {
+  const router = useRouter();
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
@@ -473,6 +475,41 @@ export default function TargetFormView() {
   const selectedProjects = selectedProjectIds
     .map((projectId) => projects.find((project) => project.id === projectId))
     .filter((project): project is Project => !!project);
+
+  if (!isAdmin && !isWithinAllowedTimeWindow && allowedTimeWindowsText) {
+    return (
+      <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto p-4'>
+        <div className='bg-surface-container rounded-xl p-6 shadow-2xl max-w-xl w-full border border-outline-variant'>
+          <h3 className='text-xl font-bold text-on-surface mb-3'>
+            Hedef girişi kapalı
+          </h3>
+          <p className='text-on-surface-variant'>
+            Hedef girişi sadece şu saat aralıklarında yapılabilir:
+          </p>
+          <div className='mt-3 px-4 py-3 rounded-lg border border-outline bg-surface flex items-center justify-between gap-3'>
+            <span className='text-sm font-semibold text-on-surface tracking-wide'>
+              {allowedTimeWindowsText}
+            </span>
+          </div>
+          <div className='flex justify-end mt-6'>
+            <button
+              type='button'
+              onClick={() => {
+                if (typeof window !== 'undefined' && window.history.length > 1) {
+                  router.back();
+                  return;
+                }
+                router.push('/dashboard');
+              }}
+              className='px-5 py-2.5 bg-surface text-on-surface rounded-lg border border-outline hover:bg-surface-container-high transition-colors font-medium'
+            >
+              Geri Dön
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className='p-6 w-full max-w-none'>
@@ -913,12 +950,6 @@ export default function TargetFormView() {
                       ? 'Kaydediliyor...'
                       : 'Kaydet'}
                   </button>
-                  {!isAdmin && !isWithinAllowedTimeWindow && allowedTimeWindowsText && (
-                    <p className='text-sm text-warning mt-3'>
-                      Hedef girişi sadece şu saat aralıklarında yapılabilir:{' '}
-                      {allowedTimeWindowsText}
-                    </p>
-                  )}
                 </div>
               );
             })}

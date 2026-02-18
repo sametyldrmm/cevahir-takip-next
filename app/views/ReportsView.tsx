@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { isAxiosError } from 'axios';
 import { useRouter } from 'next/navigation';
 import {
@@ -31,20 +31,25 @@ export default function ReportsView() {
   const [reports, setReports] = useState<Report[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [isCreatingWeeklyAiSummary, setIsCreatingWeeklyAiSummary] =
+    useState(false);
   const [filename, setFilename] = useState('');
   const [projects, setProjects] = useState<ApiProject[]>([]);
   const [showMissingTargetsDialog, setShowMissingTargetsDialog] =
     useState(false);
   const [showPerformanceDialog, setShowPerformanceDialog] = useState(false);
   const [showTargetsDialog, setShowTargetsDialog] = useState(false);
+  const [showWeeklyAiSummaryDialog, setShowWeeklyAiSummaryDialog] =
+    useState(false);
   const [selectedPeriodType, setSelectedPeriodType] = useState<'daily' | 'weekly'>('weekly');
   const [selectedTeamProjects, setSelectedTeamProjects] = useState<string[]>([]);
   const [teamProjectSearchText, setTeamProjectSearchText] = useState('');
   const [targetsDate, setTargetsDate] = useState('');
   const [selectedWeek, setSelectedWeek] = useState<string>('current');
+  const [selectedAiWeek, setSelectedAiWeek] = useState<string>('current');
 
   // Hafta seçeneklerini oluştur
-  const getWeekOptions = () => {
+  const getWeekOptions = (endOffsetDays = 6, labelSeparator = ' ') => {
     const options: Array<{ value: string; label: string }> = [];
     const today = new Date();
     const currentWeekStart = new Date(today);
@@ -53,10 +58,10 @@ export default function ReportsView() {
 
     // Güncel hafta
     const currentWeekEnd = new Date(currentWeekStart);
-    currentWeekEnd.setDate(currentWeekStart.getDate() + 6); // Pazar
+    currentWeekEnd.setDate(currentWeekStart.getDate() + endOffsetDays);
     options.push({
       value: 'current',
-      label: `Bu Hafta (${currentWeekStart.getDate().toString().padStart(2, '0')}.${(currentWeekStart.getMonth() + 1).toString().padStart(2, '0')}.${currentWeekStart.getFullYear()} - ${currentWeekEnd.getDate().toString().padStart(2, '0')}.${(currentWeekEnd.getMonth() + 1).toString().padStart(2, '0')}.${currentWeekEnd.getFullYear()})`,
+      label: `Bu Hafta${labelSeparator}(${currentWeekStart.getDate().toString().padStart(2, '0')}.${(currentWeekStart.getMonth() + 1).toString().padStart(2, '0')}.${currentWeekStart.getFullYear()} - ${currentWeekEnd.getDate().toString().padStart(2, '0')}.${(currentWeekEnd.getMonth() + 1).toString().padStart(2, '0')}.${currentWeekEnd.getFullYear()})`,
     });
 
     // Geçmiş 52 hafta
@@ -64,10 +69,10 @@ export default function ReportsView() {
       const weekStart = new Date(currentWeekStart);
       weekStart.setDate(currentWeekStart.getDate() - 7 * i);
       const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 6); // Pazar
+      weekEnd.setDate(weekStart.getDate() + endOffsetDays);
       options.push({
         value: `last${i}`,
-        label: `${i} Hafta Öncesi (${weekStart.getDate().toString().padStart(2, '0')}.${(weekStart.getMonth() + 1).toString().padStart(2, '0')}.${weekStart.getFullYear()} - ${weekEnd.getDate().toString().padStart(2, '0')}.${(weekEnd.getMonth() + 1).toString().padStart(2, '0')}.${weekEnd.getFullYear()})`,
+        label: `${i} Hafta Öncesi${labelSeparator}(${weekStart.getDate().toString().padStart(2, '0')}.${(weekStart.getMonth() + 1).toString().padStart(2, '0')}.${weekStart.getFullYear()} - ${weekEnd.getDate().toString().padStart(2, '0')}.${(weekEnd.getMonth() + 1).toString().padStart(2, '0')}.${weekEnd.getFullYear()})`,
       });
     }
 
@@ -75,7 +80,7 @@ export default function ReportsView() {
   };
 
   // Hafta seçimine göre tarihleri hesapla
-  const calculateWeekDates = (weekValue: string) => {
+  const calculateWeekDates = (weekValue: string, endOffsetDays = 6) => {
     const today = new Date();
     const currentWeekStart = new Date(today);
     currentWeekStart.setDate(today.getDate() - today.getDay() + 1); // Pazartesi
@@ -91,7 +96,7 @@ export default function ReportsView() {
     }
 
     const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6); // Pazar
+    weekEnd.setDate(weekStart.getDate() + endOffsetDays);
 
     return {
       start: weekStart.toISOString().split('T')[0],
@@ -125,6 +130,30 @@ export default function ReportsView() {
     }
     return undefined;
   };
+
+  const reportsRequestInFlightRef = useRef(false);
+  const loadReports = useCallback(
+    async (options?: { silent?: boolean }) => {
+      if (reportsRequestInFlightRef.current) return;
+      reportsRequestInFlightRef.current = true;
+
+      const silent = options?.silent ?? false;
+      try {
+        if (!silent) {
+          setIsLoading(true);
+        }
+        const data = await reportsApi.getMyReports();
+        setReports(data);
+      } catch (error: unknown) {
+        showError('Raporlar yüklenirken bir hata oluştu');
+        console.error('Failed to load reports:', error);
+      } finally {
+        reportsRequestInFlightRef.current = false;
+        setIsLoading(false);
+      }
+    },
+    [showError],
+  );
 
   useEffect(() => {
     if (!showSendMailDialog) return;
@@ -183,8 +212,8 @@ export default function ReportsView() {
 
   // Raporları yükle
   useEffect(() => {
-    loadReports();
-  }, []);
+    void loadReports();
+  }, [loadReports]);
 
   // Rapor durumlarını polling ile kontrol et
   useEffect(() => {
@@ -193,25 +222,12 @@ export default function ReportsView() {
         (r) => r.status === 'STARTED' || r.status === 'PROCESSING',
       );
       if (processingReports.length > 0) {
-        loadReports();
+        void loadReports({ silent: true });
       }
     }, 3000); // 3 saniyede bir kontrol et
 
     return () => clearInterval(interval);
-  }, [reports]);
-
-  const loadReports = async () => {
-    try {
-      setIsLoading(true);
-      const data = await reportsApi.getMyReports();
-      setReports(data);
-    } catch (error: unknown) {
-      showError('Raporlar yüklenirken bir hata oluştu');
-      console.error('Failed to load reports:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  }, [loadReports, reports]);
 
 
   const handleDownload = async (report: Report) => {
@@ -373,6 +389,12 @@ export default function ReportsView() {
     setFilename('');
   };
 
+  const closeWeeklyAiSummaryDialog = () => {
+    if (isCreatingWeeklyAiSummary) return;
+    setShowWeeklyAiSummaryDialog(false);
+    setSelectedAiWeek('current');
+  };
+
   const openSendMailDialog = (report: Report) => {
     setSendMailReport(report);
     setShowSendMailDialog(true);
@@ -385,24 +407,34 @@ export default function ReportsView() {
     setSelectedUserIdsForMail(new Set());
   };
 
-  const reportTypeLabels: Record<ReportType, string> = {
+  const reportTypeLabels: Record<string, string> = {
     TARGETS: 'Hedef Raporu',
     PROJECTS: 'Proje Raporu',
+    PROJECT: 'Proje Raporu',
     USERS: 'Kullanıcı Raporu',
+    USER: 'Kullanıcı Raporu',
     TEAM: 'Takım Raporu',
+    TEAMS: 'Takım Raporu',
+    PERFORMANCE: 'Performans Raporu',
+    MISSING_TARGETS: 'Hedef Eksiklikleri Raporu',
+    WEEKLY_AI_SUMMARY: 'Haftalık AI Özeti',
+  };
+
+  const getReportTypeLabel = (type: string) => {
+    return reportTypeLabels[type] ?? reportTypeLabels[type.toUpperCase()] ?? type;
   };
 
   const handleMissingTargetsCompleted = (reportId: string) => {
     if (reportId) {
       // Raporları yeniden yükle
-      loadReports();
+      void loadReports({ silent: true });
     }
   };
 
   const handlePerformanceCompleted = (reportId: string) => {
     if (reportId) {
       // Raporları yeniden yükle
-      loadReports();
+      void loadReports({ silent: true });
     }
   };
 
@@ -427,7 +459,7 @@ export default function ReportsView() {
             <h3 className='text-sm font-bold text-on-surface-variant uppercase mb-3'>
               RAPORLAR
             </h3>
-            <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+            <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
               <button
                 onClick={() => setShowPerformanceDialog(true)}
                 className='w-full px-4 py-3 bg-surface hover:bg-(--surface-container-high)! rounded-lg text-left transition-colors border border-outline-variant'
@@ -440,6 +472,23 @@ export default function ReportsView() {
                     </div>
                     <div className='text-xs text-on-surface-variant'>
                       Aylık takım performans raporları
+                    </div>
+                  </div>
+                </div>
+              </button>
+              <button
+                onClick={() => setShowWeeklyAiSummaryDialog(true)}
+                disabled={isCreatingWeeklyAiSummary}
+                className='w-full px-4 py-3 bg-surface hover:bg-(--surface-container-high)! rounded-lg text-left transition-colors border border-outline-variant disabled:opacity-60'
+              >
+                <div className='flex items-center gap-3'>
+                  <span className='text-xl'>🤖</span>
+                  <div>
+                    <div className='font-semibold text-on-surface'>
+                      Haftalık AI Özeti
+                    </div>
+                    <div className='text-xs text-on-surface-variant'>
+                      Haftalık özet raporu oluştur
                     </div>
                   </div>
                 </div>
@@ -508,16 +557,18 @@ export default function ReportsView() {
 
       {/* Rapor Listesi */}
       <div className='space-y-4'>
-        {isLoading ? (
-          <div className='bg-surface-container p-6 rounded-lg border border-outline-variant text-center'>
-            <p className='text-on-surface-variant'>Yükleniyor...</p>
-          </div>
-        ) : reports.length === 0 ? (
-          <div className='bg-surface-container p-6 rounded-lg border border-outline-variant text-center'>
-            <p className='text-on-surface-variant'>
-              Henüz rapor oluşturulmamış
-            </p>
-          </div>
+        {reports.length === 0 ? (
+          isLoading ? (
+            <div className='bg-surface-container p-6 rounded-lg border border-outline-variant text-center'>
+              <p className='text-on-surface-variant'>Yükleniyor...</p>
+            </div>
+          ) : (
+            <div className='bg-surface-container p-6 rounded-lg border border-outline-variant text-center'>
+              <p className='text-on-surface-variant'>
+                Henüz rapor oluşturulmamış
+              </p>
+            </div>
+          )
         ) : (
           reports.map((report) => (
             <div
@@ -528,7 +579,7 @@ export default function ReportsView() {
                 <div className='flex-1'>
                   <div className='flex items-center gap-3 mb-2'>
                     <h3 className='text-lg font-semibold text-on-surface'>
-                      {reportTypeLabels[report.type]}
+                      {getReportTypeLabel(report.type)}
                     </h3>
                     <span
                       className={`px-3 py-1 rounded text-xs font-medium ${getStatusColor(
@@ -599,7 +650,7 @@ export default function ReportsView() {
                   Rapor Maili Gönder
                 </h3>
                 <p className='text-xs text-on-surface-variant mt-1'>
-                  {reportTypeLabels[sendMailReport.type]} •{' '}
+                  {getReportTypeLabel(sendMailReport.type)} •{' '}
                   {new Date(sendMailReport.createdAt).toLocaleString('tr-TR')}
                 </p>
               </div>
@@ -785,6 +836,109 @@ export default function ReportsView() {
         onClose={() => setShowPerformanceDialog(false)}
         onExportCompleted={handlePerformanceCompleted}
       />
+
+      {/* Weekly AI Summary Dialog */}
+      {showWeeklyAiSummaryDialog && (
+        <div
+          className='fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto p-4'
+          onClick={closeWeeklyAiSummaryDialog}
+        >
+          <div
+            className='bg-surface-container rounded-2xl shadow-2xl max-w-xl w-full border border-outline-variant overflow-hidden max-h-[85vh] flex flex-col'
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className='bg-gradient-to-r from-primary-container to-primary-container/80 p-4 border-b border-outline-variant'>
+              <div className='flex items-center justify-between'>
+                <div className='flex items-center gap-4'>
+                  <div className='w-12 h-12 rounded-xl bg-primary flex items-center justify-center shadow-lg'>
+                    <span className='text-2xl'>🤖</span>
+                  </div>
+                  <div>
+                    <h3 className='text-xl font-bold text-on-surface'>
+                      Haftalık AI Özeti Oluştur
+                    </h3>
+                    <p className='text-xs text-on-surface-variant mt-1'>
+                      Pazartesi–Cuma aralığı için rapor oluşturur
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={closeWeeklyAiSummaryDialog}
+                  disabled={isCreatingWeeklyAiSummary}
+                  className='w-10 h-10 flex items-center justify-center hover:bg-black/10 rounded-lg transition-colors text-on-surface-variant hover:text-on-surface disabled:opacity-50'
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            <div className='p-4 space-y-4 overflow-y-auto'>
+              <div className='bg-surface rounded-xl p-4 border border-outline-variant'>
+                <label className='block text-sm font-bold text-on-surface mb-3'>
+                  📅 Hafta Seçimi
+                </label>
+                <select
+                  value={selectedAiWeek}
+                  onChange={(e) => setSelectedAiWeek(e.target.value)}
+                  disabled={isCreatingWeeklyAiSummary}
+                  className='w-full px-3 py-2.5 bg-surface-container border-2 border-outline rounded-xl text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all disabled:opacity-50 font-medium text-sm'
+                >
+                  {getWeekOptions(4, ' - ').map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className='bg-surface-container-high px-4 py-3 border-t border-outline-variant flex gap-3'>
+              <button
+                onClick={closeWeeklyAiSummaryDialog}
+                disabled={isCreatingWeeklyAiSummary}
+                className='flex-1 px-4 py-3 bg-surface text-on-surface rounded-xl font-semibold hover:bg-surface-container-high transition-all disabled:opacity-50 border-2 border-outline-variant text-sm'
+              >
+                İptal
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    setIsCreatingWeeklyAiSummary(true);
+                    const { start, end } = calculateWeekDates(selectedAiWeek, 4);
+                    const newReport = await reportsApi.createReport({
+                      type: 'WEEKLY_AI_SUMMARY',
+                      parameters: { startDate: start, endDate: end },
+                    });
+                    setReports((prev) => [newReport, ...prev]);
+                    closeWeeklyAiSummaryDialog();
+                    showSuccess(
+                      'Haftalık AI özeti raporu oluşturma isteği gönderildi',
+                    );
+                  } catch (error: unknown) {
+                    showError(
+                      getApiErrorMessage(error) ??
+                        'Rapor oluşturulurken bir hata oluştu',
+                    );
+                  } finally {
+                    setIsCreatingWeeklyAiSummary(false);
+                  }
+                }}
+                disabled={isCreatingWeeklyAiSummary}
+                className='flex-1 px-4 py-3 bg-primary text-on-primary rounded-xl font-semibold hover:opacity-90 transition-all disabled:opacity-50 shadow-lg hover:shadow-xl text-sm'
+              >
+                {isCreatingWeeklyAiSummary ? (
+                  <span className='flex items-center justify-center gap-2'>
+                    <div className='w-4 h-4 border-2 border-on-primary border-t-transparent rounded-full animate-spin'></div>
+                    Oluşturuluyor...
+                  </span>
+                ) : (
+                  '✨ Rapor Oluştur'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Hedefler Dialog */}
       {showTargetsDialog && (

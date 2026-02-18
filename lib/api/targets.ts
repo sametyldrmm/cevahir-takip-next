@@ -2,6 +2,14 @@ import { apiClient } from '../api-client';
 
 export type GoalStatus = 'NOT_SET' | 'REACHED' | 'PARTIAL' | 'FAILED';
 
+const getResolvedTimeZone = () => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    return undefined;
+  }
+};
+
 export interface TargetUser {
   id: string;
   username: string;
@@ -108,6 +116,10 @@ export interface TeamTarget {
   meetingEnd?: string;
 }
 
+export type AllowedTimeWindow = { start: string; end: string };
+
+export type AllowedTimeWindowsResponse = { windows: AllowedTimeWindow[] };
+
 export const targetsApi = {
   // Kullanıcının tüm targetlarını getir
   async getMyTargets(): Promise<Target[]> {
@@ -158,7 +170,24 @@ export const targetsApi = {
 
   // Target oluştur
   async createTarget(dto: CreateTargetDto): Promise<Target> {
-    const response = await apiClient.getClient().post<Target>('/me/targets', dto);
+    const timezone = getResolvedTimeZone();
+    const response = await apiClient.getClient().post<Target>('/me/targets', dto, {
+      headers: timezone ? { 'x-timezone': timezone } : undefined,
+    });
+    return response.data;
+  },
+
+  async getAllowedTimeWindows(): Promise<AllowedTimeWindowsResponse> {
+    const response = await apiClient
+      .getClient()
+      .get<AllowedTimeWindowsResponse>('/targets/allowed-time-windows');
+    return response.data;
+  },
+
+  async updateAllowedTimeWindows(dto: AllowedTimeWindowsResponse): Promise<AllowedTimeWindowsResponse> {
+    const response = await apiClient
+      .getClient()
+      .put<AllowedTimeWindowsResponse>('/targets/allowed-time-windows', dto);
     return response.data;
   },
 

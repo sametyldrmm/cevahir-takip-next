@@ -11,7 +11,7 @@ interface User {
   isAdmin?: boolean;
 }
 
-interface UsersTableProps {
+type AdminUsersTableProps = {
   users: User[];
   onUserClick?: (user: User) => void;
   mode: "active" | "archived";
@@ -20,23 +20,46 @@ interface UsersTableProps {
   onChangePassword: (userId: string) => void;
   onArchiveUser?: (userId: string) => void;
   onRestoreUser?: (userId: string) => void;
-}
+};
+
+type SelectableUsersTableProps = {
+  users: User[];
+  editMode: boolean;
+  selectedUsers: Set<string>;
+  onUserSelect: (userId: string, selected: boolean) => void;
+  onSelectAll: (selected: boolean) => void;
+  onUserClick?: (user: User) => void;
+};
+
+type UsersTableProps = AdminUsersTableProps | SelectableUsersTableProps;
 
 export default function UsersTable({
   users,
   onUserClick,
-  mode,
-  onChangeRole,
-  onChangeTitle,
-  onChangePassword,
-  onArchiveUser,
-  onRestoreUser,
+  ...rest
 }: UsersTableProps) {
+  const isSelectable = "editMode" in rest;
+  const isEditMode = isSelectable ? rest.editMode : false;
+  const selectedUsers = isSelectable ? rest.selectedUsers : new Set<string>();
+  const allSelected =
+    isSelectable && users.length > 0 && selectedUsers.size === users.length;
+
   return (
     <div className="border border-outline-variant rounded-xl m-5 shadow-sm overflow-hidden">
       {/* Header */}
       <div className="bg-surface-container-low px-5 py-3.5 border-b border-outline-variant">
         <div className="flex items-center gap-0">
+          {isSelectable && (
+            <div className="w-12 flex items-center justify-center">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                disabled={!isEditMode}
+                onChange={(e) => rest.onSelectAll(e.target.checked)}
+                className="w-4 h-4"
+              />
+            </div>
+          )}
           <div className="w-56 text-xs font-semibold text-on-surface-variant">
             Username
           </div>
@@ -55,9 +78,11 @@ export default function UsersTable({
           <div className="w-40 text-xs font-semibold text-on-surface-variant">
             Last Target Date
           </div>
-          <div className="flex-1 text-xs font-semibold text-on-surface-variant text-right">
-            İşlemler
-          </div>
+          {!isSelectable && (
+            <div className="flex-1 text-xs font-semibold text-on-surface-variant text-right">
+              İşlemler
+            </div>
+          )}
         </div>
       </div>
 
@@ -69,14 +94,33 @@ export default function UsersTable({
           </div>
         ) : (
           users.map((user, index) => {
+            const isSelected = isSelectable ? selectedUsers.has(user.id) : false;
             return (
               <div
                 key={user.id}
-                onClick={() => onUserClick?.(user)}
+                onClick={() => {
+                  if (isSelectable && isEditMode) {
+                    rest.onUserSelect(user.id, !isSelected);
+                    return;
+                  }
+                  onUserClick?.(user);
+                }}
                 className={`flex items-center gap-0 px-5 py-3.5 border-b border-outline-variant transition-all hover:bg-(--surface-container-high) ${
                   index === users.length - 1 ? "border-b-0" : ""
                 }`}
               >
+                {isSelectable && (
+                  <div className="w-12 flex items-center justify-center">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      disabled={!isEditMode}
+                      onChange={(e) => rest.onUserSelect(user.id, e.target.checked)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-4 h-4"
+                    />
+                  </div>
+                )}
                 <div className="w-56 text-sm text-on-surface font-medium">
                   <div className="flex items-center gap-2">
                     {user.username}
@@ -112,61 +156,63 @@ export default function UsersTable({
                     ? new Date(user.lastTargetDate).toLocaleDateString("tr-TR")
                     : "-"}
                 </div>
-                <div className="flex-1 flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onChangeRole(user.id);
-                    }}
-                    className="px-3 py-1.5 border border-primary rounded-lg text-sm text-primary hover:bg-(--primary-container) transition-colors"
-                  >
-                    Rol Değiştir
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onChangeTitle(user.id);
-                    }}
-                    className="px-3 py-1.5 border border-primary rounded-lg text-sm text-primary hover:bg-(--primary-container) transition-colors"
-                  >
-                    Pozisyon Değiştir
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onChangePassword(user.id);
-                    }}
-                    className="px-3 py-1.5 border border-primary rounded-lg text-sm text-primary hover:bg-(--primary-container) transition-colors"
-                  >
-                    Şifre Değiştir
-                  </button>
-                  {mode === "archived" ? (
+                {!isSelectable && (
+                  <div className="flex-1 flex justify-end gap-2">
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        onRestoreUser?.(user.id);
+                        rest.onChangeRole(user.id);
                       }}
-                      className="px-3 py-1.5 border border-red-500  text-red-500 rounded-lg text-sm hover:bg-red-100 transition-colors"
+                      className="px-3 py-1.5 border border-primary rounded-lg text-sm text-primary hover:bg-(--primary-container) transition-colors"
                     >
-                      Geri Al
+                      Rol Değiştir
                     </button>
-                  ) : (
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        onArchiveUser?.(user.id);
+                        rest.onChangeTitle(user.id);
                       }}
-                      className="px-3 py-1.5 border border-red-500  text-red-500 rounded-lg text-sm hover:bg-red-100 transition-colors"
+                      className="px-3 py-1.5 border border-primary rounded-lg text-sm text-primary hover:bg-(--primary-container) transition-colors"
                     >
-                      Arşivle
+                      Pozisyon Değiştir
                     </button>
-                  )}
-                </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        rest.onChangePassword(user.id);
+                      }}
+                      className="px-3 py-1.5 border border-primary rounded-lg text-sm text-primary hover:bg-(--primary-container) transition-colors"
+                    >
+                      Şifre Değiştir
+                    </button>
+                    {rest.mode === "archived" ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          rest.onRestoreUser?.(user.id);
+                        }}
+                        className="px-3 py-1.5 border border-red-500  text-red-500 rounded-lg text-sm hover:bg-red-100 transition-colors"
+                      >
+                        Geri Al
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          rest.onArchiveUser?.(user.id);
+                        }}
+                        className="px-3 py-1.5 border border-red-500  text-red-500 rounded-lg text-sm hover:bg-red-100 transition-colors"
+                      >
+                        Arşivle
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })

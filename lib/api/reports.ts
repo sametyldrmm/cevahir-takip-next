@@ -1,7 +1,12 @@
 import { apiClient } from '../api-client';
 
 export type ReportStatus = 'STARTED' | 'PROCESSING' | 'READY' | 'FAILED';
-export type ReportType = 'TARGETS' | 'PROJECTS' | 'USERS' | 'TEAM';
+export type ReportType =
+  | 'TARGETS'
+  | 'PROJECTS'
+  | 'USERS'
+  | 'TEAM'
+  | 'WEEKLY_AI_SUMMARY';
 
 export type AutoMailIntervalUnit = 'DAY' | 'WEEK' | 'MONTH';
 export type AutoMailIntervalPreset = '1D' | '1W' | '1M' | 'CUSTOM';

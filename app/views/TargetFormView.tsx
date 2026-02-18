@@ -1,12 +1,20 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { projectsApi, Project } from '@/lib/api/projects';
-import { targetsApi, CreateTargetDto, GoalStatus } from '@/lib/api/targets';
+import {
+  targetsApi,
+  AllowedTimeWindow,
+  CreateTargetDto,
+  GoalStatus,
+  Target,
+} from '@/lib/api/targets';
 import { useNotification } from '@/app/contexts/NotificationContext';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { useDialog } from '@/app/components/dialogs';
 import { Dialog } from '@/app/components/dialogs';
+import EditTargetDialog from '@/app/components/dialogs/EditTargetDialog';
 
 const GOAL_STATUS_MAP: Record<string, GoalStatus> = {
   Belirlenmedi: 'NOT_SET',
@@ -32,6 +40,33 @@ const pad2 = (value: number) => String(value).padStart(2, '0');
 const getLocalDateKey = (date: Date) =>
   `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
 const getTodayIsoDate = () => getLocalDateKey(new Date());
+
+const getLocalMinutesOfDay = () => {
+  const now = new Date();
+  return now.getHours() * 60 + now.getMinutes();
+};
+
+const toMinutesOfDay = (hhmm: string) => {
+  const parts = hhmm.split(':').map((v) => Number.parseInt(v, 10));
+  if (parts.length !== 2) return null;
+  const [hours, minutes] = parts;
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
+  return hours * 60 + minutes;
+};
+
+const isMinutesInWindow = (nowMinutes: number, window: AllowedTimeWindow) => {
+  const start = toMinutesOfDay(window.start);
+  const end = toMinutesOfDay(window.end);
+  if (start === null || end === null) return false;
+  if (start <= end) return nowMinutes >= start && nowMinutes <= end;
+  return nowMinutes >= start || nowMinutes <= end;
+};
+
+const parseAllowedWindowsFromMessage = (message: string): AllowedTimeWindow[] => {
+  const matches = Array.from(message.matchAll(/(\d{2}:\d{2})-(\d{2}:\d{2})/g));
+  return matches.map((match) => ({ start: match[1], end: match[2] }));
+};
 
 const createEmptyDraft = (date: string): ProjectTargetDraft => ({
   date,
@@ -85,9 +120,20 @@ const parseMeetingLocalDateTime = (dateIso: string, timeHHMM: string) => {
 };
 
 export default function TargetFormView() {
+  const router = useRouter();
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
+  const [allowedTimeWindows, setAllowedTimeWindows] = useState<
+    AllowedTimeWindow[] | null
+  >(null);
+  const [allowedTimeWindowsText, setAllowedTimeWindowsText] = useState<
+    string | null
+  >(null);
+  const [isWithinAllowedTimeWindow, setIsWithinAllowedTimeWindow] =
+    useState(true);
+  const [editingTarget, setEditingTarget] = useState<Target | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const [draftsByProjectId, setDraftsByProjectId] = useState<
     Record<string, ProjectTargetDraft>
   >({});
@@ -256,6 +302,53 @@ export default function TargetFormView() {
     loadProjects();
   }, [isAdmin, showError]);
 
+  useEffect(() => {
+    if (isAdmin) {
+      setAllowedTimeWindows(null);
+      setAllowedTimeWindowsText(null);
+      setIsWithinAllowedTimeWindow(true);
+      return;
+    }
+
+    const loadAllowedWindows = async () => {
+      try {
+        const response = await targetsApi.getAllowedTimeWindows();
+        setAllowedTimeWindows(response.windows);
+        setAllowedTimeWindowsText(
+          response.windows.length > 0
+            ? response.windows.map((w) => `${w.start}-${w.end}`).join(', ')
+            : null,
+        );
+      } catch (error) {
+        console.error('Allowed windows load error:', error);
+      }
+    };
+    void loadAllowedWindows();
+  }, [isAdmin]);
+
+  useEffect(() => {
+    if (isAdmin) {
+      setIsWithinAllowedTimeWindow(true);
+      return;
+    }
+
+    if (!allowedTimeWindows || allowedTimeWindows.length === 0) {
+      setIsWithinAllowedTimeWindow(true);
+      return;
+    }
+
+    const check = () => {
+      const nowMinutes = getLocalMinutesOfDay();
+      setIsWithinAllowedTimeWindow(
+        allowedTimeWindows.some((window) => isMinutesInWindow(nowMinutes, window)),
+      );
+    };
+
+    check();
+    const intervalId = window.setInterval(check, 30_000);
+    return () => window.clearInterval(intervalId);
+  }, [allowedTimeWindows, isAdmin]);
+
   const createTargetPayload = (
     projectId: string,
     draft: ProjectTargetDraft,
@@ -304,8 +397,42 @@ export default function TargetFormView() {
         [project.id]: createEmptyDraft(draft.date),
       }));
     } catch (error: any) {
+      const status: number | undefined = error.response?.status;
+      const rawMessage = error.response?.data?.message;
       const message =
-        error.response?.data?.message || 'Hedef kaydedilirken bir hata oluştu';
+        (typeof rawMessage === 'string' && rawMessage.trim()) ||
+        'Hedef kaydedilirken bir hata oluştu';
+
+      if (!isAdmin && status === 400) {
+        try {
+          const existingTargets = await targetsApi.getTargetsByDate(draft.date);
+          const existing = existingTargets.find((t) => t.projectId === project.id);
+          if (existing) {
+            showWarning(message);
+            setEditingTarget(existing);
+            setShowEditDialog(true);
+            return;
+          }
+        } catch (lookupError) {
+          console.error('Existing target lookup error:', lookupError);
+        }
+        showError(message);
+        console.error('Target save error:', error);
+        return;
+      }
+
+      if (!isAdmin && status === 403 && typeof message === 'string') {
+        const parsed = parseAllowedWindowsFromMessage(message);
+        if (parsed.length > 0) {
+          setAllowedTimeWindows(parsed);
+          setAllowedTimeWindowsText(parsed.map((w) => `${w.start}-${w.end}`).join(', '));
+          setIsWithinAllowedTimeWindow(false);
+        }
+        showError(message);
+        console.error('Target save error:', error);
+        return;
+      }
+
       showError(message);
       console.error('Target save error:', error);
     } finally {
@@ -348,6 +475,41 @@ export default function TargetFormView() {
   const selectedProjects = selectedProjectIds
     .map((projectId) => projects.find((project) => project.id === projectId))
     .filter((project): project is Project => !!project);
+
+  if (!isAdmin && !isWithinAllowedTimeWindow && allowedTimeWindowsText) {
+    return (
+      <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto p-4'>
+        <div className='bg-surface-container rounded-xl p-6 shadow-2xl max-w-xl w-full border border-outline-variant'>
+          <h3 className='text-xl font-bold text-on-surface mb-3'>
+            Hedef girişi kapalı
+          </h3>
+          <p className='text-on-surface-variant'>
+            Hedef girişi sadece şu saat aralıklarında yapılabilir:
+          </p>
+          <div className='mt-3 px-4 py-3 rounded-lg border border-outline bg-surface flex items-center justify-between gap-3'>
+            <span className='text-sm font-semibold text-on-surface tracking-wide'>
+              {allowedTimeWindowsText}
+            </span>
+          </div>
+          <div className='flex justify-end mt-6'>
+            <button
+              type='button'
+              onClick={() => {
+                if (typeof window !== 'undefined' && window.history.length > 1) {
+                  router.back();
+                  return;
+                }
+                router.push('/dashboard');
+              }}
+              className='px-5 py-2.5 bg-surface text-on-surface rounded-lg border border-outline hover:bg-surface-container-high transition-colors font-medium'
+            >
+              Geri Dön
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className='p-6 w-full max-w-none'>
@@ -777,7 +939,11 @@ export default function TargetFormView() {
                   <button
                     type='button'
                     onClick={() => handleProjectSave(project)}
-                    disabled={isSubmittingAny || !draft.taskContent.trim()}
+                    disabled={
+                      isSubmittingAny ||
+                      !draft.taskContent.trim() ||
+                      (!isAdmin && !isWithinAllowedTimeWindow)
+                    }
                     className='w-full bg-primary text-on-primary py-3 rounded-lg font-semibold hover:opacity-90 transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed'
                   >
                     {isSubmittingProjectId === project.id
@@ -792,6 +958,21 @@ export default function TargetFormView() {
       </div>
 
       <Dialog dialog={dialog.dialog} onClose={dialog.close} />
+      {editingTarget && (
+        <EditTargetDialog
+          isOpen={showEditDialog}
+          target={editingTarget}
+          onClose={() => {
+            setShowEditDialog(false);
+            setEditingTarget(null);
+          }}
+          onTargetUpdated={(updatedTarget) => {
+            showSuccess('Hedef başarıyla güncellendi');
+            setShowEditDialog(false);
+            setEditingTarget(null);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { useNotification } from '../contexts/NotificationContext';
 import { usePushNotification } from '../hooks/usePushNotification';
 import { apiClient } from '@/lib/api-client';
 import { usersApi } from '@/lib/api/users';
+import { targetsApi, AllowedTimeWindow } from '@/lib/api/targets';
 import { PasswordChangeDialog } from '@/app/components/dialogs';
 
 export default function SettingsView() {
@@ -47,6 +48,13 @@ export default function SettingsView() {
     unsubscribe: unsubscribePush,
   } = usePushNotification();
   const [pushToggleLoading, setPushToggleLoading] = useState(false);
+  const [allowedTimeWindows, setAllowedTimeWindows] = useState<AllowedTimeWindow[]>(
+    [],
+  );
+  const [isLoadingAllowedTimeWindows, setIsLoadingAllowedTimeWindows] =
+    useState(false);
+  const [isSavingAllowedTimeWindows, setIsSavingAllowedTimeWindows] =
+    useState(false);
 
   const getApiErrorMessage = (error: unknown) => {
     if (isAxiosError<{ message?: unknown }>(error)) {
@@ -89,6 +97,63 @@ export default function SettingsView() {
 
     void loadProfile();
   }, [user, showError]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    const loadAllowedTimeWindows = async () => {
+      try {
+        setIsLoadingAllowedTimeWindows(true);
+        const response = await targetsApi.getAllowedTimeWindows();
+        setAllowedTimeWindows(response.windows);
+      } catch (error: unknown) {
+        showError(getApiErrorMessage(error) ?? 'Saat aralıkları yüklenemedi');
+      } finally {
+        setIsLoadingAllowedTimeWindows(false);
+      }
+    };
+
+    void loadAllowedTimeWindows();
+  }, [isAdmin, showError]);
+
+  const handleAddAllowedTimeWindow = () => {
+    setAllowedTimeWindows((prev) => [...prev, { start: '08:30', end: '09:30' }]);
+  };
+
+  const handleRemoveAllowedTimeWindow = (index: number) => {
+    setAllowedTimeWindows((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleUpdateAllowedTimeWindow = (
+    index: number,
+    patch: Partial<AllowedTimeWindow>,
+  ) => {
+    setAllowedTimeWindows((prev) =>
+      prev.map((window, i) => (i === index ? { ...window, ...patch } : window)),
+    );
+  };
+
+  const handleSaveAllowedTimeWindows = async () => {
+    const cleaned = allowedTimeWindows
+      .map((w) => ({ start: w.start.trim(), end: w.end.trim() }))
+      .filter((w) => w.start && w.end);
+
+    if (cleaned.length !== allowedTimeWindows.length) {
+      showError('Lütfen tüm saat aralıklarını doldurun');
+      return;
+    }
+
+    try {
+      setIsSavingAllowedTimeWindows(true);
+      const response = await targetsApi.updateAllowedTimeWindows({ windows: cleaned });
+      setAllowedTimeWindows(response.windows);
+      showSuccess('Saat aralıkları güncellendi');
+    } catch (error: unknown) {
+      showError(getApiErrorMessage(error) ?? 'Saat aralıkları güncellenemedi');
+    } finally {
+      setIsSavingAllowedTimeWindows(false);
+    }
+  };
 
   const isProfileDirty =
     !!profile &&
@@ -548,6 +613,82 @@ export default function SettingsView() {
             )}
           </div>
         </div>
+        {isAdmin && (
+          <div className='bg-surface-container p-6 rounded-lg border border-outline-variant shadow-sm'>
+            <h3 className='text-lg font-semibold text-on-surface mb-4'>
+              Hedef Giriş Saatleri
+            </h3>
+            {isLoadingAllowedTimeWindows ? (
+              <p className='text-on-surface-variant'>Yükleniyor...</p>
+            ) : (
+              <div className='space-y-4'>
+                {allowedTimeWindows.length === 0 ? (
+                  <p className='text-sm text-on-surface-variant'>
+                    Saat aralığı tanımlı değil.
+                  </p>
+                ) : (
+                  <div className='space-y-3'>
+                    {allowedTimeWindows.map((window, index) => (
+                      <div
+                        key={`${window.start}-${window.end}-${index}`}
+                        className='grid grid-cols-[1fr_1fr_auto] gap-3 items-center'
+                      >
+                        <input
+                          type='time'
+                          value={window.start}
+                          onChange={(e) =>
+                            handleUpdateAllowedTimeWindow(index, {
+                              start: e.target.value,
+                            })
+                          }
+                          disabled={isSavingAllowedTimeWindows}
+                          className='w-full px-4 py-2 bg-surface rounded-lg border border-outline text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all'
+                        />
+                        <input
+                          type='time'
+                          value={window.end}
+                          onChange={(e) =>
+                            handleUpdateAllowedTimeWindow(index, {
+                              end: e.target.value,
+                            })
+                          }
+                          disabled={isSavingAllowedTimeWindows}
+                          className='w-full px-4 py-2 bg-surface rounded-lg border border-outline text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all'
+                        />
+                        <button
+                          type='button'
+                          onClick={() => handleRemoveAllowedTimeWindow(index)}
+                          disabled={isSavingAllowedTimeWindows}
+                          className='px-3 py-2 bg-error text-on-error rounded-lg hover:opacity-90 transition-all text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed'
+                        >
+                          Sil
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className='flex flex-wrap gap-3 pt-2'>
+                  <button
+                    type='button'
+                    onClick={handleAddAllowedTimeWindow}
+                    disabled={isSavingAllowedTimeWindows}
+                    className='px-4 py-2 bg-surface text-on-surface rounded-lg border border-outline hover:bg-surface-container-high transition-colors text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed'
+                  >
+                    + Saat Aralığı Ekle
+                  </button>
+                  <button
+                    type='button'
+                    onClick={handleSaveAllowedTimeWindows}
+                    disabled={isSavingAllowedTimeWindows}
+                    className='px-4 py-2 bg-primary text-on-primary rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed'
+                  >
+                    {isSavingAllowedTimeWindows ? 'Kaydediliyor...' : 'Kaydet'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
       {profile && (
         <PasswordChangeDialog

@@ -27,6 +27,7 @@ const autoMailReportTypeOptions: Array<{ type: AutoMailReportType; label: string
   { type: "PERFORMANCE", label: "Performans Raporları" },
   { type: "TARGETS", label: "Hedef Raporları" },
   { type: "MISSING_TARGETS", label: "Hedef Eksiklikleri" },
+  { type: "WEEKLY_AI_SUMMARY", label: "Haftalık AI Özeti" },
 ];
 
 const intervalPresetLabels: Record<AutoMailIntervalPreset, string> = {
@@ -52,6 +53,7 @@ const allowedIntervalsByReportType: Partial<
     PERFORMANCE: ["1D", "1W", "1M", "1Y"],
     TARGETS: ["1D", "1W"],
     MISSING_TARGETS: ["1D", "1W", "1M", "1Y"],
+    WEEKLY_AI_SUMMARY: ["1W"],
   };
 
 const allowedPeriodsByReportType: Partial<
@@ -60,6 +62,7 @@ const allowedPeriodsByReportType: Partial<
   PERFORMANCE: ["monthly", "yearly"],
   TARGETS: ["daily", "weekly"],
   MISSING_TARGETS: ["daily", "weekly", "monthly", "yearly"],
+  WEEKLY_AI_SUMMARY: ["weekly"],
 };
 
 const periodLabels: Record<AutoMailReportPeriod, string> = {

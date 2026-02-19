@@ -11,7 +11,11 @@ export type ReportType =
 export type AutoMailIntervalUnit = 'DAY' | 'WEEK' | 'MONTH';
 export type AutoMailIntervalPreset = '1D' | '1W' | '1M' | 'CUSTOM';
 
-export type AutoMailReportType = 'PERFORMANCE' | 'TARGETS' | 'MISSING_TARGETS';
+export type AutoMailReportType =
+  | 'PERFORMANCE'
+  | 'TARGETS'
+  | 'MISSING_TARGETS'
+  | 'WEEKLY_AI_SUMMARY';
 export type AutoMailReportPeriod = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
 export interface Report {

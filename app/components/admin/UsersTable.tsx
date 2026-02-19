@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-
 interface User {
   id: string;
   username: string;
@@ -15,15 +13,11 @@ interface User {
 
 type AdminUsersTableProps = {
   users: User[];
-  editMode?: boolean;
-  selectedUsers?: Set<string>;
-  onUserSelect?: (userId: string, selected: boolean) => void;
-  onSelectAll?: (selected: boolean) => void;
   onUserClick?: (user: User) => void;
-  mode?: "active" | "archived";
-  onChangeRole?: (userId: string) => void;
-  onChangeTitle?: (userId: string) => void;
-  onChangePassword?: (userId: string) => void;
+  mode: "active" | "archived";
+  onChangeRole: (userId: string) => void;
+  onChangeTitle: (userId: string) => void;
+  onChangePassword: (userId: string) => void;
   onArchiveUser?: (userId: string) => void;
   onRestoreUser?: (userId: string) => void;
 };
@@ -41,10 +35,6 @@ type UsersTableProps = AdminUsersTableProps | SelectableUsersTableProps;
 
 export default function UsersTable({
   users,
-  editMode = false,
-  selectedUsers = new Set(),
-  onUserSelect,
-  onSelectAll,
   onUserClick,
   ...rest
 }: UsersTableProps) {
@@ -227,45 +217,6 @@ export default function UsersTable({
                         </button>
                       )}
                     </div>
-                  )}
-                  {onChangePassword && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onChangePassword(user.id);
-                      }}
-                      className="px-3 py-1.5 border border-primary rounded-lg text-sm text-primary hover:bg-(--primary-container) transition-colors"
-                    >
-                      Şifre Değiştir
-                    </button>
-                  )}
-                  {mode === "archived" ? (
-                    onRestoreUser && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onRestoreUser(user.id);
-                        }}
-                        className="px-3 py-1.5 border border-red-500  text-red-500 rounded-lg text-sm hover:bg-red-100 transition-colors"
-                      >
-                        Geri Al
-                      </button>
-                    )
-                  ) : (
-                    onArchiveUser && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onArchiveUser(user.id);
-                        }}
-                        className="px-3 py-1.5 border border-red-500  text-red-500 rounded-lg text-sm hover:bg-red-100 transition-colors"
-                      >
-                        Arşivle
-                      </button>
-                    )
                   )}
                 </div>
               </div>

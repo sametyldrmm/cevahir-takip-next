@@ -96,10 +96,10 @@ export default function AdminPasswordChangeDialog({
       onClick={handleClose}
     >
       <div
-        className="bg-surface-container rounded-xl p-6 shadow-2xl max-w-md w-full border border-outline-variant"
+        className="bg-surface-container rounded-xl p-6 shadow-2xl max-w-md w-full border border-outline-variant max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-6 flex-none">
           <div>
             <h3 className="text-xl font-bold text-on-surface">
               Kullanıcı Şifresini Değiştir
@@ -117,7 +117,7 @@ export default function AdminPasswordChangeDialog({
         </div>
 
         <form
-          className="space-y-4"
+          className="space-y-4 flex-1 min-h-0 overflow-y-auto pr-1"
           autoComplete="off"
           onSubmit={(e) => {
             e.preventDefault();
@@ -207,7 +207,7 @@ export default function AdminPasswordChangeDialog({
           </div>
         </form>
 
-        <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-outline-variant">
+        <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-outline-variant flex-none">
           <button
             onClick={handleClose}
             disabled={isSubmitting}

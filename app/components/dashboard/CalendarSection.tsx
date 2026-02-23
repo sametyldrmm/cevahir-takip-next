@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { dateKeyLocal } from "@/lib/date-time";
 
 interface CalendarSectionProps {
   currentDate: Date;
@@ -45,7 +46,7 @@ export default function CalendarSection({
   };
 
   const getDateKey = (date: Date) => {
-    return date.toISOString().split("T")[0];
+    return dateKeyLocal(date);
   };
 
   const getStatusColor = (status: string) => {

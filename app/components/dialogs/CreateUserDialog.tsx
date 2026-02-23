@@ -86,10 +86,10 @@ export default function CreateUserDialog({
       onClick={handleClose}
     >
       <div
-        className="bg-surface-container rounded-xl p-6 shadow-2xl max-w-md w-full border border-outline-variant"
+        className="bg-surface-container rounded-xl p-6 shadow-2xl max-w-md w-full border border-outline-variant max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-6 flex-none">
           <h3 className="text-xl font-bold text-on-surface">Yeni Kullanıcı Ekle</h3>
           <button
             onClick={handleClose}
@@ -99,7 +99,7 @@ export default function CreateUserDialog({
           </button>
         </div>
 
-        <div className="space-y-5">
+        <div className="space-y-5 flex-1 min-h-0 overflow-y-auto pr-1">
           <p className="text-sm text-on-surface-variant">Kullanıcı bilgilerini giriniz:</p>
 
           <div>
@@ -190,21 +190,21 @@ export default function CreateUserDialog({
               Admin yetkisi ver
             </label>
           </div>
+        </div>
 
-          <div className="flex gap-3 pt-2">
-            <button
-              onClick={handleClose}
+        <div className="flex gap-3 pt-6 mt-6 border-t border-outline-variant flex-none">
+          <button
+            onClick={handleClose}
             className="flex-1 px-4 py-3 bg-surface-container-high text-on-surface rounded-lg font-medium hover:bg-(--surface-container-highest) transition-colors"
-            >
-              İptal
-            </button>
-            <button
-              onClick={handleSubmit}
-              className="flex-1 px-4 py-3 bg-primary text-on-primary rounded-lg font-medium hover:opacity-90 transition-opacity"
-            >
-              Oluştur
-            </button>
-          </div>
+          >
+            İptal
+          </button>
+          <button
+            onClick={handleSubmit}
+            className="flex-1 px-4 py-3 bg-primary text-on-primary rounded-lg font-medium hover:opacity-90 transition-opacity"
+          >
+            Oluştur
+          </button>
         </div>
       </div>
     </div>

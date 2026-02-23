@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { dateKeyLocal } from "@/lib/date-time";
 
 interface UserTargetsExportDialogProps {
   isOpen: boolean;
@@ -15,14 +16,11 @@ export default function UserTargetsExportDialog({
   onClose,
   onExportCompleted,
 }: UserTargetsExportDialogProps) {
+  const todayKey = dateKeyLocal(new Date());
   const [startDate, setStartDate] = useState(
-    new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-      .toISOString()
-      .split("T")[0]
+    dateKeyLocal(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
   );
-  const [endDate, setEndDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  const [endDate, setEndDate] = useState(todayKey);
   const [isExporting, setIsExporting] = useState(false);
 
   if (!isOpen) return null;
@@ -48,19 +46,17 @@ export default function UserTargetsExportDialog({
   const handleClose = () => {
     const today = new Date();
     setStartDate(
-      new Date(today.getFullYear(), today.getMonth(), 1)
-        .toISOString()
-        .split("T")[0]
+      dateKeyLocal(new Date(today.getFullYear(), today.getMonth(), 1))
     );
-    setEndDate(today.toISOString().split("T")[0]);
+    setEndDate(dateKeyLocal(today));
     setIsExporting(false);
     onClose();
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto p-4">
-      <div className="bg-surface-container rounded-xl p-6 shadow-2xl max-w-lg w-full border border-outline-variant">
-        <div className="flex items-center justify-between mb-6">
+      <div className="bg-surface-container rounded-xl p-6 shadow-2xl max-w-lg w-full border border-outline-variant max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between mb-6 flex-none">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-full bg-primary-container flex items-center justify-center">
               <span className="text-2xl">👤</span>
@@ -75,7 +71,7 @@ export default function UserTargetsExportDialog({
           </button>
         </div>
 
-        <div className="space-y-5">
+        <div className="space-y-5 flex-1 min-h-0 overflow-y-auto pr-1">
           {selectedUsers.length > 0 ? (
             <div>
               <label className="block text-sm font-semibold text-on-surface mb-2">
@@ -140,7 +136,7 @@ export default function UserTargetsExportDialog({
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-outline-variant">
+        <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-outline-variant flex-none">
           <button
             onClick={handleClose}
             disabled={isExporting}

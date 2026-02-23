@@ -1,5 +1,7 @@
 "use client";
 
+import { formatDate } from "@/lib/date-time";
+
 interface User {
   id: string;
   username: string;
@@ -158,7 +160,7 @@ export default function UsersTable({
                   </div>
                   <div className="min-w-0 text-sm text-on-surface-variant">
                     {user.lastTargetDate
-                      ? new Date(user.lastTargetDate).toLocaleDateString("tr-TR")
+                      ? formatDate(user.lastTargetDate)
                       : "-"}
                   </div>
                   {!isSelectable && (

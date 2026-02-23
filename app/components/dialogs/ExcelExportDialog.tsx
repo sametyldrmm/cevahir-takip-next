@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { apiClient } from "@/lib/api-client";
+import { dateKeyLocal } from "@/lib/date-time";
 
 interface ExcelExportDialogProps {
   isOpen: boolean;
@@ -14,17 +15,12 @@ export default function ExcelExportDialog({
   onClose,
   onExportCompleted,
 }: ExcelExportDialogProps) {
+  const todayKey = dateKeyLocal(new Date());
   const [exportType, setExportType] = useState<"daily" | "weekly">("daily");
   const [dateRange, setDateRange] = useState<"single" | "range">("single");
-  const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
-  const [startDate, setStartDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
-  const [endDate, setEndDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  const [selectedDate, setSelectedDate] = useState(todayKey);
+  const [startDate, setStartDate] = useState(todayKey);
+  const [endDate, setEndDate] = useState(todayKey);
   const [selectedWeek, setSelectedWeek] = useState<string>("current");
   const [filename, setFilename] = useState("");
   const [isExporting, setIsExporting] = useState(false);
@@ -80,8 +76,8 @@ export default function ExcelExportDialog({
     weekEnd.setDate(weekStart.getDate() + 4); // Cuma
 
     return {
-      start: weekStart.toISOString().split("T")[0],
-      end: weekEnd.toISOString().split("T")[0],
+      start: dateKeyLocal(weekStart),
+      end: dateKeyLocal(weekEnd),
     };
   };
 
@@ -150,9 +146,10 @@ export default function ExcelExportDialog({
   const handleClose = () => {
     setExportType("daily");
     setDateRange("single");
-    setSelectedDate(new Date().toISOString().split("T")[0]);
-    setStartDate(new Date().toISOString().split("T")[0]);
-    setEndDate(new Date().toISOString().split("T")[0]);
+    const nextTodayKey = dateKeyLocal(new Date());
+    setSelectedDate(nextTodayKey);
+    setStartDate(nextTodayKey);
+    setEndDate(nextTodayKey);
     setSelectedWeek("current");
     setFilename("");
     setIsExporting(false);
@@ -161,8 +158,8 @@ export default function ExcelExportDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto p-4">
-      <div className="bg-surface-container rounded-xl p-6 shadow-2xl max-w-lg w-full border border-outline-variant">
-        <div className="flex items-center justify-between mb-6">
+      <div className="bg-surface-container rounded-xl p-6 shadow-2xl max-w-lg w-full border border-outline-variant max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between mb-6 flex-none">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-full bg-primary-container flex items-center justify-center">
               <span className="text-2xl">📊</span>
@@ -177,7 +174,7 @@ export default function ExcelExportDialog({
           </button>
         </div>
 
-        <div className="space-y-5">
+        <div className="space-y-5 flex-1 min-h-0 overflow-y-auto pr-1">
           {/* Export Türü */}
           <div>
             <label className="block text-sm font-semibold text-on-surface mb-3">
@@ -335,7 +332,7 @@ export default function ExcelExportDialog({
           )}
         </div>
 
-        <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-outline-variant">
+        <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-outline-variant flex-none">
           <button
             onClick={handleClose}
             disabled={isExporting}

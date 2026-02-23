@@ -61,9 +61,9 @@ export default function TimePickerDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-surface-container rounded-xl shadow-2xl w-full max-w-md border border-outline-variant">
+      <div className="bg-surface-container rounded-xl shadow-2xl w-full max-w-md border border-outline-variant max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-outline-variant">
+        <div className="flex items-center justify-between p-5 border-b border-outline-variant flex-none">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-primary-container rounded-full flex items-center justify-center">
               <span className="text-primary text-xl">🕐</span>
@@ -82,7 +82,7 @@ export default function TimePickerDialog({
         </div>
 
         {/* Saat seçimi */}
-        <div className="p-5">
+        <div className="p-5 flex-1 min-h-0 overflow-y-auto">
           <label className="block text-sm font-medium text-on-surface mb-2">
             Saat:
           </label>
@@ -102,7 +102,7 @@ export default function TimePickerDialog({
         </div>
 
         {/* Footer buttons */}
-        <div className="flex justify-end gap-3 p-5 border-t border-outline-variant">
+        <div className="flex justify-end gap-3 p-5 border-t border-outline-variant flex-none">
           <button
             onClick={onClose}
             className="px-5 py-2.5 text-on-surface-variant hover:text-(--on-surface) hover:bg-(--surface-container-high) rounded-lg transition-all font-medium"

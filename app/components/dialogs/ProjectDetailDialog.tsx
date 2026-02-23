@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { targetsApi, Target } from "@/lib/api/targets";
 import { useAuth } from "@/app/contexts/AuthContext";
 import EditTargetDialog from "./EditTargetDialog";
+import { formatDate, formatDateTime } from "@/lib/date-time";
 
 interface Project {
   id: string;
@@ -80,21 +81,16 @@ export default function ProjectDetailDialog({
     visualization: "🎨 Görselleştirme Projeleri",
   };
 
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return "-";
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString("tr-TR", {
+  const formatProjectDateTime = (dateString?: string) =>
+    formatDateTime(dateString, {
+      formatOptions: {
         day: "2-digit",
         month: "long",
         year: "numeric",
         hour: "2-digit",
         minute: "2-digit",
-      });
-    } catch {
-      return dateString;
-    }
-  };
+      },
+    });
 
   const normalizedTeamMemberQuery = teamMemberQuery.trim().toLowerCase();
   const filteredTeamMembers =
@@ -110,10 +106,10 @@ export default function ProjectDetailDialog({
       onClick={onClose}
     >
       <div
-        className="bg-surface-container rounded-xl p-6 shadow-2xl max-w-3xl w-full border border-outline-variant max-h-[90vh] overflow-y-auto"
+        className="bg-surface-container rounded-xl p-6 shadow-2xl max-w-3xl w-full border border-outline-variant max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-6 flex-none">
           <h3 className="text-2xl font-bold text-on-surface">Proje Detayları</h3>
           <button
             onClick={onClose}
@@ -123,7 +119,7 @@ export default function ProjectDetailDialog({
           </button>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-6 flex-1 min-h-0 overflow-y-auto pr-1">
           {/* Temel Bilgiler */}
           <div className="bg-surface-container-high rounded-lg p-4 border border-outline-variant">
             <h4 className="text-lg font-semibold text-on-surface mb-4">Temel Bilgiler</h4>
@@ -298,7 +294,7 @@ export default function ProjectDetailDialog({
                             )}
                           </div>
                           <p className="text-xs text-on-surface-variant">
-                            {new Date(target.date).toLocaleDateString("tr-TR")}
+                            {formatDate(target.date)}
                           </p>
                         </div>
                         {target.goalStatus && (
@@ -338,19 +334,19 @@ export default function ProjectDetailDialog({
                 <label className="text-xs font-semibold text-on-surface-variant block mb-1">
                   Oluşturulma Tarihi
                 </label>
-                <p className="text-sm text-on-surface">{formatDate(project.createdAt)}</p>
+                <p className="text-sm text-on-surface">{formatProjectDateTime(project.createdAt)}</p>
               </div>
               <div>
                 <label className="text-xs font-semibold text-on-surface-variant block mb-1">
                   Son Güncelleme
                 </label>
-                <p className="text-sm text-on-surface">{formatDate(project.updatedAt)}</p>
+                <p className="text-sm text-on-surface">{formatProjectDateTime(project.updatedAt)}</p>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="flex justify-end mt-6 pt-6 border-t border-outline-variant">
+        <div className="flex justify-end mt-6 pt-6 border-t border-outline-variant flex-none">
           <button
             onClick={onClose}
             className="px-5 py-2.5 bg-primary text-on-primary rounded-lg hover:opacity-90 transition-opacity font-medium"

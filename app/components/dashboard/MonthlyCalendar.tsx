@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Target, CalendarDay } from '@/lib/api/targets';
+import { useAuth } from '@/app/contexts/AuthContext';
 
 interface MonthlyCalendarProps {
   currentDate: Date;
@@ -44,6 +45,8 @@ export default function MonthlyCalendar({
   leaves = {},
   onEditTarget,
 }: MonthlyCalendarProps) {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
   const [viewDate, setViewDate] = useState(currentDate);
   const [dayEntriesDialog, setDayEntriesDialog] = useState<{
     isOpen: boolean;
@@ -76,6 +79,30 @@ export default function MonthlyCalendar({
     if (!Number.isNaN(parsed.getTime())) return getLocalDateKey(parsed);
 
     return null;
+  };
+
+  const todayKey = getLocalDateKey(new Date());
+  const yesterdayKey = (() => {
+    const date = new Date();
+    date.setDate(date.getDate() - 1);
+    return getLocalDateKey(date);
+  })();
+
+  const canEditTargetStatus = (target: Target) => {
+    if (isAdmin) return true;
+    if (!user?.id) return false;
+    if (target.userId !== user.id) return false;
+
+    const targetDateKey = normalizeDateKey(target.date);
+    if (!targetDateKey) return false;
+
+    const statusNotSet = !target.goalStatus || target.goalStatus === 'NOT_SET';
+    if (!statusNotSet) return false;
+
+    if (targetDateKey === todayKey) return true;
+    if (targetDateKey === yesterdayKey) return true;
+
+    return false;
   };
 
   const monthNames = [
@@ -734,7 +761,7 @@ export default function MonthlyCalendar({
                         </div>
                       )}
 
-                      {onEditTarget && (
+                      {onEditTarget && canEditTargetStatus(target) && (
                         <div className='mt-3 pt-3 border-t border-outline-variant'>
                           <button
                             onClick={(e) => {
@@ -744,7 +771,7 @@ export default function MonthlyCalendar({
                             }}
                             className='w-full px-3 py-2 bg-primary text-on-primary rounded-lg hover:opacity-90 transition-opacity text-sm font-medium'
                           >
-                            Düzenle
+                            {isAdmin ? 'Düzenle' : 'Durumu Güncelle'}
                           </button>
                         </div>
                       )}

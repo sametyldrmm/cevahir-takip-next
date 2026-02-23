@@ -5,6 +5,7 @@ import { isAxiosError } from "axios";
 import { permissionRequestsApi, PermissionRequest, CreatePermissionRequestDto, PermissionRequestType, PermissionRequestStatus } from "@/lib/api/permission-requests";
 import { useAuth } from "@/app/contexts/AuthContext";
 import { useNotification } from "@/app/contexts/NotificationContext";
+import { formatDate, formatDateTime } from "@/lib/date-time";
 
 export default function PermissionRequestsView() {
   const { user } = useAuth();
@@ -198,8 +199,7 @@ export default function PermissionRequestsView() {
                   {request.startDate && request.endDate && (
                     <p className="text-sm text-on-surface-variant">
                       <span className="font-medium">Tarih:</span>{" "}
-                      {new Date(request.startDate).toLocaleDateString("tr-TR")} -{" "}
-                      {new Date(request.endDate).toLocaleDateString("tr-TR")}
+                      {formatDate(request.startDate)} - {formatDate(request.endDate)}
                     </p>
                   )}
                   {request.rejectionReason && (
@@ -233,7 +233,7 @@ export default function PermissionRequestsView() {
                 </div>
               </div>
               <div className="text-xs text-on-surface-variant">
-                Oluşturulma: {new Date(request.createdAt).toLocaleString("tr-TR")}
+                Oluşturulma: {formatDateTime(request.createdAt)}
                 {request.reviewedBy && (
                   <> | İnceleyen: {request.reviewedBy.displayName || request.reviewedBy.username}</>
                 )}

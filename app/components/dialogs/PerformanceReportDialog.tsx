@@ -86,10 +86,10 @@ export default function PerformanceReportDialog({
       onClick={handleClose}
     >
       <div
-        className="bg-surface-container rounded-xl p-5 shadow-2xl max-w-md w-full border border-outline-variant max-h-[85vh] overflow-y-auto"
+        className="bg-surface-container rounded-xl p-5 shadow-2xl max-w-md w-full border border-outline-variant max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center justify-between mb-5 flex-none">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-success-container flex items-center justify-center">
               <span className="text-2xl">📈</span>
@@ -104,7 +104,7 @@ export default function PerformanceReportDialog({
           </button>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-4 flex-1 min-h-0 overflow-y-auto pr-1">
           <div>
             <label className="block text-sm font-semibold text-on-surface mb-3">
               Rapor Tipi
@@ -238,7 +238,7 @@ export default function PerformanceReportDialog({
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 mt-5 pt-5 border-t border-outline-variant">
+        <div className="flex justify-end gap-3 mt-5 pt-5 border-t border-outline-variant flex-none">
           <button
             onClick={handleClose}
             disabled={isExporting}

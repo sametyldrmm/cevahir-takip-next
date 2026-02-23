@@ -147,10 +147,10 @@ export default function EditProjectDialog({
       onClick={handleClose}
     >
       <div
-        className="bg-surface-container rounded-xl p-6 shadow-2xl max-w-2xl w-full border border-outline-variant max-h-[90vh] overflow-y-auto"
+        className="bg-surface-container rounded-xl p-6 shadow-2xl max-w-2xl w-full border border-outline-variant max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-6 flex-none">
           <h3 className="text-xl font-bold text-on-surface">Proje Düzenle</h3>
           <button
             onClick={handleClose}
@@ -160,7 +160,7 @@ export default function EditProjectDialog({
           </button>
         </div>
 
-        <div className="space-y-5">
+        <div className="space-y-5 flex-1 min-h-0 overflow-y-auto pr-1">
           {/* Project ID (read-only) */}
           <div>
             <label className="block text-xs font-semibold text-on-surface-variant mb-2">
@@ -340,7 +340,7 @@ export default function EditProjectDialog({
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-outline-variant">
+        <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-outline-variant flex-none">
           <button
             onClick={handleClose}
             className="px-5 py-2.5 text-on-surface-variant hover:text-(--on-surface) hover:bg-(--surface-container-high) rounded-lg transition-all font-medium"

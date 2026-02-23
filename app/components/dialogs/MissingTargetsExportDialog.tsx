@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { reportsApi } from "@/lib/api/reports";
 import { useNotification } from "@/app/contexts/NotificationContext";
+import { dateKeyLocal } from "@/lib/date-time";
 
 interface MissingTargetsExportDialogProps {
   isOpen: boolean;
@@ -16,19 +17,14 @@ export default function MissingTargetsExportDialog({
   onExportCompleted,
 }: MissingTargetsExportDialogProps) {
   const { showError, showSuccess } = useNotification();
+  const todayKey = dateKeyLocal(new Date());
   const [periodType, setPeriodType] = useState<"daily" | "weekly" | "monthly" | "yearly">("daily");
   const [dateRange, setDateRange] = useState<"single" | "range">("single");
-  const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  const [selectedDate, setSelectedDate] = useState(todayKey);
   const [startDate, setStartDate] = useState(
-    new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-      .toISOString()
-      .split("T")[0]
+    dateKeyLocal(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
   );
-  const [endDate, setEndDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  const [endDate, setEndDate] = useState(todayKey);
   const [isExporting, setIsExporting] = useState(false);
 
   if (!isOpen) return null;
@@ -76,14 +72,12 @@ export default function MissingTargetsExportDialog({
   const handleClose = () => {
     setPeriodType("daily");
     setDateRange("single");
-    setSelectedDate(new Date().toISOString().split("T")[0]);
+    setSelectedDate(dateKeyLocal(new Date()));
     const today = new Date();
     setStartDate(
-      new Date(today.getFullYear(), today.getMonth(), 1)
-        .toISOString()
-        .split("T")[0]
+      dateKeyLocal(new Date(today.getFullYear(), today.getMonth(), 1))
     );
-    setEndDate(today.toISOString().split("T")[0]);
+    setEndDate(dateKeyLocal(today));
     setIsExporting(false);
     onClose();
   };
@@ -94,10 +88,10 @@ export default function MissingTargetsExportDialog({
       onClick={handleClose}
     >
       <div
-        className="bg-surface-container rounded-xl p-5 shadow-2xl max-w-md w-full border border-outline-variant max-h-[85vh] overflow-y-auto"
+        className="bg-surface-container rounded-xl p-5 shadow-2xl max-w-md w-full border border-outline-variant max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center justify-between mb-5 flex-none">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-warning/20 flex items-center justify-center">
               <span className="text-2xl">⚠️</span>
@@ -112,7 +106,7 @@ export default function MissingTargetsExportDialog({
           </button>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-4 flex-1 min-h-0 overflow-y-auto pr-1">
           <div>
             <label className="block text-sm font-semibold text-on-surface mb-3">
               Rapor Tipi
@@ -274,7 +268,7 @@ export default function MissingTargetsExportDialog({
 
         </div>
 
-        <div className="flex justify-end gap-3 mt-5 pt-5 border-t border-outline-variant">
+        <div className="flex justify-end gap-3 mt-5 pt-5 border-t border-outline-variant flex-none">
           <button
             onClick={handleClose}
             disabled={isExporting}

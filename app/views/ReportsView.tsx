@@ -16,6 +16,7 @@ import { useAuth } from '@/app/contexts/AuthContext';
 import MissingTargetsExportDialog from '@/app/components/dialogs/MissingTargetsExportDialog';
 import PerformanceReportDialog from '@/app/components/dialogs/PerformanceReportDialog';
 import { mailsApi } from '@/lib/api/mails';
+import { dateKeyLocal, formatDateTime } from '@/lib/date-time';
 
 interface MailGroup {
   id: string;
@@ -99,8 +100,8 @@ export default function ReportsView() {
     weekEnd.setDate(weekStart.getDate() + endOffsetDays);
 
     return {
-      start: weekStart.toISOString().split('T')[0],
-      end: weekEnd.toISOString().split('T')[0],
+      start: dateKeyLocal(weekStart),
+      end: dateKeyLocal(weekEnd),
     };
   };
 
@@ -591,7 +592,7 @@ export default function ReportsView() {
                   </div>
                   <p className='text-sm text-on-surface-variant mb-2'>
                     Oluşturulma:{' '}
-                    {new Date(report.createdAt).toLocaleString('tr-TR')}
+                    {formatDateTime(report.createdAt)}
                   </p>
                   {report.status === 'READY' && report.fileName && (
                     <p className='text-sm text-on-surface-variant'>
@@ -651,7 +652,7 @@ export default function ReportsView() {
                 </h3>
                 <p className='text-xs text-on-surface-variant mt-1'>
                   {getReportTypeLabel(sendMailReport.type)} •{' '}
-                  {new Date(sendMailReport.createdAt).toLocaleString('tr-TR')}
+                  {formatDateTime(sendMailReport.createdAt)}
                 </p>
               </div>
               <button

@@ -15,12 +15,27 @@ import { useAuth } from '@/app/contexts/AuthContext';
 import { useDialog } from '@/app/components/dialogs';
 import { Dialog } from '@/app/components/dialogs';
 import EditTargetDialog from '@/app/components/dialogs/EditTargetDialog';
+import { formatDateTime } from '@/lib/date-time';
 
 const GOAL_STATUS_MAP: Record<string, GoalStatus> = {
   Belirlenmedi: 'NOT_SET',
   'Hedefime ulaştım': 'REACHED',
   'Hedefime kısmen ulaştım': 'PARTIAL',
   'Hedefime ulaşamadım': 'FAILED',
+};
+
+const GOAL_STATUS_LABELS: Record<GoalStatus, string> = {
+  NOT_SET: 'Belirlenmedi',
+  REACHED: 'Tamamlandı',
+  PARTIAL: 'Kısmen',
+  FAILED: 'Başarısız',
+};
+
+const GOAL_STATUS_BADGE_CLASSES: Record<GoalStatus, string> = {
+  REACHED: 'bg-(--success)/20 text-success',
+  PARTIAL: 'bg-(--warning)/20 text-warning',
+  FAILED: 'bg-(--error)/20 text-error',
+  NOT_SET: 'bg-surface-container-high text-on-surface-variant',
 };
 
 type ProjectTargetDraft = {
@@ -137,6 +152,12 @@ export default function TargetFormView() {
   const [draftsByProjectId, setDraftsByProjectId] = useState<
     Record<string, ProjectTargetDraft>
   >({});
+
+  const [myTargets, setMyTargets] = useState<Target[]>([]);
+  const [isMyTargetsLoading, setIsMyTargetsLoading] = useState(false);
+  const [isDeletingTargetId, setIsDeletingTargetId] = useState<string | null>(
+    null,
+  );
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -302,6 +323,108 @@ export default function TargetFormView() {
     loadProjects();
   }, [isAdmin, showError]);
 
+  const normalizeDateKey = useCallback((value: string | undefined) => {
+    const trimmed = value?.trim();
+    if (!trimmed) return null;
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return trimmed;
+    }
+
+    const candidate = trimmed.split('T')[0]?.split(' ')[0];
+    if (candidate && /^\d{4}-\d{2}-\d{2}$/.test(candidate)) {
+      const parsed = new Date(trimmed);
+      if (!Number.isNaN(parsed.getTime())) return getLocalDateKey(parsed);
+      return candidate;
+    }
+
+    const parsed = new Date(trimmed);
+    if (!Number.isNaN(parsed.getTime())) return getLocalDateKey(parsed);
+
+    return null;
+  }, []);
+
+  const todayKey = getLocalDateKey(new Date());
+  const yesterdayKey = (() => {
+    const date = new Date();
+    date.setDate(date.getDate() - 1);
+    return getLocalDateKey(date);
+  })();
+
+  const canEditTargetStatus = (target: Target) => {
+    if (isAdmin) return true;
+    if (!user?.id) return false;
+    if (target.userId !== user.id) return false;
+
+    const targetDateKey = normalizeDateKey(target.date);
+    if (!targetDateKey) return false;
+
+    
+    const statusNotSet = !target.goalStatus || target.goalStatus === 'NOT_SET';
+    if (targetDateKey === todayKey && statusNotSet) return true;
+    if (targetDateKey === yesterdayKey && statusNotSet) return true;
+
+    return false;
+  };
+
+  const loadMyTargets = useCallback(async () => {
+    try {
+      setIsMyTargetsLoading(true);
+      const data = await targetsApi.getMyTargets();
+      data.sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
+      setMyTargets(data);
+    } catch (error) {
+      showError('Hedefler yüklenirken bir hata oluştu');
+      console.error('My targets load error:', error);
+    } finally {
+      setIsMyTargetsLoading(false);
+    }
+  }, [showError]);
+
+  const confirmDeleteTarget = useCallback(
+    (target: Target) => {
+      if (!isAdmin) return;
+      dialog.showConfirm(
+        'Hedefi Sil',
+        'Bu hedefi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.',
+        () => {
+          void (async () => {
+            try {
+              setIsDeletingTargetId(target.id);
+              await targetsApi.deleteTarget(target.id);
+              showSuccess('Hedef başarıyla silindi');
+              if (editingTarget?.id === target.id) {
+                setShowEditDialog(false);
+                setEditingTarget(null);
+              }
+              await loadMyTargets();
+            } catch (error) {
+              showError('Hedef silinirken bir hata oluştu');
+              console.error('Target delete error:', error);
+            } finally {
+              setIsDeletingTargetId(null);
+            }
+          })();
+        },
+      );
+    },
+    [
+      dialog,
+      editingTarget?.id,
+      isAdmin,
+      loadMyTargets,
+      showError,
+      showSuccess,
+    ],
+  );
+
+  useEffect(() => {
+    void loadMyTargets();
+  }, [loadMyTargets]);
+
   useEffect(() => {
     if (isAdmin) {
       setAllowedTimeWindows(null);
@@ -396,6 +519,7 @@ export default function TargetFormView() {
         ...prev,
         [project.id]: createEmptyDraft(draft.date),
       }));
+      void loadMyTargets();
     } catch (error: any) {
       const status: number | undefined = error.response?.status;
       const rawMessage = error.response?.data?.message;
@@ -475,6 +599,27 @@ export default function TargetFormView() {
   const selectedProjects = selectedProjectIds
     .map((projectId) => projects.find((project) => project.id === projectId))
     .filter((project): project is Project => !!project);
+
+  const getTargetProjectsLabel = (target: Target) => {
+    const names: string[] = [];
+
+    if (target.projectId) {
+      const project = projects.find((p) => p.id === target.projectId);
+      if (project?.name) names.push(project.name);
+    }
+
+    if (target.selectedProjects && target.selectedProjects.length > 0) {
+      for (const projectId of target.selectedProjects) {
+        const project = projects.find((p) => p.id === projectId);
+        if (project?.name) names.push(project.name);
+      }
+    }
+
+    if (target.customProject?.trim()) names.push(target.customProject.trim());
+
+    const unique = Array.from(new Set(names));
+    return unique.length > 0 ? unique.join(', ') : '—';
+  };
 
   if (!isAdmin && !isWithinAllowedTimeWindow && allowedTimeWindowsText) {
     return (
@@ -957,6 +1102,116 @@ export default function TargetFormView() {
         )}
       </div>
 
+      <div className='mt-8 bg-surface-container rounded-xl p-4'>
+        <div className='flex items-center justify-between gap-3 mb-4'>
+          <h3 className='text-lg font-bold text-on-surface'>Hedeflerim</h3>
+          <button
+            type='button'
+            onClick={() => void loadMyTargets()}
+            disabled={isMyTargetsLoading}
+            className='px-4 py-2 rounded-lg border border-outline bg-surface text-on-surface font-medium hover:bg-surface-container-high transition-colors disabled:opacity-50'
+          >
+            Yenile
+          </button>
+        </div>
+
+        {isMyTargetsLoading ? (
+          <div className='bg-surface p-4 rounded-lg text-on-surface-variant'>
+            Hedefler yükleniyor...
+          </div>
+        ) : myTargets.length === 0 ? (
+          <div className='bg-surface p-4 rounded-lg text-on-surface-variant'>
+            Henüz hedef bulunmuyor.
+          </div>
+        ) : (
+          <div className='overflow-x-auto rounded-lg border border-outline bg-surface'>
+            <table className='min-w-full text-sm'>
+              <thead className='bg-surface-container-high text-on-surface'>
+                <tr>
+                  <th className='text-left font-semibold px-4 py-3 whitespace-nowrap'>
+                    Tarih
+                  </th>
+                  <th className='text-left font-semibold px-4 py-3'>Proje</th>
+                  <th className='text-left font-semibold px-4 py-3'>
+                    İş İçeriği
+                  </th>
+                  <th className='text-left font-semibold px-4 py-3 whitespace-nowrap'>
+                    Durum
+                  </th>
+                  <th className='text-left font-semibold px-4 py-3 whitespace-nowrap'>
+                    Oluşturma
+                  </th>
+                  <th className='text-right font-semibold px-4 py-3 whitespace-nowrap'>
+                    İşlemler
+                  </th>
+                </tr>
+              </thead>
+              <tbody className='divide-y divide-outline-variant'>
+                {myTargets.map((target) => {
+                  const dateKey = normalizeDateKey(target.date) ?? target.date;
+                  const statusLabel =
+                    GOAL_STATUS_LABELS[target.goalStatus ?? 'NOT_SET'];
+                  const createdAt = formatDateTime(target.createdAt);
+
+                  const canEdit = canEditTargetStatus(target);
+                  const isDeleting = isDeletingTargetId === target.id;
+
+                  return (
+                    <tr key={target.id} className='hover:bg-surface-container-high'>
+                      <td className='px-4 py-3 text-on-surface whitespace-nowrap'>
+                        {dateKey}
+                      </td>
+                      <td className='px-4 py-3 text-on-surface-variant'>
+                        {getTargetProjectsLabel(target)}
+                      </td>
+                      <td className='px-4 py-3 text-on-surface'>
+                        {target.taskContent?.trim() ? target.taskContent : '—'}
+                      </td>
+                      <td className='px-4 py-3 text-on-surface whitespace-nowrap'>
+                        <span
+                          className={`inline-flex items-center px-3 py-1 rounded text-xs font-medium ${GOAL_STATUS_BADGE_CLASSES[target.goalStatus ?? 'NOT_SET']}`}
+                        >
+                          {statusLabel}
+                        </span>
+                      </td>
+                      <td className='px-4 py-3 text-on-surface-variant whitespace-nowrap'>
+                        {createdAt}
+                      </td>
+                      <td className='px-4 py-3 whitespace-nowrap'>
+                        <div className='flex items-center justify-end gap-2'>
+                          {canEdit && (
+                            <button
+                              type='button'
+                              onClick={() => {
+                                setEditingTarget(target);
+                                setShowEditDialog(true);
+                              }}
+                              className='px-3 py-1.5 rounded-lg bg-primary text-on-primary text-sm font-medium hover:opacity-90 transition-opacity'
+                            >
+                              {isAdmin ? 'Düzenle' : 'Durumu Güncelle'}
+                            </button>
+                          )}
+                          {isAdmin && (
+                            <button
+                              type='button'
+                              onClick={() => confirmDeleteTarget(target)}
+                              disabled={isDeleting}
+                              className='px-3 py-1.5 rounded-lg bg-error text-on-error text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50'
+                            >
+                              {isDeleting ? 'Siliniyor...' : 'Sil'}
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       <Dialog dialog={dialog.dialog} onClose={dialog.close} />
       {editingTarget && (
         <EditTargetDialog
@@ -966,8 +1221,9 @@ export default function TargetFormView() {
             setShowEditDialog(false);
             setEditingTarget(null);
           }}
-          onTargetUpdated={(updatedTarget) => {
+          onTargetUpdated={() => {
             showSuccess('Hedef başarıyla güncellendi');
+            void loadMyTargets();
             setShowEditDialog(false);
             setEditingTarget(null);
           }}

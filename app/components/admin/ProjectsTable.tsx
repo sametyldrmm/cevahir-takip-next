@@ -1,5 +1,7 @@
 "use client";
 
+import { formatDate } from "@/lib/date-time";
+
 interface Project {
   id: string;
   name: string;
@@ -120,9 +122,8 @@ export default function ProjectsTable({
                   </div>
                   <div className="min-w-0 text-sm text-on-surface-variant">
                     {project.updatedAt
-                      ? new Date(project.updatedAt).toLocaleDateString("tr-TR", {
-                          day: "2-digit",
-                          month: "2-digit",
+                      ? formatDate(project.updatedAt, {
+                          formatOptions: { day: "2-digit", month: "2-digit" },
                         })
                       : "-"}
                   </div>

@@ -102,8 +102,8 @@ export default function PasswordChangeDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-surface-container rounded-xl p-6 shadow-2xl max-w-md w-full border border-outline-variant">
-        <div className="flex items-center justify-between mb-6">
+      <div className="bg-surface-container rounded-xl p-6 shadow-2xl max-w-md w-full border border-outline-variant max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between mb-6 flex-none">
           <h3 className="text-xl font-bold text-on-surface">
             Şifre Değiştir
           </h3>
@@ -115,7 +115,7 @@ export default function PasswordChangeDialog({
           </button>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-4 flex-1 min-h-0 overflow-y-auto pr-1">
           {submitError && (
             <div className="px-4 py-3 rounded-lg border border-error bg-error/10 text-error text-sm">
               {submitError}
@@ -230,7 +230,7 @@ export default function PasswordChangeDialog({
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-outline-variant">
+        <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-outline-variant flex-none">
           <button
             onClick={handleClose}
             disabled={isSubmitting}

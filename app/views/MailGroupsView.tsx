@@ -6,6 +6,7 @@ import { apiClient } from '@/lib/api-client';
 import { usersApi, User as ApiUser } from '@/lib/api/users';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { useNotification } from '@/app/contexts/NotificationContext';
+import { formatDateTime } from '@/lib/date-time';
 
 interface MailGroup {
   id: string;
@@ -22,12 +23,6 @@ function normalizeEmail(value: string): string {
 function isValidEmail(value: string): boolean {
   const email = normalizeEmail(value);
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-function formatDateTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleString('tr-TR');
 }
 
 function getApiErrorMessage(error: unknown): string | undefined {

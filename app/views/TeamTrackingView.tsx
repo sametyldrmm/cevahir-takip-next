@@ -561,8 +561,8 @@ export default function TeamTrackingView() {
                       <div key={groupKey} className='space-y-4'>
                         {targetEntries.map((entry) => {
                           const handleEditClick = () => {
-                            if (!isAdmin) return;
                             if (!entry.targetId) return;
+                            if (!(isAdmin || targetUser?.id === user?.id)) return;
 
                             const targetToEdit: any = {
                               id: entry.targetId,
@@ -585,7 +585,9 @@ export default function TeamTrackingView() {
                             setShowEditDialog(true);
                           };
 
-                          const canEdit = isAdmin && Boolean(entry.targetId);
+                          const canEdit =
+                            Boolean(entry.targetId) &&
+                            (isAdmin || targetUser?.id === user?.id);
 
                           return (
                             <div
@@ -687,7 +689,7 @@ export default function TeamTrackingView() {
         </div>
       )}
 
-      {isAdmin && editingTarget && (
+      {editingTarget && (isAdmin || editingTarget.userId === user?.id) && (
         <EditTargetDialog
           isOpen={showEditDialog}
           target={editingTarget}

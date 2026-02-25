@@ -81,28 +81,10 @@ export default function MonthlyCalendar({
     return null;
   };
 
-  const todayKey = getLocalDateKey(new Date());
-  const yesterdayKey = (() => {
-    const date = new Date();
-    date.setDate(date.getDate() - 1);
-    return getLocalDateKey(date);
-  })();
-
-  const canEditTargetStatus = (target: Target) => {
+  const canEditTarget = (target: Target) => {
     if (isAdmin) return true;
     if (!user?.id) return false;
-    if (target.userId !== user.id) return false;
-
-    const targetDateKey = normalizeDateKey(target.date);
-    if (!targetDateKey) return false;
-
-    const statusNotSet = !target.goalStatus || target.goalStatus === 'NOT_SET';
-    if (!statusNotSet) return false;
-
-    if (targetDateKey === todayKey) return true;
-    if (targetDateKey === yesterdayKey) return true;
-
-    return false;
+    return target.userId === user.id;
   };
 
   const monthNames = [
@@ -761,7 +743,7 @@ export default function MonthlyCalendar({
                         </div>
                       )}
 
-                      {onEditTarget && canEditTargetStatus(target) && (
+                      {onEditTarget && canEditTarget(target) && (
                         <div className='mt-3 pt-3 border-t border-outline-variant'>
                           <button
                             onClick={(e) => {
@@ -771,7 +753,7 @@ export default function MonthlyCalendar({
                             }}
                             className='w-full px-3 py-2 bg-primary text-on-primary rounded-lg hover:opacity-90 transition-opacity text-sm font-medium'
                           >
-                            {isAdmin ? 'Düzenle' : 'Durumu Güncelle'}
+                            Düzenle
                           </button>
                         </div>
                       )}

@@ -344,27 +344,10 @@ export default function TargetFormView() {
     return null;
   }, []);
 
-  const todayKey = getLocalDateKey(new Date());
-  const yesterdayKey = (() => {
-    const date = new Date();
-    date.setDate(date.getDate() - 1);
-    return getLocalDateKey(date);
-  })();
-
-  const canEditTargetStatus = (target: Target) => {
+  const canEditTarget = (target: Target) => {
     if (isAdmin) return true;
     if (!user?.id) return false;
-    if (target.userId !== user.id) return false;
-
-    const targetDateKey = normalizeDateKey(target.date);
-    if (!targetDateKey) return false;
-
-    
-    const statusNotSet = !target.goalStatus || target.goalStatus === 'NOT_SET';
-    if (targetDateKey === todayKey && statusNotSet) return true;
-    if (targetDateKey === yesterdayKey && statusNotSet) return true;
-
-    return false;
+    return target.userId === user.id;
   };
 
   const loadMyTargets = useCallback(async () => {
@@ -1153,7 +1136,7 @@ export default function TargetFormView() {
                     GOAL_STATUS_LABELS[target.goalStatus ?? 'NOT_SET'];
                   const createdAt = formatDateTime(target.createdAt);
 
-                  const canEdit = canEditTargetStatus(target);
+                  const canEdit = canEditTarget(target);
                   const isDeleting = isDeletingTargetId === target.id;
 
                   return (
@@ -1188,7 +1171,7 @@ export default function TargetFormView() {
                               }}
                               className='px-3 py-1.5 rounded-lg bg-primary text-on-primary text-sm font-medium hover:opacity-90 transition-opacity'
                             >
-                              {isAdmin ? 'Düzenle' : 'Durumu Güncelle'}
+                              Düzenle
                             </button>
                           )}
                           {isAdmin && (

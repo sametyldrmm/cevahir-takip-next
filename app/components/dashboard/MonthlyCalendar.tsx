@@ -81,10 +81,22 @@ export default function MonthlyCalendar({
     return null;
   };
 
+  const todayKey = getLocalDateKey(new Date());
+  const yesterdayKey = (() => {
+    const date = new Date();
+    date.setDate(date.getDate() - 1);
+    return getLocalDateKey(date);
+  })();
+
   const canEditTarget = (target: Target) => {
     if (isAdmin) return true;
     if (!user?.id) return false;
-    return target.userId === user.id;
+    if (target.userId !== user.id) return false;
+
+    const targetDateKey = normalizeDateKey(target.date);
+    if (!targetDateKey) return false;
+
+    return targetDateKey === todayKey || targetDateKey === yesterdayKey;
   };
 
   const monthNames = [

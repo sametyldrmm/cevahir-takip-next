@@ -344,10 +344,22 @@ export default function TargetFormView() {
     return null;
   }, []);
 
+  const todayKey = getTodayIsoDate();
+  const yesterdayKey = (() => {
+    const date = new Date();
+    date.setDate(date.getDate() - 1);
+    return getLocalDateKey(date);
+  })();
+
   const canEditTarget = (target: Target) => {
     if (isAdmin) return true;
     if (!user?.id) return false;
-    return target.userId === user.id;
+    if (target.userId !== user.id) return false;
+
+    const targetDateKey = normalizeDateKey(target.date);
+    if (!targetDateKey) return false;
+
+    return targetDateKey === todayKey || targetDateKey === yesterdayKey;
   };
 
   const loadMyTargets = useCallback(async () => {
@@ -477,6 +489,11 @@ export default function TargetFormView() {
 
     if (!draft.date) {
       showError('Lütfen tarih seçin');
+      return;
+    }
+
+    if (!isAdmin && draft.date !== todayKey) {
+      showError("Sadece bugünün hedefini oluşturabilirsiniz");
       return;
     }
 
@@ -744,6 +761,8 @@ export default function TargetFormView() {
                       id={`${idPrefix}-date`}
                       type='date'
                       value={draft.date}
+                      min={isAdmin ? undefined : todayKey}
+                      max={isAdmin ? undefined : todayKey}
                       onChange={(e) => {
                         const nextDate = e.target.value;
                         clearMeetingReminder({

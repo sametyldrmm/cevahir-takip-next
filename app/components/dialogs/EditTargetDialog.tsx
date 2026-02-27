@@ -67,8 +67,45 @@ export default function EditTargetDialog({
 
   if (!isOpen || !target) return null;
 
+  const pad2 = (value: number) => String(value).padStart(2, "0");
+  const getLocalDateKey = (date: Date) =>
+    `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+
+  const normalizeDateKey = (value: string | undefined) => {
+    const trimmed = value?.trim();
+    if (!trimmed) return null;
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return trimmed;
+    }
+
+    const candidate = trimmed.split("T")[0]?.split(" ")[0];
+    if (candidate && /^\d{4}-\d{2}-\d{2}$/.test(candidate)) {
+      const parsed = new Date(trimmed);
+      if (!Number.isNaN(parsed.getTime())) return getLocalDateKey(parsed);
+      return candidate;
+    }
+
+    const parsed = new Date(trimmed);
+    if (!Number.isNaN(parsed.getTime())) return getLocalDateKey(parsed);
+
+    return null;
+  };
+
+  const todayKey = getLocalDateKey(new Date());
+  const yesterdayKey = (() => {
+    const date = new Date();
+    date.setDate(date.getDate() - 1);
+    return getLocalDateKey(date);
+  })();
+  const targetDateKey = normalizeDateKey(target.date);
+
   const isOwner = !!user?.id && target.userId === user.id;
-  const canEditTarget = isAdmin || isOwner;
+  const canEditTarget =
+    isAdmin ||
+    (isOwner &&
+      !!targetDateKey &&
+      (targetDateKey === todayKey || targetDateKey === yesterdayKey));
 
   const handleSubmit = async () => {
     if (!canEditTarget) {

@@ -31,6 +31,42 @@ export default function TeamTrackingView() {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const { showError, showSuccess } = useNotification();
 
+  const pad2 = (value: number) => String(value).padStart(2, '0');
+  const getLocalDateKey = (date: Date) =>
+    `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+  const normalizeDateKey = (value: string | undefined) => {
+    const trimmed = value?.trim();
+    if (!trimmed) return null;
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return trimmed;
+    }
+
+    const candidate = trimmed.split('T')[0]?.split(' ')[0];
+    if (candidate && /^\d{4}-\d{2}-\d{2}$/.test(candidate)) {
+      const parsed = new Date(trimmed);
+      if (!Number.isNaN(parsed.getTime())) return getLocalDateKey(parsed);
+      return candidate;
+    }
+
+    const parsed = new Date(trimmed);
+    if (!Number.isNaN(parsed.getTime())) return getLocalDateKey(parsed);
+
+    return null;
+  };
+
+  const todayKey = getLocalDateKey(new Date());
+  const yesterdayKey = (() => {
+    const date = new Date();
+    date.setDate(date.getDate() - 1);
+    return getLocalDateKey(date);
+  })();
+  const isEditableTargetDate = (value: string | undefined) => {
+    const dateKey = normalizeDateKey(value);
+    if (!dateKey) return false;
+    return dateKey === todayKey || dateKey === yesterdayKey;
+  };
+
   // Projeleri yükle
   useEffect(() => {
     const loadProjects = async () => {
@@ -515,6 +551,7 @@ export default function TeamTrackingView() {
                       (u) => u.username === target.username,
                     );
                     const effectiveTargetDate = selectedDate || target.date;
+                    const isEditableDate = isEditableTargetDate(effectiveTargetDate);
                     const targetEntries = Array.isArray(target.projectTargets) &&
                       target.projectTargets.length > 0
                       ? target.projectTargets
@@ -562,7 +599,13 @@ export default function TeamTrackingView() {
                         {targetEntries.map((entry) => {
                           const handleEditClick = () => {
                             if (!entry.targetId) return;
-                            if (!(isAdmin || targetUser?.id === user?.id)) return;
+                            if (
+                              !(
+                                isAdmin ||
+                                (targetUser?.id === user?.id && isEditableDate)
+                              )
+                            )
+                              return;
 
                             const targetToEdit: any = {
                               id: entry.targetId,
@@ -587,7 +630,7 @@ export default function TeamTrackingView() {
 
                           const canEdit =
                             Boolean(entry.targetId) &&
-                            (isAdmin || targetUser?.id === user?.id);
+                            (isAdmin || (targetUser?.id === user?.id && isEditableDate));
 
                           return (
                             <div
@@ -689,7 +732,10 @@ export default function TeamTrackingView() {
         </div>
       )}
 
-      {editingTarget && (isAdmin || editingTarget.userId === user?.id) && (
+      {editingTarget &&
+        (isAdmin ||
+          (editingTarget.userId === user?.id &&
+            isEditableTargetDate(editingTarget.date))) && (
         <EditTargetDialog
           isOpen={showEditDialog}
           target={editingTarget}

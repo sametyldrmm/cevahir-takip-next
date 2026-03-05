@@ -27,7 +27,6 @@ const autoMailReportTypeOptions: Array<{ type: AutoMailReportType; label: string
   { type: "PERFORMANCE", label: "Performans Raporları" },
   { type: "TARGETS", label: "Hedef Raporları" },
   { type: "MISSING_TARGETS", label: "Hedef Eksiklikleri" },
-  { type: "WEEKLY_AI_SUMMARY", label: "Haftalık AI Özeti" },
 ];
 
 const intervalPresetLabels: Record<AutoMailIntervalPreset, string> = {
@@ -53,7 +52,6 @@ const allowedIntervalsByReportType: Partial<
     PERFORMANCE: ["1D", "1W", "1M", "1Y"],
     TARGETS: ["1D", "1W"],
     MISSING_TARGETS: ["1D", "1W", "1M", "1Y"],
-    WEEKLY_AI_SUMMARY: ["1W"],
   };
 
 const allowedPeriodsByReportType: Partial<
@@ -62,7 +60,6 @@ const allowedPeriodsByReportType: Partial<
   PERFORMANCE: ["monthly", "yearly"],
   TARGETS: ["daily", "weekly"],
   MISSING_TARGETS: ["daily", "weekly", "monthly", "yearly"],
-  WEEKLY_AI_SUMMARY: ["weekly"],
 };
 
 const periodLabels: Record<AutoMailReportPeriod, string> = {
@@ -166,6 +163,8 @@ function MailSettingsView() {
     new Set(),
   );
 
+  const [includeAIReport, setIncludeAIReport] = useState(false);
+
   const [uiIntervalPreset, setUiIntervalPreset] =
     useState<UiIntervalPreset>("1W");
   const [autoMailIntervalPreset, setAutoMailIntervalPreset] =
@@ -199,6 +198,7 @@ function MailSettingsView() {
     scheduleId: string | null;
     reportType: AutoMailReportType;
     reportPeriod: AutoMailReportPeriod;
+    includeAIReport: boolean;
     selectedMailGroupIds: Set<string>;
     selectedUserIds: Set<string>;
     selectedProjectIds: Set<string>;
@@ -248,6 +248,7 @@ function MailSettingsView() {
     setSelectedReportPeriod(null);
     setProjectsFilterText("");
     setSelectedProjectIds(new Set());
+    setIncludeAIReport(false);
     setUiIntervalPreset("1W");
     setAutoMailIntervalPreset("1W");
     setAutoMailCustomEvery(1);
@@ -573,6 +574,16 @@ function MailSettingsView() {
     setSelectedReportPeriod(allowedPeriodsForSelectedReport[0] ?? null);
   }, [allowedPeriodsForSelectedReport, selectedReportPeriod, selectedReportType]);
 
+  const canSelectIncludeAIReport = useMemo(() => {
+    return selectedReportType === "TARGETS" && selectedReportPeriod === "weekly";
+  }, [selectedReportPeriod, selectedReportType]);
+
+  useEffect(() => {
+    if (!canSelectIncludeAIReport && includeAIReport) {
+      setIncludeAIReport(false);
+    }
+  }, [canSelectIncludeAIReport, includeAIReport]);
+
   const allowedUiIntervals = useMemo(() => {
     if (!selectedReportPeriod) {
       return intersectIntervals([...selectedReportTypes]);
@@ -619,6 +630,7 @@ function MailSettingsView() {
       setSelectedReportPeriod(null);
       setSelectedProjectIds(new Set());
       setProjectsFilterText("");
+      setIncludeAIReport(false);
       return;
     }
 
@@ -633,6 +645,7 @@ function MailSettingsView() {
     if (type !== "TARGETS") {
       setSelectedProjectIds(new Set());
       setProjectsFilterText("");
+      setIncludeAIReport(false);
     }
 
     const nextPeriod = allowedPeriodsByReportType[type]?.[0] ?? null;
@@ -752,6 +765,10 @@ function MailSettingsView() {
         typeof schedule.id === "string" && schedule.id.trim() ? schedule.id : null,
       reportType: primaryReportType,
       reportPeriod,
+      includeAIReport:
+        primaryReportType === "TARGETS" && reportPeriod === "weekly"
+          ? !!schedule.includeAIReport
+          : false,
       selectedMailGroupIds: new Set(schedule.mailGroupIds ?? []),
       selectedUserIds: nextSelectedUserIds,
       selectedProjectIds:
@@ -852,6 +869,10 @@ function MailSettingsView() {
           selectedReportTypes.has("TARGETS") && selectedProjectIds.size
             ? [...selectedProjectIds]
             : undefined,
+        includeAIReport:
+          selectedReportType === "TARGETS" && selectedReportPeriod === "weekly"
+            ? includeAIReport
+            : false,
         intervalPreset: autoMailIntervalPreset,
         customEvery: autoMailIntervalPreset === "CUSTOM" ? autoMailCustomEvery : undefined,
         customUnit: autoMailIntervalPreset === "CUSTOM" ? autoMailCustomUnit : undefined,
@@ -935,6 +956,10 @@ function MailSettingsView() {
           editDraft.reportType === "TARGETS"
             ? [...editDraft.selectedProjectIds]
             : undefined,
+        includeAIReport:
+          editDraft.reportType === "TARGETS" && editDraft.reportPeriod === "weekly"
+            ? editDraft.includeAIReport
+            : false,
         intervalPreset: editDraft.autoMailIntervalPreset,
         customEvery:
           editDraft.autoMailIntervalPreset === "CUSTOM"
@@ -944,6 +969,9 @@ function MailSettingsView() {
           editDraft.autoMailIntervalPreset === "CUSTOM"
             ? editDraft.autoMailCustomUnit
             : undefined,
+        periodByReportType: {
+          [editDraft.reportType]: editDraft.reportPeriod,
+        },
         hour: editDraft.hour,
         minute: editDraft.minute,
         dayOfWeek:
@@ -1356,70 +1384,97 @@ function MailSettingsView() {
           </div>
 
           {selectedReportTypes.has("TARGETS") && (
-            <div className="rounded-lg border border-outline-variant bg-surface p-4">
-              <div className="flex items-center justify-between gap-4">
-                <label className="block text-sm font-semibold text-on-surface">
-                  Projeler
-                </label>
-                <span className="text-xs text-on-surface-variant">
-                  {selectedProjectIds.size ? `${selectedProjectIds.size} seçili` : "Tümü"}
-                </span>
-              </div>
-
-              <div className="mt-2 text-xs text-on-surface-variant">
-                Proje seçmezseniz rapor tüm projeler için oluşturulur.
-              </div>
-
-              <div className="mt-3">
-                <input
-                  value={projectsFilterText}
-                  onChange={(e) => setProjectsFilterText(e.target.value)}
-                  disabled={isSaving || isProjectsLoading}
-                  className="w-full px-4 py-3 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary transition-all disabled:opacity-60"
-                  placeholder="Proje ara"
-                />
-              </div>
-
-              <div className="mt-3 max-h-64 overflow-y-auto rounded-lg border border-outline bg-surface">
-                {isProjectsLoading ? (
-                  <div className="p-4 text-sm text-on-surface-variant">
-                    Yükleniyor...
+            <div className="space-y-4">
+              {canSelectIncludeAIReport && (
+                <div className="rounded-lg border border-outline-variant bg-surface p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-on-surface">
+                        Include AI report
+                      </div>
+                      <div className="mt-1 text-xs text-on-surface-variant">
+                        Sadece Haftalık Hedef Raporları için seçilebilir.
+                      </div>
+                    </div>
+                    <label className="flex items-center gap-2 text-sm font-medium text-on-surface">
+                      <input
+                        type="checkbox"
+                        checked={includeAIReport}
+                        onChange={(e) => setIncludeAIReport(e.target.checked)}
+                        disabled={isSaving}
+                        className="w-4 h-4 text-primary bg-surface border-outline rounded focus:ring-2 focus:ring-primary"
+                      />
+                      Dahil Et
+                    </label>
                   </div>
-                ) : filteredProjects.length === 0 ? (
-                  <div className="p-4 text-sm text-on-surface-variant">
-                    Proje bulunamadı.
-                  </div>
-                ) : (
-                  [...filteredProjects]
-                    .sort((a, b) => a.name.localeCompare(b.name, "tr-TR"))
-                    .map((p) => {
-                      const isChecked = selectedProjectIds.has(p.id);
-                      return (
-                        <label
-                          key={p.id}
-                          className="flex items-center gap-3 p-3 border-b border-outline-variant last:border-b-0 hover:bg-(--surface-container-high) cursor-pointer"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => toggleSelectedProject(p.id)}
-                            disabled={isSaving}
-                            className="w-4 h-4 text-primary bg-surface border-outline rounded focus:ring-2 focus:ring-primary"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <div className="text-sm font-medium text-on-surface truncate">
-                              {p.name}
-                            </div>
-                            {p.code && (
-                              <div className="text-xs text-on-surface-variant truncate">
-                                {p.code}
+                </div>
+              )}
+
+              <div className="rounded-lg border border-outline-variant bg-surface p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <label className="block text-sm font-semibold text-on-surface">
+                    Projeler
+                  </label>
+                  <span className="text-xs text-on-surface-variant">
+                    {selectedProjectIds.size ? `${selectedProjectIds.size} seçili` : "Tümü"}
+                  </span>
+                </div>
+
+                <div className="mt-2 text-xs text-on-surface-variant">
+                  Proje seçmezseniz rapor tüm projeler için oluşturulur.
+                </div>
+
+                <div className="mt-3">
+                  <input
+                    value={projectsFilterText}
+                    onChange={(e) => setProjectsFilterText(e.target.value)}
+                    disabled={isSaving || isProjectsLoading}
+                    className="w-full px-4 py-3 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary transition-all disabled:opacity-60"
+                    placeholder="Proje ara"
+                  />
+                </div>
+
+                <div className="mt-3 max-h-64 overflow-y-auto rounded-lg border border-outline bg-surface">
+                  {isProjectsLoading ? (
+                    <div className="p-4 text-sm text-on-surface-variant">
+                      Yükleniyor...
+                    </div>
+                  ) : filteredProjects.length === 0 ? (
+                    <div className="p-4 text-sm text-on-surface-variant">
+                      Proje bulunamadı.
+                    </div>
+                  ) : (
+                    [...filteredProjects]
+                      .sort((a, b) => a.name.localeCompare(b.name, "tr-TR"))
+                      .map((p) => {
+                        const isChecked = selectedProjectIds.has(p.id);
+                        return (
+                          <label
+                            key={p.id}
+                            className="flex items-center gap-3 p-3 border-b border-outline-variant last:border-b-0 hover:bg-(--surface-container-high) cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => toggleSelectedProject(p.id)}
+                              disabled={isSaving}
+                              className="w-4 h-4 text-primary bg-surface border-outline rounded focus:ring-2 focus:ring-primary"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm font-medium text-on-surface truncate">
+                                {p.name}
                               </div>
-                            )}
-                          </div>
-                        </label>
-                      );
-                    })
-                )}
+                              {p.code && (
+                                <div className="text-xs text-on-surface-variant truncate">
+                                  {p.code}
+                                </div>
+                              )}
+                            </div>
+                          </label>
+                        );
+                      })
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -1756,10 +1811,15 @@ function MailSettingsView() {
                                       const desiredInterval = getUiIntervalPresetForPeriod(nextPeriod);
                                       setEditDraft((prev) => {
                                         if (!prev) return prev;
+                                        const nextIncludeAIReport =
+                                          nextType === "TARGETS" && nextPeriod === "weekly"
+                                            ? prev.includeAIReport
+                                            : false;
                                         return {
                                           ...prev,
                                           reportType: nextType,
                                           reportPeriod: nextPeriod,
+                                          includeAIReport: nextIncludeAIReport,
                                           selectedProjectIds:
                                             nextType === "TARGETS"
                                               ? prev.selectedProjectIds
@@ -1798,6 +1858,10 @@ function MailSettingsView() {
                                           ? {
                                               ...prev,
                                               reportPeriod: nextPeriod,
+                                              includeAIReport:
+                                                prev.reportType === "TARGETS" && nextPeriod === "weekly"
+                                                  ? prev.includeAIReport
+                                                  : false,
                                               uiIntervalPreset: desiredInterval,
                                               autoMailIntervalPreset:
                                                 desiredInterval === "1Y" ? "CUSTOM" : desiredInterval,
@@ -2097,6 +2161,37 @@ function MailSettingsView() {
 
                               {editDraft.reportType === "TARGETS" && (
                                 <div className="mt-4 rounded-lg border border-outline-variant bg-surface p-4">
+                                  {editDraft.reportPeriod === "weekly" && (
+                                    <div className="mb-4 rounded-lg border border-outline-variant bg-surface-container p-4">
+                                      <div className="flex items-center justify-between gap-4">
+                                        <div className="min-w-0">
+                                          <div className="text-sm font-semibold text-on-surface">
+                                            Include AI report
+                                          </div>
+                                          <div className="mt-1 text-xs text-on-surface-variant">
+                                            Sadece Haftalık Hedef Raporları için seçilebilir.
+                                          </div>
+                                        </div>
+                                        <label className="flex items-center gap-2 text-sm font-medium text-on-surface">
+                                          <input
+                                            type="checkbox"
+                                            checked={editDraft.includeAIReport}
+                                            onChange={(e) =>
+                                              setEditDraft((prev) =>
+                                                prev
+                                                  ? { ...prev, includeAIReport: e.target.checked }
+                                                  : prev,
+                                              )
+                                            }
+                                            disabled={isRowSaving}
+                                            className="w-4 h-4 text-primary bg-surface border-outline rounded focus:ring-2 focus:ring-primary"
+                                          />
+                                          Dahil Et
+                                        </label>
+                                      </div>
+                                    </div>
+                                  )}
+
                                   <div className="flex items-center justify-between gap-4">
                                     <label className="block text-sm font-semibold text-on-surface">
                                       Projeler

@@ -32,22 +32,18 @@ export default function ReportsView() {
   const [reports, setReports] = useState<Report[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [isCreatingWeeklyAiSummary, setIsCreatingWeeklyAiSummary] =
-    useState(false);
   const [filename, setFilename] = useState('');
   const [projects, setProjects] = useState<ApiProject[]>([]);
   const [showMissingTargetsDialog, setShowMissingTargetsDialog] =
     useState(false);
   const [showPerformanceDialog, setShowPerformanceDialog] = useState(false);
   const [showTargetsDialog, setShowTargetsDialog] = useState(false);
-  const [showWeeklyAiSummaryDialog, setShowWeeklyAiSummaryDialog] =
-    useState(false);
   const [selectedPeriodType, setSelectedPeriodType] = useState<'daily' | 'weekly'>('weekly');
   const [selectedTeamProjects, setSelectedTeamProjects] = useState<string[]>([]);
   const [teamProjectSearchText, setTeamProjectSearchText] = useState('');
   const [targetsDate, setTargetsDate] = useState('');
   const [selectedWeek, setSelectedWeek] = useState<string>('current');
-  const [selectedAiWeek, setSelectedAiWeek] = useState<string>('current');
+  const [includeAIReport, setIncludeAIReport] = useState(false);
 
   // Hafta seçeneklerini oluştur
   const getWeekOptions = (endOffsetDays = 6, labelSeparator = ' ') => {
@@ -387,13 +383,8 @@ export default function ReportsView() {
     setTeamProjectSearchText('');
     setTargetsDate('');
     setSelectedWeek('current');
+    setIncludeAIReport(false);
     setFilename('');
-  };
-
-  const closeWeeklyAiSummaryDialog = () => {
-    if (isCreatingWeeklyAiSummary) return;
-    setShowWeeklyAiSummaryDialog(false);
-    setSelectedAiWeek('current');
   };
 
   const openSendMailDialog = (report: Report) => {
@@ -460,7 +451,7 @@ export default function ReportsView() {
             <h3 className='text-sm font-bold text-on-surface-variant uppercase mb-3'>
               RAPORLAR
             </h3>
-            <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
+            <div className='grid grid-cols-1 sm:grid-cols-3 gap-4'>
               <button
                 onClick={() => setShowPerformanceDialog(true)}
                 className='w-full px-4 py-3 bg-surface hover:bg-(--surface-container-high)! rounded-lg text-left transition-colors border border-outline-variant'
@@ -473,23 +464,6 @@ export default function ReportsView() {
                     </div>
                     <div className='text-xs text-on-surface-variant'>
                       Aylık takım performans raporları
-                    </div>
-                  </div>
-                </div>
-              </button>
-              <button
-                onClick={() => setShowWeeklyAiSummaryDialog(true)}
-                disabled={isCreatingWeeklyAiSummary}
-                className='w-full px-4 py-3 bg-surface hover:bg-(--surface-container-high)! rounded-lg text-left transition-colors border border-outline-variant disabled:opacity-60'
-              >
-                <div className='flex items-center gap-3'>
-                  <span className='text-xl'>🤖</span>
-                  <div>
-                    <div className='font-semibold text-on-surface'>
-                      Haftalık AI Özeti
-                    </div>
-                    <div className='text-xs text-on-surface-variant'>
-                      Haftalık özet raporu oluştur
                     </div>
                   </div>
                 </div>
@@ -521,7 +495,7 @@ export default function ReportsView() {
                       Hedefler
                     </div>
                     <div className='text-xs text-on-surface-variant'>
-                      Hedef raporları oluştur
+                      Haftalık raporda AI özeti ekleyebilirsiniz
                     </div>
                   </div>
                 </div>
@@ -838,109 +812,6 @@ export default function ReportsView() {
         onExportCompleted={handlePerformanceCompleted}
       />
 
-      {/* Weekly AI Summary Dialog */}
-      {showWeeklyAiSummaryDialog && (
-        <div
-          className='fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto p-4'
-          onClick={closeWeeklyAiSummaryDialog}
-        >
-          <div
-            className='bg-surface-container rounded-2xl shadow-2xl max-w-xl w-full border border-outline-variant overflow-hidden max-h-[85vh] flex flex-col'
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className='bg-gradient-to-r from-primary-container to-primary-container/80 p-4 border-b border-outline-variant'>
-              <div className='flex items-center justify-between'>
-                <div className='flex items-center gap-4'>
-                  <div className='w-12 h-12 rounded-xl bg-primary flex items-center justify-center shadow-lg'>
-                    <span className='text-2xl'>🤖</span>
-                  </div>
-                  <div>
-                    <h3 className='text-xl font-bold text-on-surface'>
-                      Haftalık AI Özeti Oluştur
-                    </h3>
-                    <p className='text-xs text-on-surface-variant mt-1'>
-                      Pazartesi–Cuma aralığı için rapor oluşturur
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={closeWeeklyAiSummaryDialog}
-                  disabled={isCreatingWeeklyAiSummary}
-                  className='w-10 h-10 flex items-center justify-center hover:bg-black/10 rounded-lg transition-colors text-on-surface-variant hover:text-on-surface disabled:opacity-50'
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-
-            <div className='p-4 space-y-4 overflow-y-auto'>
-              <div className='bg-surface rounded-xl p-4 border border-outline-variant'>
-                <label className='block text-sm font-bold text-on-surface mb-3'>
-                  📅 Hafta Seçimi
-                </label>
-                <select
-                  value={selectedAiWeek}
-                  onChange={(e) => setSelectedAiWeek(e.target.value)}
-                  disabled={isCreatingWeeklyAiSummary}
-                  className='w-full px-3 py-2.5 bg-surface-container border-2 border-outline rounded-xl text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all disabled:opacity-50 font-medium text-sm'
-                >
-                  {getWeekOptions(4, ' - ').map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className='bg-surface-container-high px-4 py-3 border-t border-outline-variant flex gap-3'>
-              <button
-                onClick={closeWeeklyAiSummaryDialog}
-                disabled={isCreatingWeeklyAiSummary}
-                className='flex-1 px-4 py-3 bg-surface text-on-surface rounded-xl font-semibold hover:bg-surface-container-high transition-all disabled:opacity-50 border-2 border-outline-variant text-sm'
-              >
-                İptal
-              </button>
-              <button
-                onClick={async () => {
-                  try {
-                    setIsCreatingWeeklyAiSummary(true);
-                    const { start, end } = calculateWeekDates(selectedAiWeek, 4);
-                    const newReport = await reportsApi.createReport({
-                      type: 'WEEKLY_AI_SUMMARY',
-                      parameters: { startDate: start, endDate: end },
-                    });
-                    setReports((prev) => [newReport, ...prev]);
-                    closeWeeklyAiSummaryDialog();
-                    showSuccess(
-                      'Haftalık AI özeti raporu oluşturma isteği gönderildi',
-                    );
-                  } catch (error: unknown) {
-                    showError(
-                      getApiErrorMessage(error) ??
-                        'Rapor oluşturulurken bir hata oluştu',
-                    );
-                  } finally {
-                    setIsCreatingWeeklyAiSummary(false);
-                  }
-                }}
-                disabled={isCreatingWeeklyAiSummary}
-                className='flex-1 px-4 py-3 bg-primary text-on-primary rounded-xl font-semibold hover:opacity-90 transition-all disabled:opacity-50 shadow-lg hover:shadow-xl text-sm'
-              >
-                {isCreatingWeeklyAiSummary ? (
-                  <span className='flex items-center justify-center gap-2'>
-                    <div className='w-4 h-4 border-2 border-on-primary border-t-transparent rounded-full animate-spin'></div>
-                    Oluşturuluyor...
-                  </span>
-                ) : (
-                  '✨ Rapor Oluştur'
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Hedefler Dialog */}
       {showTargetsDialog && (
         <div
@@ -985,7 +856,10 @@ export default function ReportsView() {
                 </label>
                 <div className='grid grid-cols-2 gap-4'>
                   <button
-                    onClick={() => setSelectedPeriodType('daily')}
+                    onClick={() => {
+                      setSelectedPeriodType('daily');
+                      setIncludeAIReport(false);
+                    }}
                     disabled={isCreating}
                     className={`group relative px-4 py-4 rounded-xl border-2 transition-all duration-200 font-semibold overflow-hidden ${
                       selectedPeriodType === 'daily'
@@ -1062,6 +936,36 @@ export default function ReportsView() {
                   </p>
                 </div>
               )}
+
+              {selectedPeriodType === 'weekly' && (
+                <div className='bg-surface rounded-xl p-4 border border-outline-variant'>
+                  <div className='flex items-center justify-between gap-4'>
+                    <div className='min-w-0'>
+                      <div className='text-sm font-bold text-on-surface'>
+                        🤖 AI Özeti{' '}
+                        <span className='text-xs font-normal text-on-surface-variant'>
+                          (Opsiyonel)
+                        </span>
+                      </div>
+                      <p className='mt-1 text-xs text-on-surface-variant flex items-center gap-2'>
+                        <span className='text-primary'>ℹ️</span>
+                        Sadece haftalık hedef raporlarında eklenebilir.
+                      </p>
+                    </div>
+                    <label className='flex items-center gap-2 text-sm font-medium text-on-surface'>
+                      <input
+                        type='checkbox'
+                        checked={includeAIReport}
+                        onChange={(e) => setIncludeAIReport(e.target.checked)}
+                        disabled={isCreating}
+                        className='w-5 h-5 text-primary bg-surface border-2 border-outline rounded-md focus:ring-2 focus:ring-primary disabled:opacity-50'
+                      />
+                      Dahil Et
+                    </label>
+                  </div>
+                </div>
+              )}
+
 
               {/* Takım Seçimi */}
               <div className='bg-surface rounded-xl p-4 border border-outline-variant'>
@@ -1226,6 +1130,7 @@ export default function ReportsView() {
                       type: 'TARGETS',
                       parameters: Object.keys(parameters).length > 0 ? parameters : undefined,
                       filename: filename || undefined,
+                      includeAIReport: selectedPeriodType === 'weekly' ? includeAIReport : false,
                     });
 
                     setReports((prev) => [newReport, ...prev]);

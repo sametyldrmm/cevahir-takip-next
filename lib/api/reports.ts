@@ -47,6 +47,7 @@ export interface CreateReportDto {
     [key: string]: unknown;
   };
   filename?: string;
+  includeAIReport?: boolean;
 }
 
 export interface ReportDownload {
@@ -60,6 +61,7 @@ export interface UpsertAutoMailScheduleDto {
   mailGroupIds?: string[];
   emails?: string[];
   projectIds?: string[];
+  includeAIReport?: boolean;
   intervalPreset: AutoMailIntervalPreset;
   customEvery?: number;
   customUnit?: AutoMailIntervalUnit;
@@ -74,9 +76,12 @@ export interface UpdateAutoMailScheduleDto {
   reportTypes?: AutoMailReportType[];
   mailGroupIds?: string[];
   emails?: string[];
+  projectIds?: string[];
+  includeAIReport?: boolean;
   intervalPreset?: AutoMailIntervalPreset;
   customEvery?: number;
   customUnit?: AutoMailIntervalUnit;
+  periodByReportType?: Partial<Record<AutoMailReportType, AutoMailReportPeriod>>;
   hour?: number;
   minute?: number;
   dayOfWeek?: number;
@@ -89,6 +94,7 @@ export interface AutoMailSchedule {
   mailGroupIds?: string[];
   emails?: string[];
   projectIds?: string[];
+  includeAIReport?: boolean;
   intervalPreset: AutoMailIntervalPreset;
   customEvery?: number;
   customUnit?: AutoMailIntervalUnit;

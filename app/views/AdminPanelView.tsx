@@ -79,7 +79,7 @@ export default function AdminPanelView() {
       try {
         setIsLoading(true);
         const [apiProjects, apiUsers] = await Promise.all([
-          projectsApi.getAllProjects(),
+          projectsApi.getAllProjectsIncludingArchived(),
           usersApi.getAllUsers(),
         ]);
         

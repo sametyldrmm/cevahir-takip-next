@@ -40,29 +40,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        // Backend'den user bilgisini al
+        if (!accessToken && refreshToken) {
+          try {
+            const refreshed = await authApi.refresh(refreshToken);
+            setUser(refreshed.user);
+            return;
+          } catch {
+            authApi.logout();
+            setUser(null);
+            return;
+          }
+        }
+
         if (accessToken) {
           try {
             const userData = await authApi.getProfile();
             setUser(userData);
-          } catch (e) {
-            // Token geçersiz - refresh dene
+          } catch {
             if (refreshToken) {
               try {
                 const refreshed = await authApi.refresh(refreshToken);
                 setUser(refreshed.user);
-              } catch (refreshError) {
-                // Refresh başarısız - logout
+              } catch {
                 authApi.logout();
+                setUser(null);
               }
             } else {
               authApi.logout();
+              setUser(null);
             }
           }
         }
       } catch (error) {
         console.error("[Auth] Check auth error:", error);
         authApi.logout();
+        setUser(null);
       } finally {
         setIsLoading(false);
       }

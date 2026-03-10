@@ -16,7 +16,7 @@ const getLocalDateKey = (date: Date) =>
   `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
 
 export default function DashboardView() {
-  const { user } = useAuth();
+  const { user, isLoading: isAuthLoading } = useAuth();
   const isAdmin = user?.role === "ADMIN";
   const { showSuccess } = useNotification();
   const router = useRouter();
@@ -37,6 +37,12 @@ export default function DashboardView() {
   const [selectedLeaveDays, setSelectedLeaveDays] = useState<Date[]>([]);
   const [selectedLeaveType, setSelectedLeaveType] = useState<string | null>(null);
   const [leaves, setLeaves] = useState<Record<string, { type: string; note?: string }>>({});
+
+  useEffect(() => {
+    if (!isAuthLoading && !user) {
+      router.replace("/login");
+    }
+  }, [isAuthLoading, router, user]);
 
   useEffect(() => {
     const loadData = async () => {

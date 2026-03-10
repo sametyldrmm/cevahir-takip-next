@@ -46,9 +46,44 @@ export const projectsApi = {
   },
 
   // Admin: Tüm projeleri getir (sadece dahil oldukları)
-  async getAllProjects(): Promise<Project[]> {
-    const response = await apiClient.getClient().get<Project[]>('/projects');
+  async getAllProjects(params?: Record<string, unknown>): Promise<Project[]> {
+    const response = await apiClient.getClient().get<Project[]>('/projects', {
+      params,
+    });
     return response.data;
+  },
+
+  async getAllProjectsIncludingArchived(): Promise<Project[]> {
+    const activeProjects = await projectsApi.getAllProjects();
+
+    const uniqueById = new Map<string, Project>();
+    for (const project of activeProjects) {
+      uniqueById.set(project.id, project);
+    }
+
+    const archivedFetchAttempts: Array<() => Promise<Project[]>> = [
+      () => projectsApi.getAllProjects({ isActive: false }),
+      () => projectsApi.getAllProjects({ archived: true }),
+      () => projectsApi.getAllProjects({ includeInactive: true }),
+      async () => {
+        const response = await apiClient.getClient().get<Project[]>('/projects/archived');
+        return response.data;
+      },
+    ];
+
+    for (const attempt of archivedFetchAttempts) {
+      try {
+        const archivedProjects = await attempt();
+        for (const project of archivedProjects) {
+          uniqueById.set(project.id, project);
+        }
+        break;
+      } catch {
+        continue;
+      }
+    }
+
+    return Array.from(uniqueById.values());
   },
 
   // Admin: Proje oluştur

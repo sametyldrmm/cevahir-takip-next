@@ -36,6 +36,7 @@ export default function CreateProjectDialog({
   const [allUsers, setAllUsers] = useState<ApiUser[]>([]);
   const [allProjects, setAllProjects] = useState<Project[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [teamMemberSearchText, setTeamMemberSearchText] = useState("");
   const [errors, setErrors] = useState<{ name?: string }>({});
 
   // Kullanıcıları ve projeleri yükle
@@ -84,6 +85,23 @@ export default function CreateProjectDialog({
     return Array.from(names).sort();
   }, [allProjects]);
 
+  const filteredUsers = useMemo(() => {
+    const normalizedQuery = teamMemberSearchText.trim().toLowerCase();
+    const usersWithUsername = allUsers.filter((user) => user.username);
+    if (!normalizedQuery) return usersWithUsername;
+
+    return usersWithUsername.filter((user) => {
+      const username = user.username?.toLowerCase() ?? "";
+      const displayName = user.displayName?.toLowerCase() ?? "";
+      const email = user.email?.toLowerCase() ?? "";
+      return (
+        username.includes(normalizedQuery) ||
+        displayName.includes(normalizedQuery) ||
+        email.includes(normalizedQuery)
+      );
+    });
+  }, [allUsers, teamMemberSearchText]);
+
   if (!isOpen) return null;
 
   const handleSubmit = () => {
@@ -114,6 +132,7 @@ export default function CreateProjectDialog({
       description: "",
     });
     setSelectedMembers(new Set());
+    setTeamMemberSearchText("");
     setErrors({});
     onClose();
   };
@@ -254,6 +273,20 @@ export default function CreateProjectDialog({
             <label className="block text-xs font-semibold text-on-surface-variant mb-2">
               Takım Üyeleri
             </label>
+            <div className="mb-3">
+              <input
+                type="text"
+                value={teamMemberSearchText}
+                onChange={(e) => setTeamMemberSearchText(e.target.value)}
+                placeholder="Kullanıcı ara (isim / kullanıcı adı / e-posta)"
+                className="w-full px-4 py-3 bg-surface border border-outline rounded-lg text-on-surface placeholder-on-surface-variant text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+              />
+              {!isLoadingUsers && (
+                <div className="mt-1 text-xs text-on-surface-variant">
+                  {filteredUsers.length} sonuç • {selectedMembers.size} seçili
+                </div>
+              )}
+            </div>
             <div className="p-4 bg-surface-container-low border border-outline-variant rounded-lg max-h-64 overflow-y-auto">
               {/* MOCK DATA - Test modu için yorum satırında
               {mockUsers.length === 0 ? (
@@ -319,11 +352,13 @@ export default function CreateProjectDialog({
                 <p className="text-sm text-on-surface-variant text-center py-4">
                   Kullanıcı bulunamadı
                 </p>
+              ) : filteredUsers.length === 0 ? (
+                <p className="text-sm text-on-surface-variant text-center py-4">
+                  Aramanızla eşleşen kullanıcı bulunamadı
+                </p>
               ) : (
                 <div className="space-y-2">
-                  {allUsers
-                    .filter((user) => user.username) // null username'leri filtrele
-                    .map((user: ApiUser) => {
+                  {filteredUsers.map((user: ApiUser) => {
                       const isSelected = selectedMembers.has(user.username);
                       return (
                         <div

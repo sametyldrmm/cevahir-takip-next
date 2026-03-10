@@ -492,9 +492,49 @@ export default function TargetFormView() {
       return;
     }
 
-    if (!isAdmin && draft.date !== todayKey) {
-      showError("Sadece bugünün hedefini oluşturabilirsiniz");
+    const draftDateKey = normalizeDateKey(draft.date) ?? draft.date;
+    const isDraftToday = draftDateKey === todayKey;
+    const isDraftYesterday = draftDateKey === yesterdayKey;
+
+    if (!isAdmin && !isDraftToday && !isDraftYesterday) {
+      showError("Sadece bugünün veya dünkü hedefi oluşturabilirsiniz");
       return;
+    }
+
+    if (!isAdmin && isMyTargetsLoading) {
+      showError("Hedefler yükleniyor, lütfen tekrar deneyin");
+      return;
+    }
+
+    if (!isAdmin) {
+      const existingForDateAndProject = myTargets.find((target) => {
+        const targetDateKey = normalizeDateKey(target.date);
+        if (!targetDateKey) return false;
+        return targetDateKey === draftDateKey && target.projectId === project.id;
+      });
+
+      if (existingForDateAndProject) {
+        showWarning("Bu proje için seçilen tarihte zaten hedefiniz var");
+        setEditingTarget(existingForDateAndProject);
+        setShowEditDialog(true);
+        return;
+      }
+
+      if (isDraftToday) {
+        const hasUnsetYesterdayStatus = myTargets.some((target) => {
+          const targetDateKey = normalizeDateKey(target.date);
+          if (!targetDateKey) return false;
+          if (targetDateKey !== yesterdayKey) return false;
+          return (target.goalStatus ?? "NOT_SET") === "NOT_SET";
+        });
+
+        if (hasUnsetYesterdayStatus) {
+          showError(
+            "Dünkü hedeflerin durumunu güncellemeden bugüne yeni hedef ekleyemezsiniz",
+          );
+          return;
+        }
+      }
     }
 
     if (!draft.taskContent.trim()) {
@@ -761,7 +801,7 @@ export default function TargetFormView() {
                       id={`${idPrefix}-date`}
                       type='date'
                       value={draft.date}
-                      min={isAdmin ? undefined : todayKey}
+                      min={isAdmin ? undefined : yesterdayKey}
                       max={isAdmin ? undefined : todayKey}
                       onChange={(e) => {
                         const nextDate = e.target.value;

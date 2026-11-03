@@ -131,7 +131,19 @@ export function formatDayNote(
   return `Bu gün bitmedi: ${note}`;
 }
 
-export type AllowedTimeWindow = { start: string; end: string };
+export type TargetWindowMode = 'create' | 'update' | 'both';
+
+export type AllowedTimeWindow = {
+  start: string;
+  end: string;
+  mode?: TargetWindowMode;
+};
+
+export const TARGET_WINDOW_MODE_LABELS: Record<TargetWindowMode, string> = {
+  create: 'Yeni hedef',
+  update: 'Güncelleme',
+  both: 'İkisi de',
+};
 
 export type AllowedTimeWindowsResponse = { windows: AllowedTimeWindow[] };
 
@@ -208,9 +220,13 @@ export const targetsApi = {
 
   // Target güncelle
   async updateTarget(targetId: string, dto: UpdateTargetDto): Promise<Target> {
+    const timezone = getResolvedTimeZone();
     const response = await apiClient.getClient().patch<Target>(
       `/me/targets/${targetId}`,
       dto,
+      {
+        headers: timezone ? { 'x-timezone': timezone } : undefined,
+      },
     );
     return response.data;
   },

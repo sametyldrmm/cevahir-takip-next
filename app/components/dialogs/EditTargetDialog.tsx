@@ -114,6 +114,39 @@ export default function EditTargetDialog({
       return;
     }
 
+    if (!isAdmin) {
+      try {
+        const response = await targetsApi.getAllowedTimeWindows();
+        const windows = response.windows;
+        if (windows.length > 0) {
+          const now = new Date();
+          const nowMinutes = now.getHours() * 60 + now.getMinutes();
+          const canUpdateNow = windows.some((timeWindow) => {
+            const mode = timeWindow.mode ?? "both";
+            if (mode !== "both" && mode !== "update") return false;
+            const [startHour, startMinute] = timeWindow.start.split(":").map(Number);
+            const [endHour, endMinute] = timeWindow.end.split(":").map(Number);
+            if (
+              [startHour, startMinute, endHour, endMinute].some(
+                (value) => !Number.isFinite(value),
+              )
+            ) {
+              return false;
+            }
+            const start = startHour * 60 + startMinute;
+            const end = endHour * 60 + endMinute;
+            return nowMinutes >= start && nowMinutes <= end;
+          });
+          if (!canUpdateNow) {
+            showError("Bu saatte hedef güncellenemez");
+            return;
+          }
+        }
+      } catch (error) {
+        console.error("Allowed windows load error:", error);
+      }
+    }
+
     try {
       setIsLoading(true);
       const updated = await targetsApi.updateTarget(target.id, formData);

@@ -9,7 +9,12 @@ import { useNotification } from '../contexts/NotificationContext';
 import { usePushNotification } from '../hooks/usePushNotification';
 import { apiClient } from '@/lib/api-client';
 import { usersApi } from '@/lib/api/users';
-import { targetsApi, AllowedTimeWindow } from '@/lib/api/targets';
+import {
+  targetsApi,
+  AllowedTimeWindow,
+  TARGET_WINDOW_MODE_LABELS,
+  TargetWindowMode,
+} from '@/lib/api/targets';
 import { PasswordChangeDialog } from '@/app/components/dialogs';
 
 export default function SettingsView() {
@@ -105,7 +110,12 @@ export default function SettingsView() {
       try {
         setIsLoadingAllowedTimeWindows(true);
         const response = await targetsApi.getAllowedTimeWindows();
-        setAllowedTimeWindows(response.windows);
+        setAllowedTimeWindows(
+          response.windows.map((window) => ({
+            ...window,
+            mode: window.mode ?? 'both',
+          })),
+        );
       } catch (error: unknown) {
         showError(getApiErrorMessage(error) ?? 'Saat aralıkları yüklenemedi');
       } finally {
@@ -117,7 +127,10 @@ export default function SettingsView() {
   }, [isAdmin, showError]);
 
   const handleAddAllowedTimeWindow = () => {
-    setAllowedTimeWindows((prev) => [...prev, { start: '08:30', end: '09:30' }]);
+    setAllowedTimeWindows((prev) => [
+      ...prev,
+      { start: '08:30', end: '09:30', mode: 'both' },
+    ]);
   };
 
   const handleRemoveAllowedTimeWindow = (index: number) => {
@@ -135,7 +148,11 @@ export default function SettingsView() {
 
   const handleSaveAllowedTimeWindows = async () => {
     const cleaned = allowedTimeWindows
-      .map((w) => ({ start: w.start.trim(), end: w.end.trim() }))
+      .map((w) => ({
+        start: w.start.trim(),
+        end: w.end.trim(),
+        mode: w.mode ?? 'both',
+      }))
       .filter((w) => w.start && w.end);
 
     if (cleaned.length !== allowedTimeWindows.length) {
@@ -146,7 +163,12 @@ export default function SettingsView() {
     try {
       setIsSavingAllowedTimeWindows(true);
       const response = await targetsApi.updateAllowedTimeWindows({ windows: cleaned });
-      setAllowedTimeWindows(response.windows);
+      setAllowedTimeWindows(
+        response.windows.map((window) => ({
+          ...window,
+          mode: window.mode ?? 'both',
+        })),
+      );
       showSuccess('Saat aralıkları güncellendi');
     } catch (error: unknown) {
       showError(getApiErrorMessage(error) ?? 'Saat aralıkları güncellenemedi');
@@ -615,9 +637,13 @@ export default function SettingsView() {
         </div>
         {isAdmin && (
           <div className='bg-surface-container p-6 rounded-lg border border-outline-variant shadow-sm'>
-            <h3 className='text-lg font-semibold text-on-surface mb-4'>
-              Hedef Giriş Saatleri
+            <h3 className='text-lg font-semibold text-on-surface mb-2'>
+              Hedef Saatleri
             </h3>
+            <p className='text-sm text-on-surface-variant mb-4'>
+              Her saat aralığında yeni hedef girilsin, mevcut hedef güncellensin
+              ya da ikisi birden yapılabilsin.
+            </p>
             {isLoadingAllowedTimeWindows ? (
               <p className='text-on-surface-variant'>Yükleniyor...</p>
             ) : (
@@ -631,7 +657,7 @@ export default function SettingsView() {
                     {allowedTimeWindows.map((window, index) => (
                       <div
                         key={`${window.start}-${window.end}-${index}`}
-                        className='grid grid-cols-[1fr_1fr_auto] gap-3 items-center'
+                        className='grid grid-cols-1 sm:grid-cols-[1fr_1fr_1.2fr_auto] gap-3 items-center'
                       >
                         <input
                           type='time'
@@ -655,6 +681,26 @@ export default function SettingsView() {
                           disabled={isSavingAllowedTimeWindows}
                           className='w-full px-4 py-2 bg-surface rounded-lg border border-outline text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all'
                         />
+                        <select
+                          value={window.mode ?? 'both'}
+                          onChange={(e) =>
+                            handleUpdateAllowedTimeWindow(index, {
+                              mode: e.target.value as TargetWindowMode,
+                            })
+                          }
+                          disabled={isSavingAllowedTimeWindows}
+                          className='w-full px-4 py-2 bg-surface rounded-lg border border-outline text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all'
+                        >
+                          {(
+                            Object.entries(TARGET_WINDOW_MODE_LABELS) as Array<
+                              [TargetWindowMode, string]
+                            >
+                          ).map(([value, label]) => (
+                            <option key={value} value={value}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
                         <button
                           type='button'
                           onClick={() => handleRemoveAllowedTimeWindow(index)}

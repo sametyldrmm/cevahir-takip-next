@@ -72,6 +72,23 @@ const toMinutesOfDay = (hhmm: string) => {
   return hours * 60 + minutes;
 };
 
+const windowAllowsAction = (
+  timeWindow: AllowedTimeWindow,
+  action: 'create' | 'update',
+) => {
+  const mode = timeWindow.mode ?? 'both';
+  return mode === 'both' || mode === action;
+};
+
+const describeActionWindows = (
+  windows: AllowedTimeWindow[],
+  action: 'create' | 'update',
+) =>
+  windows
+    .filter((timeWindow) => windowAllowsAction(timeWindow, action))
+    .map((timeWindow) => `${timeWindow.start}-${timeWindow.end}`)
+    .join(', ');
+
 const isMinutesInWindow = (nowMinutes: number, window: AllowedTimeWindow) => {
   const start = toMinutesOfDay(window.start);
   const end = toMinutesOfDay(window.end);
@@ -145,11 +162,11 @@ export default function TargetFormView() {
   const [allowedTimeWindows, setAllowedTimeWindows] = useState<
     AllowedTimeWindow[] | null
   >(null);
-  const [allowedTimeWindowsText, setAllowedTimeWindowsText] = useState<
-    string | null
-  >(null);
-  const [isWithinAllowedTimeWindow, setIsWithinAllowedTimeWindow] =
-    useState(true);
+  const [windowSummary, setWindowSummary] = useState<string | null>(null);
+  const [windowAccess, setWindowAccess] = useState({
+    create: true,
+    update: true,
+  });
   const [windowsChecked, setWindowsChecked] = useState(false);
   const [editingTarget, setEditingTarget] = useState<Target | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -438,8 +455,8 @@ export default function TargetFormView() {
   useEffect(() => {
     if (isAdmin) {
       setAllowedTimeWindows(null);
-      setAllowedTimeWindowsText(null);
-      setIsWithinAllowedTimeWindow(true);
+      setWindowSummary(null);
+      setWindowAccess({ create: true, update: true });
       setWindowsChecked(true);
       return;
     }
@@ -447,22 +464,37 @@ export default function TargetFormView() {
     const loadAllowedWindows = async () => {
       try {
         const response = await targetsApi.getAllowedTimeWindows();
+        const windows = response.windows.map((timeWindow) => ({
+          ...timeWindow,
+          mode: timeWindow.mode ?? 'both',
+        }));
         const nowMinutes = getLocalMinutesOfDay();
-        const isOpen =
-          response.windows.length === 0 ||
-          response.windows.some((window) =>
-            isMinutesInWindow(nowMinutes, window),
-          );
-        setAllowedTimeWindows(response.windows);
-        setAllowedTimeWindowsText(
-          response.windows.length > 0
-            ? response.windows.map((w) => `${w.start}-${w.end}`).join(', ')
+        const openWindows = windows.filter((timeWindow) =>
+          isMinutesInWindow(nowMinutes, timeWindow),
+        );
+        const createLabel = describeActionWindows(windows, 'create');
+        const updateLabel = describeActionWindows(windows, 'update');
+        setAllowedTimeWindows(windows);
+        setWindowSummary(
+          windows.length > 0
+            ? `Yeni hedef: ${createLabel || 'yok'} · Güncelleme: ${updateLabel || 'yok'}`
             : null,
         );
-        setIsWithinAllowedTimeWindow(isOpen);
+        setWindowAccess(
+          windows.length === 0
+            ? { create: true, update: true }
+            : {
+                create: openWindows.some((timeWindow) =>
+                  windowAllowsAction(timeWindow, 'create'),
+                ),
+                update: openWindows.some((timeWindow) =>
+                  windowAllowsAction(timeWindow, 'update'),
+                ),
+              },
+        );
       } catch (error) {
         console.error('Allowed windows load error:', error);
-        setIsWithinAllowedTimeWindow(true);
+        setWindowAccess({ create: true, update: true });
       } finally {
         setWindowsChecked(true);
       }
@@ -472,20 +504,28 @@ export default function TargetFormView() {
 
   useEffect(() => {
     if (isAdmin) {
-      setIsWithinAllowedTimeWindow(true);
+      setWindowAccess({ create: true, update: true });
       return;
     }
 
     if (!allowedTimeWindows || allowedTimeWindows.length === 0) {
-      setIsWithinAllowedTimeWindow(true);
+      setWindowAccess({ create: true, update: true });
       return;
     }
 
     const check = () => {
       const nowMinutes = getLocalMinutesOfDay();
-      setIsWithinAllowedTimeWindow(
-        allowedTimeWindows.some((window) => isMinutesInWindow(nowMinutes, window)),
+      const openWindows = allowedTimeWindows.filter((timeWindow) =>
+        isMinutesInWindow(nowMinutes, timeWindow),
       );
+      setWindowAccess({
+        create: openWindows.some((timeWindow) =>
+          windowAllowsAction(timeWindow, 'create'),
+        ),
+        update: openWindows.some((timeWindow) =>
+          windowAllowsAction(timeWindow, 'update'),
+        ),
+      });
     };
 
     check();
@@ -622,8 +662,12 @@ export default function TargetFormView() {
         const parsed = parseAllowedWindowsFromMessage(message);
         if (parsed.length > 0) {
           setAllowedTimeWindows(parsed);
-          setAllowedTimeWindowsText(parsed.map((w) => `${w.start}-${w.end}`).join(', '));
-          setIsWithinAllowedTimeWindow(false);
+          setWindowSummary(parsed.map((w) => `${w.start}-${w.end}`).join(', '));
+          if (message.toLocaleLowerCase('tr').includes('güncelleme')) {
+            setWindowAccess((prev) => ({ ...prev, update: false }));
+          } else {
+            setWindowAccess((prev) => ({ ...prev, create: false }));
+          }
         }
         showError(message);
         console.error('Target save error:', error);
@@ -639,6 +683,11 @@ export default function TargetFormView() {
 
   const handleProjectSelectionChange = (projectId: string, checked: boolean) => {
     if (checked) {
+      if (!isAdmin && !windowAccess.create) {
+        showError('Bu saatte yeni hedef açılamaz');
+        return;
+      }
+
       if (selectedProjectIds.some((id) => id !== projectId)) {
         showError('Açık hedef girişini kapatmadan yeni hedef açılamaz');
         return;
@@ -723,19 +772,24 @@ export default function TargetFormView() {
     );
   }
 
-  if (!isAdmin && !isWithinAllowedTimeWindow && allowedTimeWindowsText) {
+  if (
+    !isAdmin &&
+    !windowAccess.create &&
+    !windowAccess.update &&
+    windowSummary
+  ) {
     return (
       <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto p-4'>
         <div className='bg-surface-container rounded-xl p-6 shadow-2xl max-w-xl w-full border border-outline-variant'>
           <h3 className='text-xl font-bold text-on-surface mb-3'>
-            Hedef girişi kapalı
+            Hedef işlemi kapalı
           </h3>
           <p className='text-on-surface-variant'>
-            Hedef girişi sadece şu saat aralıklarında yapılabilir:
+            Bu saatte ne yeni hedef girilebilir ne de mevcut hedef güncellenebilir.
           </p>
           <div className='mt-3 px-4 py-3 rounded-lg border border-outline bg-surface flex items-center justify-between gap-3'>
             <span className='text-sm font-semibold text-on-surface tracking-wide'>
-              {allowedTimeWindowsText}
+              {windowSummary}
             </span>
           </div>
           <div className='flex justify-end mt-6'>
@@ -760,6 +814,14 @@ export default function TargetFormView() {
 
   return (
     <div className='p-6 w-full max-w-none'>
+      {!isAdmin && windowSummary && (!windowAccess.create || !windowAccess.update) && (
+        <div className='mb-6 rounded-xl border border-outline bg-surface-container px-4 py-3 text-sm text-on-surface'>
+          {!windowAccess.create && windowAccess.update
+            ? 'Bu saatte yalnızca mevcut hedefler güncellenebilir.'
+            : 'Bu saatte yalnızca yeni hedef girilebilir. Mevcut hedef güncellenemez.'}
+          <div className='mt-1 text-on-surface-variant'>{windowSummary}</div>
+        </div>
+      )}
       {/* Proje Listesi */}
       <div
         id='project-list'
@@ -800,7 +862,8 @@ export default function TargetFormView() {
                 !isSelected &&
                 (anotherEntryOpen ||
                   (!isAdmin &&
-                    (hasUnclosedYesterdayEntry ||
+                    (!windowAccess.create ||
+                      hasUnclosedYesterdayEntry ||
                       isMyTargetsLoading ||
                       myTargetsLoadFailed)));
               return (
@@ -1247,7 +1310,7 @@ export default function TargetFormView() {
                     disabled={
                       isSubmittingAny ||
                       !draft.taskContent.trim() ||
-                      (!isAdmin && !isWithinAllowedTimeWindow)
+                      (!isAdmin && !windowAccess.create)
                     }
                     className='w-full bg-primary text-on-primary py-3 rounded-lg font-semibold hover:opacity-90 transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed'
                   >
@@ -1351,10 +1414,15 @@ export default function TargetFormView() {
                             <button
                               type='button'
                               onClick={() => {
+                                if (!isAdmin && !windowAccess.update) {
+                                  showError('Bu saatte hedef güncellenemez');
+                                  return;
+                                }
                                 setEditingTarget(target);
                                 setShowEditDialog(true);
                               }}
-                              className='px-3 py-1.5 rounded-lg bg-primary text-on-primary text-sm font-medium hover:opacity-90 transition-opacity'
+                              disabled={!isAdmin && !windowAccess.update}
+                              className='px-3 py-1.5 rounded-lg bg-primary text-on-primary text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed'
                             >
                               Düzenle
                             </button>

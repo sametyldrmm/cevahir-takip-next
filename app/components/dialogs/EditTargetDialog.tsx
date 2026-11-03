@@ -35,6 +35,7 @@ export default function EditTargetDialog({
       setFormData({
         taskContent: target.taskContent || "",
         description: target.description || "",
+        dayNote: target.dayNote || "",
         block: target.block || "",
         floors: target.floors || "",
         goalStatus: target.goalStatus,
@@ -334,6 +335,23 @@ export default function EditTargetDialog({
               disabled={!canEditTarget}
               className="w-full px-4 py-3 bg-surface border border-outline rounded-lg text-on-surface placeholder-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary resize-none transition-all"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-on-surface mb-2">
+              Gün Notu
+            </label>
+            <textarea
+              value={formData.dayNote || ""}
+              onChange={(e) => setFormData({ ...formData, dayNote: e.target.value })}
+              placeholder="Bu gün bitmediyse sebebini yazın. Örn: malzeme gelmediği için bitmedi"
+              rows={3}
+              disabled={!canEditTarget}
+              className="w-full px-4 py-3 bg-surface border border-outline rounded-lg text-on-surface placeholder-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary resize-none transition-all"
+            />
+            <p className="mt-2 text-xs text-on-surface-variant">
+              Not yalnızca bu güne aittir. Gün bitmezse sebep hedefte görünür.
+            </p>
           </div>
 
           {/* Blok ve Katlar */}

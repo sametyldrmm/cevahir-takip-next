@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { targetsApi, TargetStatistics, Target, CalendarDay } from "@/lib/api/targets";
+import { targetsApi, TargetStatistics, Target, CalendarDay, formatDayNote } from "@/lib/api/targets";
 import { projectsApi, Project } from "@/lib/api/projects";
 import { useAuth } from "@/app/contexts/AuthContext";
 import { StatsCards, TargetCard, HeaderCard, MonthlyCalendar } from "@/app/components/dashboard";
@@ -321,6 +321,11 @@ export default function DashboardView() {
                             {target.description}
                           </p>
                         )}
+                        {formatDayNote(target.goalStatus, target.dayNote) && (
+                          <p className={`text-sm mb-2 ${target.goalStatus === "REACHED" ? "text-on-surface-variant" : "text-error"}`}>
+                            {formatDayNote(target.goalStatus, target.dayNote)}
+                          </p>
+                        )}
                         <div className="flex gap-4 text-xs text-on-surface-variant">
                           {target.block && <span>Blok: {target.block}</span>}
                           {target.floors && <span>Katlar: {target.floors}</span>}
@@ -409,6 +414,11 @@ export default function DashboardView() {
                           {target.description && (
                             <p className="text-sm text-on-surface-variant mb-2">
                               {target.description}
+                            </p>
+                          )}
+                          {formatDayNote(target.goalStatus, target.dayNote) && (
+                            <p className={`text-sm mb-2 ${target.goalStatus === "REACHED" ? "text-on-surface-variant" : "text-error"}`}>
+                              {formatDayNote(target.goalStatus, target.dayNote)}
                             </p>
                           )}
                           <div className="flex gap-4 text-xs text-on-surface-variant">

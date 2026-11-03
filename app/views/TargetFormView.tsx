@@ -7,6 +7,7 @@ import {
   targetsApi,
   AllowedTimeWindow,
   CreateTargetDto,
+  formatDayNote,
   GoalStatus,
   Target,
 } from '@/lib/api/targets';
@@ -45,6 +46,7 @@ type ProjectTargetDraft = {
   block: string;
   floors: string;
   description: string;
+  dayNote: string;
   workStart: string;
   workEnd: string;
   meetingStart: string;
@@ -90,6 +92,7 @@ const createEmptyDraft = (date: string): ProjectTargetDraft => ({
   block: '',
   floors: '',
   description: '',
+  dayNote: '',
   workStart: '',
   workEnd: '',
   meetingStart: '',
@@ -147,6 +150,7 @@ export default function TargetFormView() {
   >(null);
   const [isWithinAllowedTimeWindow, setIsWithinAllowedTimeWindow] =
     useState(true);
+  const [windowsChecked, setWindowsChecked] = useState(false);
   const [editingTarget, setEditingTarget] = useState<Target | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [draftsByProjectId, setDraftsByProjectId] = useState<
@@ -155,6 +159,7 @@ export default function TargetFormView() {
 
   const [myTargets, setMyTargets] = useState<Target[]>([]);
   const [isMyTargetsLoading, setIsMyTargetsLoading] = useState(false);
+  const [myTargetsLoadFailed, setMyTargetsLoadFailed] = useState(false);
   const [isDeletingTargetId, setIsDeletingTargetId] = useState<string | null>(
     null,
   );
@@ -351,6 +356,14 @@ export default function TargetFormView() {
     return getLocalDateKey(date);
   })();
 
+  const hasUnclosedYesterdayEntry =
+    !isAdmin &&
+    myTargets.some((target) => {
+      const targetDateKey = normalizeDateKey(target.date);
+      if (!targetDateKey || targetDateKey !== yesterdayKey) return false;
+      return (target.goalStatus ?? 'NOT_SET') === 'NOT_SET';
+    });
+
   const canEditTarget = (target: Target) => {
     if (isAdmin) return true;
     if (!user?.id) return false;
@@ -365,6 +378,7 @@ export default function TargetFormView() {
   const loadMyTargets = useCallback(async () => {
     try {
       setIsMyTargetsLoading(true);
+      setMyTargetsLoadFailed(false);
       const data = await targetsApi.getMyTargets();
       data.sort(
         (a, b) =>
@@ -372,6 +386,7 @@ export default function TargetFormView() {
       );
       setMyTargets(data);
     } catch (error) {
+      setMyTargetsLoadFailed(true);
       showError('Hedefler yüklenirken bir hata oluştu');
       console.error('My targets load error:', error);
     } finally {
@@ -425,20 +440,31 @@ export default function TargetFormView() {
       setAllowedTimeWindows(null);
       setAllowedTimeWindowsText(null);
       setIsWithinAllowedTimeWindow(true);
+      setWindowsChecked(true);
       return;
     }
 
     const loadAllowedWindows = async () => {
       try {
         const response = await targetsApi.getAllowedTimeWindows();
+        const nowMinutes = getLocalMinutesOfDay();
+        const isOpen =
+          response.windows.length === 0 ||
+          response.windows.some((window) =>
+            isMinutesInWindow(nowMinutes, window),
+          );
         setAllowedTimeWindows(response.windows);
         setAllowedTimeWindowsText(
           response.windows.length > 0
             ? response.windows.map((w) => `${w.start}-${w.end}`).join(', ')
             : null,
         );
+        setIsWithinAllowedTimeWindow(isOpen);
       } catch (error) {
         console.error('Allowed windows load error:', error);
+        setIsWithinAllowedTimeWindow(true);
+      } finally {
+        setWindowsChecked(true);
       }
     };
     void loadAllowedWindows();
@@ -478,6 +504,7 @@ export default function TargetFormView() {
     floors: draft.floors.trim() || undefined,
     goalStatus: GOAL_STATUS_MAP[draft.goalStatusLabel] || 'NOT_SET',
     description: draft.description.trim() || undefined,
+    dayNote: draft.dayNote.trim() || undefined,
     workStart: draft.workStart || undefined,
     workEnd: draft.workEnd || undefined,
     meetingStart: draft.meetingStart || undefined,
@@ -501,8 +528,12 @@ export default function TargetFormView() {
       return;
     }
 
-    if (!isAdmin && isMyTargetsLoading) {
-      showError("Hedefler yükleniyor, lütfen tekrar deneyin");
+    if (!isAdmin && (isMyTargetsLoading || myTargetsLoadFailed)) {
+      showError(
+        myTargetsLoadFailed
+          ? 'Hedefler yüklenemedi, yeni hedef açılamaz'
+          : 'Hedefler yükleniyor, lütfen tekrar deneyin',
+      );
       return;
     }
 
@@ -530,7 +561,7 @@ export default function TargetFormView() {
 
         if (hasUnsetYesterdayStatus) {
           showError(
-            "Dünkü hedeflerin durumunu güncellemeden bugüne yeni hedef ekleyemezsiniz",
+            'Dünkü hedef girişi kapanmadan yeni hedef açılamaz',
           );
           return;
         }
@@ -555,10 +586,12 @@ export default function TargetFormView() {
           meetingStart: draft.meetingStart,
         });
       }
-      setDraftsByProjectId((prev) => ({
-        ...prev,
-        [project.id]: createEmptyDraft(draft.date),
-      }));
+      setSelectedProjectIds((prev) => prev.filter((id) => id !== project.id));
+      setDraftsByProjectId((prev) => {
+        const next = { ...prev };
+        delete next[project.id];
+        return next;
+      });
       void loadMyTargets();
     } catch (error: any) {
       const status: number | undefined = error.response?.status;
@@ -606,6 +639,25 @@ export default function TargetFormView() {
 
   const handleProjectSelectionChange = (projectId: string, checked: boolean) => {
     if (checked) {
+      if (selectedProjectIds.some((id) => id !== projectId)) {
+        showError('Açık hedef girişini kapatmadan yeni hedef açılamaz');
+        return;
+      }
+
+      if (!isAdmin && (isMyTargetsLoading || myTargetsLoadFailed)) {
+        showError(
+          myTargetsLoadFailed
+            ? 'Hedefler yüklenemedi, yeni hedef açılamaz'
+            : 'Hedefler yükleniyor, lütfen tekrar deneyin',
+        );
+        return;
+      }
+
+      if (!isAdmin && hasUnclosedYesterdayEntry) {
+        showError('Dünkü hedef girişi kapanmadan yeni hedef açılamaz');
+        return;
+      }
+
       setSelectedProjectIds((prev) =>
         prev.includes(projectId) ? prev : [...prev, projectId],
       );
@@ -661,6 +713,16 @@ export default function TargetFormView() {
     return unique.length > 0 ? unique.join(', ') : '—';
   };
 
+  if (!isAdmin && !windowsChecked) {
+    return (
+      <div className='p-6 w-full max-w-none'>
+        <div className='bg-surface-container rounded-xl p-6 text-on-surface-variant'>
+          Hedef giriş saatleri kontrol ediliyor...
+        </div>
+      </div>
+    );
+  }
+
   if (!isAdmin && !isWithinAllowedTimeWindow && allowedTimeWindowsText) {
     return (
       <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto p-4'>
@@ -707,7 +769,9 @@ export default function TargetFormView() {
           <h2 className='text-2xl font-bold text-on-surface mb-2'>
             Proje Seçimi *
           </h2>
-          <p className='mb-2'>Birden fazla proje seçebilirsiniz</p>
+          <p className='mb-2'>
+            Açık hedef girişini kapatmadan yeni hedef açılamaz.
+          </p>
         </div>
         {isLoading ? (
           <div className='bg-surface p-4 rounded-lg text-on-surface-variant'>
@@ -715,9 +779,30 @@ export default function TargetFormView() {
           </div>
         ) : (
           <div className='bg-surface flex flex-col gap-2 text-lg p-2 rounded-lg'>
+            {!isAdmin && myTargetsLoadFailed && (
+              <p className='text-sm text-error px-2 py-1'>
+                Hedefler yüklenemedi. Yeni hedef açmadan önce listeyi yenileyin.
+              </p>
+            )}
+            {!isAdmin && hasUnclosedYesterdayEntry && (
+              <p className='text-sm text-error px-2 py-1'>
+                Dünkü hedef girişi kapanmadan yeni hedef açılamaz. Önce
+                aşağıdaki listeden açık hedefin durumunu girin.
+              </p>
+            )}
             {projects.map((project) => {
               const inputId = `project-select-${project.id}`;
               const isSelected = selectedProjectIds.includes(project.id);
+              const anotherEntryOpen = selectedProjectIds.some(
+                (id) => id !== project.id,
+              );
+              const newTargetLocked =
+                !isSelected &&
+                (anotherEntryOpen ||
+                  (!isAdmin &&
+                    (hasUnclosedYesterdayEntry ||
+                      isMyTargetsLoading ||
+                      myTargetsLoadFailed)));
               return (
                 <div key={project.id} className='flex items-center gap-2'>
                   <input
@@ -729,9 +814,16 @@ export default function TargetFormView() {
                       handleProjectSelectionChange(project.id, e.target.checked)
                     }
                     className='w-4 h-4'
-                    disabled={isSubmittingAny}
+                    disabled={isSubmittingAny || newTargetLocked}
                   />
-                  <label className='cursor-pointer' htmlFor={inputId}>
+                  <label
+                    className={
+                      newTargetLocked
+                        ? 'cursor-not-allowed text-on-surface-variant'
+                        : 'cursor-pointer'
+                    }
+                    htmlFor={inputId}
+                  >
                     {project.name} {project.code ? `(${project.code})` : ''}
                   </label>
                 </div>
@@ -747,8 +839,8 @@ export default function TargetFormView() {
             Proje Hedefleri
           </h2>
           <p className='text-on-surface-variant'>
-            Her proje için ayrı hedef girebilirsiniz - saat alanları isteğe
-            bağlıdır.
+            Her proje için ayrı hedef girebilirsiniz. Kayıt veya kapatma
+            bitmeden yeni hedef açılmaz. Saat alanları isteğe bağlıdır.
           </p>
         </div>
 
@@ -1018,6 +1110,32 @@ export default function TargetFormView() {
                   <div>
                     <label
                       className='block text-sm font-semibold text-on-surface mb-2'
+                      htmlFor={`${idPrefix}-day-note`}
+                    >
+                      Gün Notu
+                    </label>
+                    <textarea
+                      id={`${idPrefix}-day-note`}
+                      value={draft.dayNote}
+                      onChange={(e) =>
+                        updateProjectDraft(project.id, {
+                          dayNote: e.target.value,
+                        })
+                      }
+                      rows={3}
+                      className='w-full px-4 py-3 bg-surface border border-outline rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary resize-none transition-all'
+                      placeholder='Bu gün bitmediyse sebebini yazın. Örn: malzeme gelmediği için bitmedi'
+                      disabled={isSubmittingAny}
+                    />
+                    <p className='mt-2 text-xs text-on-surface-variant'>
+                      Not yalnızca bu güne aittir. Gün bitmezse sebep hedefte
+                      görünür.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label
+                      className='block text-sm font-semibold text-on-surface mb-2'
                       id={`${idPrefix}-goal-status-label`}
                     >
                       Hedef Durumu
@@ -1180,6 +1298,7 @@ export default function TargetFormView() {
                   <th className='text-left font-semibold px-4 py-3 whitespace-nowrap'>
                     Durum
                   </th>
+                  <th className='text-left font-semibold px-4 py-3'>Gün Notu</th>
                   <th className='text-left font-semibold px-4 py-3 whitespace-nowrap'>
                     Oluşturma
                   </th>
@@ -1193,6 +1312,10 @@ export default function TargetFormView() {
                   const dateKey = normalizeDateKey(target.date) ?? target.date;
                   const statusLabel =
                     GOAL_STATUS_LABELS[target.goalStatus ?? 'NOT_SET'];
+                  const dayNoteLabel = formatDayNote(
+                    target.goalStatus,
+                    target.dayNote,
+                  );
                   const createdAt = formatDateTime(target.createdAt);
 
                   const canEdit = canEditTarget(target);
@@ -1215,6 +1338,9 @@ export default function TargetFormView() {
                         >
                           {statusLabel}
                         </span>
+                      </td>
+                      <td className='px-4 py-3 text-on-surface'>
+                        {dayNoteLabel ?? '—'}
                       </td>
                       <td className='px-4 py-3 text-on-surface-variant whitespace-nowrap'>
                         {createdAt}

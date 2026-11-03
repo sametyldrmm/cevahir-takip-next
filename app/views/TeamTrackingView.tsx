@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { targetsApi, TeamTarget } from '@/lib/api/targets';
+import { targetsApi, TeamTarget, formatDayNote } from '@/lib/api/targets';
 import { projectsApi, Project } from '@/lib/api/projects';
 import { usersApi } from '@/lib/api/users';
 import { useNotification } from '@/app/contexts/NotificationContext';
@@ -565,6 +565,7 @@ export default function TeamTrackingView() {
                             taskContent: target.taskContent,
                             goalStatus: target.goalStatus,
                             description: target.description,
+                            dayNote: target.dayNote,
                             workStart: target.workStart,
                             workEnd: target.workEnd,
                             meetingStart: target.meetingStart,
@@ -614,6 +615,7 @@ export default function TeamTrackingView() {
                               projectId: entry.projectId || undefined,
                               taskContent: entry.taskContent,
                               description: entry.description,
+                              dayNote: entry.dayNote,
                               block: entry.block,
                               floors: entry.floors,
                               goalStatus: entry.goalStatus,
@@ -690,6 +692,17 @@ export default function TeamTrackingView() {
                               {entry.description && (
                                 <p className='text-on-surface mb-2'>
                                   <b>Açıklama:</b> {entry.description}
+                                </p>
+                              )}
+                              {formatDayNote(entry.goalStatus, entry.dayNote) && (
+                                <p
+                                  className={`mb-2 ${
+                                    entry.goalStatus === 'REACHED'
+                                      ? 'text-on-surface'
+                                      : 'text-error'
+                                  }`}
+                                >
+                                  {formatDayNote(entry.goalStatus, entry.dayNote)}
                                 </p>
                               )}
                               <div className='text-on-surface mb-2'>

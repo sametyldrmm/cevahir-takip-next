@@ -30,6 +30,7 @@ export interface Target {
   taskContent?: string;
   goalStatus?: GoalStatus;
   description?: string;
+  dayNote?: string;
   workStart?: string;
   workEnd?: string;
   meetingStart?: string;
@@ -48,6 +49,7 @@ export interface CreateTargetDto {
   taskContent?: string;
   goalStatus?: GoalStatus;
   description?: string;
+  dayNote?: string;
   workStart?: string;
   workEnd?: string;
   meetingStart?: string;
@@ -64,6 +66,7 @@ export interface UpdateTargetDto {
   taskContent?: string;
   goalStatus?: GoalStatus;
   description?: string;
+  dayNote?: string;
   workStart?: string;
   workEnd?: string;
   meetingStart?: string;
@@ -99,6 +102,7 @@ export interface TeamTarget {
     taskContent?: string;
     goalStatus?: GoalStatus;
     description?: string;
+    dayNote?: string;
     workStart?: string;
     workEnd?: string;
     meetingStart?: string;
@@ -110,10 +114,21 @@ export interface TeamTarget {
   taskContent?: string;
   goalStatus?: GoalStatus;
   description?: string;
+  dayNote?: string;
   workStart?: string;
   workEnd?: string;
   meetingStart?: string;
   meetingEnd?: string;
+}
+
+export function formatDayNote(
+  goalStatus?: GoalStatus,
+  dayNote?: string,
+): string | null {
+  const note = dayNote?.trim();
+  if (!note) return null;
+  if (goalStatus === 'REACHED') return `Gün notu: ${note}`;
+  return `Bu gün bitmedi: ${note}`;
 }
 
 export type AllowedTimeWindow = { start: string; end: string };
